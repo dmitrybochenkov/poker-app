@@ -5,9 +5,11 @@ from aiogram.types import (
   ReplyKeyboardMarkup,
 )
 
+from app.bot.shared.buttons import Buttons
+
 main_keyboard = ReplyKeyboardMarkup(
   keyboard=[
-    [KeyboardButton(text="Регистрация")],
+    [KeyboardButton(text=Buttons.new_user.REGISTRATION.value)],
   ],
   resize_keyboard=True,
 )

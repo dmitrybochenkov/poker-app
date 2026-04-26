@@ -60,6 +60,12 @@ class UserRepository:
     )
     return list(result.scalars().all())
 
+  async def make_admin(self, user: User) -> User:
+    user.is_admin = True
+    await self.session.commit()
+    await self.session.refresh(user)
+    return user
+
   async def approve(self, user: User) -> User:
     user.is_approved = True
     await self.session.commit()

@@ -75,6 +75,24 @@ async def approve_user(
   return UserRead.model_validate(user)
 
 
+@router.post("/{row_id}/make-admin", response_model=UserRead)
+async def make_admin(
+  row_id: int,
+  session: AsyncSession = Depends(get_db_session),
+) -> UserRead:
+  repository = UserRepository(session)
+  user = await repository.get_by_row_id(row_id)
+
+  if user is None:
+    raise HTTPException(
+      status_code=status.HTTP_404_NOT_FOUND,
+      detail=f"User with row_id={row_id} not found",
+    )
+
+  user = await repository.make_admin(user)
+  return UserRead.model_validate(user)
+
+
 @router.post("/{row_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
 async def reject_user(
   row_id: int,

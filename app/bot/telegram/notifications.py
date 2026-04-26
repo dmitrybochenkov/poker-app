@@ -1,5 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup
 
+from app.bot.shared.texts import Text
+
 
 async def notify_admins_about_registration(
   *,
@@ -15,7 +17,7 @@ async def notify_admins_about_registration(
     return
 
   text = (
-    "Новая заявка на регистрацию\n\n"
+    f"{Text.user.ADMIN_NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
     f"Имя: {name}\n"
     f"Telegram ID: {telegram_id}"
@@ -35,8 +37,8 @@ async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> Non
     return
 
   text = (
-    "Твоя регистрация подтверждена. Добро пожаловать!"
+    Text.user.REGISTRATION_APPROVED.value
     if approved
-    else "Твоя заявка была отклонена администратором."
+    else Text.user.REGISTRATION_NOT_APPROVED.value
   )
   await telegram_bot.send_message(chat_id=telegram_id, text=text)

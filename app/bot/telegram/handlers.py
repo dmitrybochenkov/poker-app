@@ -13,6 +13,8 @@ from app.application.exceptions import (
 from app.application.use_cases.approve_user import ApproveUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
+from app.bot.shared.buttons import Buttons
+from app.bot.shared.texts import Text
 from app.bot.telegram.keyboards import main_keyboard, registration_review_keyboard
 from app.bot.telegram.notifications import (
   notify_admins_about_registration,
@@ -29,27 +31,26 @@ router = Router()
 async def start_command(message: Message, state: FSMContext) -> None:
   await state.clear()
   await message.answer(
-    "Привет! Я бот покерного приложения. "
-    "Нажми «Регистрация», чтобы отправить заявку администратору.",
+    Text.user.BOT_INFO.value,
     reply_markup=main_keyboard,
   )
 
 
-@router.message(F.text == "Регистрация")
+@router.message(F.text == Buttons.new_user.REGISTRATION.value)
 async def start_registration(message: Message, state: FSMContext) -> None:
   await state.set_state(RegistrationState.waiting_for_name)
-  await message.answer("Отправь имя и фамилию одним сообщением. Например: Иван Иванов")
+  await message.answer(Text.user.REGISTRATION_NEW_USER.value)
 
 
 @router.message(RegistrationState.waiting_for_name)
 async def finish_registration(message: Message, state: FSMContext) -> None:
   if message.from_user is None or not message.text:
-    await message.answer("Не удалось прочитать данные. Попробуй ещё раз.")
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
     return
 
   name = " ".join(message.text.split())
   if len(name.split()) < 2:
-    await message.answer("Нужно указать имя и фамилию одним сообщением.")
+    await message.answer(Text.user.REGISTRATION_INVALID_NAME.value)
     return
 
   async with SessionFactory() as session:
@@ -62,15 +63,15 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
         telegram_id=message.from_user.id,
       )
     except UserIdentityRequiredError:
-      await message.answer("Не удалось определить Telegram ID.")
+      await message.answer(Text.user.REGISTRATION_ID_ERROR.value)
       return
     except UserAlreadyRegisteredError:
-      await message.answer("Ты уже зарегистрирован.", reply_markup=main_keyboard)
+      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=main_keyboard)
       await state.clear()
       return
     except UserRegistrationPendingError:
       await message.answer(
-        "Твоя заявка уже ожидает подтверждения администратора.",
+        Text.user.REGISTRATION_PENDING.value,
         reply_markup=main_keyboard,
       )
       await state.clear()
@@ -87,7 +88,7 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
   )
   await state.clear()
   await message.answer(
-    "Заявка отправлена администратору. Напишу, когда тебя подтвердят.",
+    Text.user.REGISTRATION_WAIT.value,
     reply_markup=main_keyboard,
   )
 
