@@ -14,7 +14,7 @@ from app.application.use_cases.approve_user import ApproveUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
 from app.bot.telegram.keyboards import main_keyboard, registration_review_keyboard
-from app.bot.telegram.runtime import (
+from app.bot.telegram.notifications import (
   notify_admins_about_registration,
   notify_user_about_approval,
 )
