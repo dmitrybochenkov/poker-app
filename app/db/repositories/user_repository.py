@@ -51,6 +51,15 @@ class UserRepository:
     )
     return result.scalar_one_or_none()
 
+  async def list_telegram_admin_ids(self) -> list[int]:
+    result = await self.session.execute(
+      select(User.telegram_id)
+      .where(User.is_admin.is_(True))
+      .where(User.telegram_id.is_not(None))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
   async def approve(self, user: User) -> User:
     user.is_approved = True
     await self.session.commit()

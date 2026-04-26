@@ -1,15 +1,23 @@
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 
 from app.application.exceptions import (
+  UserAlreadyApprovedError,
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
+  UserNotFoundError,
   UserRegistrationPendingError,
 )
+from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
-from app.bot.telegram.keyboards import main_keyboard
+from app.bot.telegram.keyboards import main_keyboard, registration_review_keyboard
+from app.bot.telegram.runtime import (
+  notify_admins_about_registration,
+  notify_user_about_approval,
+)
 from app.bot.telegram.states import RegistrationState
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
@@ -49,7 +57,7 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
     use_case = RequestRegistrationUseCase(repository)
 
     try:
-      await use_case.execute(
+      user = await use_case.execute(
         name=name,
         telegram_id=message.from_user.id,
       )
@@ -68,8 +76,92 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
       await state.clear()
       return
 
+    admin_chat_ids = await repository.list_telegram_admin_ids()
+
+  await notify_admins_about_registration(
+    row_id=user.row_id,
+    name=name,
+    telegram_id=message.from_user.id,
+    admin_chat_ids=admin_chat_ids,
+    reply_markup=registration_review_keyboard(row_id=user.row_id),
+  )
   await state.clear()
   await message.answer(
     "Заявка отправлена администратору. Напишу, когда тебя подтвердят.",
     reply_markup=main_keyboard,
   )
+
+
+@router.callback_query(F.data.startswith("approve:"))
+async def approve_registration_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer("Не удалось определить пользователя.", show_alert=True)
+    return
+
+  row_id = int(callback.data.split(":", 1)[1])
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer("Недостаточно прав.", show_alert=True)
+      return
+
+    use_case = ApproveUserUseCase(repository)
+    try:
+      user = await use_case.execute(row_id=row_id)
+    except UserNotFoundError:
+      await callback.answer("Заявка не найдена.", show_alert=True)
+      return
+
+  if user.telegram_id is not None:
+    await notify_user_about_approval(telegram_id=user.telegram_id, approved=True)
+
+  if callback.message is not None:
+    await callback.message.edit_text(
+      f"Заявка #{row_id} одобрена.\nИмя: {user.name}\nTelegram ID: {user.telegram_id}",
+    )
+  await callback.answer("Заявка одобрена.")
+
+
+@router.callback_query(F.data.startswith("reject:"))
+async def reject_registration_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer("Не удалось определить пользователя.", show_alert=True)
+    return
+
+  row_id = int(callback.data.split(":", 1)[1])
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer("Недостаточно прав.", show_alert=True)
+      return
+
+    user = await repository.get_by_row_id(row_id)
+    if user is None:
+      await callback.answer("Заявка не найдена.", show_alert=True)
+      return
+
+    user_telegram_id = user.telegram_id
+    user_name = user.name
+
+    use_case = RejectUserUseCase(repository)
+    try:
+      await use_case.execute(row_id=row_id)
+    except UserNotFoundError:
+      await callback.answer("Заявка не найдена.", show_alert=True)
+      return
+    except UserAlreadyApprovedError:
+      await callback.answer("Одобренную заявку нельзя отклонить.", show_alert=True)
+      return
+
+  if user_telegram_id is not None:
+    await notify_user_about_approval(telegram_id=user_telegram_id, approved=False)
+
+  if callback.message is not None:
+    await callback.message.edit_text(
+      f"Заявка #{row_id} отклонена.\nИмя: {user_name}\nTelegram ID: {user_telegram_id}",
+    )
+  await callback.answer("Заявка отклонена.")
