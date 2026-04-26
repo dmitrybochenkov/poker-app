@@ -1,7 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup
 
-from app.bot.telegram.runtime import telegram_bot
-
 
 async def notify_admins_about_registration(
   *,
@@ -11,6 +9,8 @@ async def notify_admins_about_registration(
   admin_chat_ids: list[int],
   reply_markup: InlineKeyboardMarkup | None = None,
 ) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
   if telegram_bot is None or not admin_chat_ids:
     return
 
@@ -29,6 +29,8 @@ async def notify_admins_about_registration(
 
 
 async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
   if telegram_bot is None:
     return
 
