@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -11,6 +11,7 @@ from app.application.exceptions import (
   UserRegistrationPendingError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
 from app.bot.shared.buttons import Buttons
@@ -40,6 +41,41 @@ async def start_command(message: Message, state: FSMContext) -> None:
 async def start_registration(message: Message, state: FSMContext) -> None:
   await state.set_state(RegistrationState.waiting_for_name)
   await message.answer(Text.user.REGISTRATION_NEW_USER.value)
+
+
+@router.message(Command("make_admin"))
+async def make_admin_command(message: Message) -> None:
+  if message.from_user is None or message.text is None:
+    await message.answer(Text.user.ADMIN_MAKE_ADMIN_USAGE.value)
+    return
+
+  parts = message.text.split(maxsplit=1)
+  if len(parts) != 2 or not parts[1].isdigit():
+    await message.answer(Text.user.ADMIN_MAKE_ADMIN_USAGE.value)
+    return
+
+  row_id = int(parts[1])
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.user.ADMIN_NO_RIGHTS.value)
+      return
+
+    use_case = MakeAdminUseCase(repository)
+    try:
+      user = await use_case.execute(row_id=row_id)
+    except UserNotFoundError:
+      await message.answer(Text.user.ADMIN_USER_NOT_FOUND.value)
+      return
+
+  await message.answer(
+    f"{Text.user.ADMIN_MAKE_ADMIN_SUCCESS.value}\n\n"
+    f"Row ID: {user.row_id}\n"
+    f"Имя: {user.name}\n"
+    f"Telegram ID: {user.telegram_id}",
+  )
 
 
 @router.message(RegistrationState.waiting_for_name)

@@ -20,6 +20,10 @@ class UserText(Enum):
   REGISTRATION_READ_ERROR = "Не удалось прочитать данные. Попробуй ещё раз."
   REGISTRATION_ID_ERROR = "Не удалось определить Telegram ID."
   ADMIN_NEW_REGISTRATION = "Новая заявка на регистрацию"
+  ADMIN_NO_RIGHTS = "Недостаточно прав."
+  ADMIN_USER_NOT_FOUND = "Пользователь не найден."
+  ADMIN_MAKE_ADMIN_USAGE = "Использование: /make_admin <row_id>"
+  ADMIN_MAKE_ADMIN_SUCCESS = "Права администратора выданы."
 
 
 class Text:

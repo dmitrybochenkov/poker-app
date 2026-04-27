@@ -8,6 +8,7 @@ from app.application.exceptions import (
   UserNotFoundError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.register_user import RegisterUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.db.dependencies import get_db_session
@@ -81,15 +82,16 @@ async def make_admin(
   session: AsyncSession = Depends(get_db_session),
 ) -> UserRead:
   repository = UserRepository(session)
-  user = await repository.get_by_row_id(row_id)
+  use_case = MakeAdminUseCase(repository)
 
-  if user is None:
+  try:
+    user = await use_case.execute(row_id=row_id)
+  except UserNotFoundError:
     raise HTTPException(
       status_code=status.HTTP_404_NOT_FOUND,
       detail=f"User with row_id={row_id} not found",
     )
 
-  user = await repository.make_admin(user)
   return UserRead.model_validate(user)
 
 
