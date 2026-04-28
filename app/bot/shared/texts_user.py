@@ -19,3 +19,11 @@ class UserText(Enum):
   REGISTRATION_INVALID_NAME = "Нужно указать имя и фамилию одним сообщением."
   REGISTRATION_READ_ERROR = "Не удалось прочитать данные. Попробуй ещё раз."
   REGISTRATION_ID_ERROR = "Не удалось определить Telegram ID."
+  REGISTRATION_LINK_VK = (
+    "Если ты уже зарегистрирован в VK, введи те же имя и фамилию. "
+    "Админ привяжет Telegram к существующему пользователю."
+  )
+  REGISTRATION_LINK_TG = (
+    "Если ты уже зарегистрирован в Telegram, введи те же имя и фамилию. "
+    "Админ привяжет VK к существующему пользователю."
+  )

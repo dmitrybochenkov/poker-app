@@ -34,3 +34,9 @@ class UserRegistrationPendingError(ApplicationError):
   def __init__(self, row_id: int) -> None:
     self.row_id = row_id
     super().__init__(f"User with row_id={row_id} is waiting for approval")
+
+
+class UserLinkConflictError(ApplicationError):
+  def __init__(self, field: str) -> None:
+    self.field = field
+    super().__init__(f"User already has this {field}")

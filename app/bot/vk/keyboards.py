@@ -14,6 +14,15 @@ main_keyboard = json.dumps(
           },
           "color": "primary",
         }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "label": Buttons.new_user.ALREADY_REGISTERED_TG.value,
+          },
+          "color": "secondary",
+        }
       ]
     ],
   },

@@ -75,11 +75,30 @@ class UserRepository:
     await self.session.refresh(user)
     return user
 
+  async def link_pending_user(self, existing_user: User, pending_user: User) -> User:
+    if pending_user.telegram_id is not None:
+      existing_user.telegram_id = pending_user.telegram_id
+    if pending_user.vk_id is not None:
+      existing_user.vk_id = pending_user.vk_id
+
+    await self.session.delete(pending_user)
+    await self.session.commit()
+    await self.session.refresh(existing_user)
+    return existing_user
+
   async def approve(self, user: User) -> User:
     user.is_approved = True
     await self.session.commit()
     await self.session.refresh(user)
     return user
+
+  async def list_approved(self) -> list[User]:
+    result = await self.session.execute(
+      select(User)
+      .where(User.is_approved.is_(True))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
 
   async def delete(self, user: User) -> None:
     await self.session.delete(user)

@@ -5,9 +5,11 @@ from app.application.exceptions import (
   UserAlreadyApprovedError,
   UserAlreadyExistsError,
   UserIdentityRequiredError,
+  UserLinkConflictError,
   UserNotFoundError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.register_user import RegisterUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
@@ -91,6 +93,34 @@ async def make_admin(
       status_code=status.HTTP_404_NOT_FOUND,
       detail=f"User with row_id={row_id} not found",
     )
+
+  return UserRead.model_validate(user)
+
+
+@router.post("/{row_id}/link/{existing_row_id}", response_model=UserRead)
+async def link_pending_user(
+  row_id: int,
+  existing_row_id: int,
+  session: AsyncSession = Depends(get_db_session),
+) -> UserRead:
+  repository = UserRepository(session)
+  use_case = LinkPendingUserUseCase(repository)
+
+  try:
+    user = await use_case.execute(
+      pending_row_id=row_id,
+      existing_row_id=existing_row_id,
+    )
+  except UserNotFoundError as error:
+    raise HTTPException(
+      status_code=status.HTTP_404_NOT_FOUND,
+      detail=f"User with row_id={error.row_id} not found",
+    ) from error
+  except UserLinkConflictError as error:
+    raise HTTPException(
+      status_code=status.HTTP_409_CONFLICT,
+      detail=f"User already has {error.field}",
+    ) from error
 
   return UserRead.model_validate(user)
 
