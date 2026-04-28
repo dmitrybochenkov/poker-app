@@ -177,7 +177,7 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
     return
 
-  name = " ".join(message.text.split())
+  name = " ".join(message.text.split()).title()
   if len(name.split()) < 2:
     await message.answer(Text.user.REGISTRATION_INVALID_NAME.value)
     return

@@ -234,7 +234,7 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_NAME:
-    name = " ".join(text.split())
+    name = " ".join(text.split()).title()
     if len(name.split()) < 2:
       await send_vk_message(
         user_id=user_id,

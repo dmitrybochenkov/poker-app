@@ -22,3 +22,6 @@ class AdminText(Enum):
   IDENTIFY_USER_ERROR = "Не удалось определить пользователя."
   REQUEST_NOT_FOUND = "Заявка не найдена."
   REQUEST_ALREADY_APPROVED = "Одобренную заявку нельзя отклонить."
+  BUTTON_APPROVE = "Одобрить"
+  BUTTON_REJECT = "Отклонить"
+  BUTTON_LINK = "Привязать"
