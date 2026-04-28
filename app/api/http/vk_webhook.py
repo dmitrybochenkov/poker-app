@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import PlainTextResponse
 
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/webhooks/vk", tags=["vk"])
 
 
 @router.post("")
-async def vk_webhook(payload: dict) -> str | dict[str, bool]:
+async def vk_webhook(payload: dict) -> PlainTextResponse:
   event_type = payload.get("type")
 
   if payload.get("secret") and settings.vk_secret_key:
@@ -31,17 +32,17 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
       )
 
   if event_type == "confirmation":
-    return settings.vk_confirmation_token
+    return PlainTextResponse(settings.vk_confirmation_token)
 
   if event_type != "message_new":
-    return "ok"
+    return PlainTextResponse("ok")
 
   message = payload.get("object", {}).get("message", {})
   user_id = message.get("from_id")
   text = (message.get("text") or "").strip()
 
   if not user_id:
-    return "ok"
+    return PlainTextResponse("ok")
 
   if text.lower() in {"начать", "start", "/start"}:
     vk_user_states.pop(user_id, None)
@@ -50,7 +51,7 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
       message=Text.user.BOT_INFO.value,
       keyboard=main_keyboard,
     )
-    return "ok"
+    return PlainTextResponse("ok")
 
   if text == Buttons.new_user.REGISTRATION.value:
     vk_user_states[user_id] = WAITING_FOR_NAME
@@ -58,7 +59,7 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
       user_id=user_id,
       message=Text.user.REGISTRATION_NEW_USER.value,
     )
-    return "ok"
+    return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_NAME:
     name = " ".join(text.split())
@@ -67,7 +68,7 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
         user_id=user_id,
         message=Text.user.REGISTRATION_INVALID_NAME.value,
       )
-      return "ok"
+      return PlainTextResponse("ok")
 
     async with SessionFactory() as session:
       repository = UserRepository(session)
@@ -80,7 +81,7 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
           user_id=user_id,
           message=Text.user.REGISTRATION_ID_ERROR.value,
         )
-        return "ok"
+        return PlainTextResponse("ok")
       except UserAlreadyRegisteredError:
         vk_user_states.pop(user_id, None)
         await send_vk_message(
@@ -88,7 +89,7 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
           message=Text.user.REGISTRATION_EXIST.value,
           keyboard=main_keyboard,
         )
-        return "ok"
+        return PlainTextResponse("ok")
       except UserRegistrationPendingError:
         vk_user_states.pop(user_id, None)
         await send_vk_message(
@@ -96,7 +97,7 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
           message=Text.user.REGISTRATION_PENDING.value,
           keyboard=main_keyboard,
         )
-        return "ok"
+        return PlainTextResponse("ok")
 
       admin_ids = await repository.list_vk_admin_ids()
 
@@ -113,4 +114,4 @@ async def vk_webhook(payload: dict) -> str | dict[str, bool]:
       keyboard=main_keyboard,
     )
 
-  return "ok"
+  return PlainTextResponse("ok")
