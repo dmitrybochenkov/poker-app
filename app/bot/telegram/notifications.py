@@ -17,7 +17,7 @@ async def notify_admins_about_registration(
     return
 
   text = (
-    f"{Text.user.ADMIN_NEW_REGISTRATION.value}\n\n"
+    f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
     f"Имя: {name}\n"
     f"Telegram ID: {telegram_id}"

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
   vk_group_token: str = ""
   vk_confirmation_token: str = ""
   vk_secret_key: str = ""
+  vk_api_version: str = "5.199"
 
   database_url: str = "sqlite+aiosqlite:///./poker_app.db"
 

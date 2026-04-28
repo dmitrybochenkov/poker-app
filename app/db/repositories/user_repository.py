@@ -60,6 +60,15 @@ class UserRepository:
     )
     return list(result.scalars().all())
 
+  async def list_vk_admin_ids(self) -> list[int]:
+    result = await self.session.execute(
+      select(User.vk_id)
+      .where(User.is_admin.is_(True))
+      .where(User.vk_id.is_not(None))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
   async def make_admin(self, user: User) -> User:
     user.is_admin = True
     await self.session.commit()
