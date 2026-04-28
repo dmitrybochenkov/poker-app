@@ -26,9 +26,15 @@ def registration_review_keyboard(*, row_id: int) -> InlineKeyboardMarkup:
           callback_data=f"approve:{row_id}",
         ),
         InlineKeyboardButton(
+          text=Text.admin.BUTTON_CORRECT.value,
+          callback_data=f"correct:{row_id}",
+        ),
+        InlineKeyboardButton(
           text=Text.admin.BUTTON_REJECT.value,
           callback_data=f"reject:{row_id}",
         ),
+      ],
+      [
         InlineKeyboardButton(
           text=Text.admin.BUTTON_LINK.value,
           callback_data=f"link:{row_id}",

@@ -1,6 +1,7 @@
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
+  UserNameRequiredError,
   UserRegistrationPendingError,
 )
 from app.db.models.user import User
@@ -22,6 +23,9 @@ class RequestRegistrationUseCase:
   ) -> User:
     if telegram_id is None and vk_id is None:
       raise UserIdentityRequiredError
+    normalized_name = " ".join(name.split())
+    if not normalized_name:
+      raise UserNameRequiredError
 
     existing_user = await self._find_existing_user(
       telegram_id=telegram_id,
@@ -33,12 +37,16 @@ class RequestRegistrationUseCase:
       raise UserRegistrationPendingError(existing_user.row_id)
 
     return await self.user_repository.create(
-      name=name,
+      name=normalized_name,
+      name_needs_correction=self._name_needs_correction(normalized_name),
       telegram_id=telegram_id,
       vk_id=vk_id,
       tel_number=tel_number,
       bank_name=bank_name,
     )
+
+  def _name_needs_correction(self, name: str) -> bool:
+    return len(name.split()) < 2
 
   async def _find_existing_user(
     self,

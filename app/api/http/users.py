@@ -6,16 +6,19 @@ from app.application.exceptions import (
   UserAlreadyExistsError,
   UserIdentityRequiredError,
   UserLinkConflictError,
+  UserNameCorrectionRequiredError,
+  UserNameRequiredError,
   UserNotFoundError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.correct_user import CorrectUserUseCase
 from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.register_user import RegisterUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.db.dependencies import get_db_session
 from app.db.repositories.user_repository import UserRepository
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import UserCorrectionRequest, UserCreate, UserRead
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -40,6 +43,11 @@ async def create_user(
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
       detail="telegram_id or vk_id is required",
+    ) from error
+  except UserNameRequiredError as error:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail="name is required",
     ) from error
   except UserAlreadyExistsError as error:
     raise HTTPException(
@@ -73,6 +81,44 @@ async def approve_user(
     raise HTTPException(
       status_code=status.HTTP_404_NOT_FOUND,
       detail=f"User with row_id={row_id} not found",
+    ) from error
+  except UserNameCorrectionRequiredError as error:
+    raise HTTPException(
+      status_code=status.HTTP_409_CONFLICT,
+      detail=f"User with row_id={error.row_id} requires name correction",
+    ) from error
+
+  return UserRead.model_validate(user)
+
+
+@router.post("/{row_id}/correct", response_model=UserRead)
+async def correct_user(
+  row_id: int,
+  payload: UserCorrectionRequest,
+  session: AsyncSession = Depends(get_db_session),
+) -> UserRead:
+  repository = UserRepository(session)
+  use_case = CorrectUserUseCase(repository)
+
+  try:
+    user = await use_case.execute(
+      row_id=row_id,
+      corrected_name=payload.name,
+    )
+  except UserNotFoundError as error:
+    raise HTTPException(
+      status_code=status.HTTP_404_NOT_FOUND,
+      detail=f"User with row_id={row_id} not found",
+    ) from error
+  except UserNameRequiredError as error:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail="name is required",
+    ) from error
+  except UserAlreadyApprovedError as error:
+    raise HTTPException(
+      status_code=status.HTTP_409_CONFLICT,
+      detail=f"User with row_id={error.row_id} is already approved",
     ) from error
 
   return UserRead.model_validate(user)

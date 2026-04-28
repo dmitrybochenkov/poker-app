@@ -8,10 +8,13 @@ from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
   UserLinkConflictError,
+  UserNameCorrectionRequiredError,
+  UserNameRequiredError,
   UserNotFoundError,
   UserRegistrationPendingError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.correct_user import CorrectUserUseCase
 from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
@@ -177,10 +180,7 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
     return
 
-  name = " ".join(message.text.split()).title()
-  if len(name.split()) < 2:
-    await message.answer(Text.user.REGISTRATION_INVALID_NAME.value)
-    return
+  name = " ".join(message.text.split())
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -193,6 +193,9 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
       )
     except UserIdentityRequiredError:
       await message.answer(Text.user.REGISTRATION_ID_ERROR.value)
+      return
+    except UserNameRequiredError:
+      await message.answer(Text.user.REGISTRATION_EMPTY_NAME.value)
       return
     except UserAlreadyRegisteredError:
       await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=main_keyboard)
@@ -211,6 +214,7 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
   await notify_admins_about_registration(
     row_id=user.row_id,
     name=name,
+    name_needs_correction=user.name_needs_correction,
     telegram_id=message.from_user.id,
     admin_chat_ids=admin_chat_ids,
     reply_markup=registration_review_keyboard(row_id=user.row_id),
@@ -243,6 +247,9 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
     except UserNotFoundError:
       await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
       return
+    except UserNameCorrectionRequiredError:
+      await callback.answer(Text.admin.NAME_REQUIRES_CORRECTION.value, show_alert=True)
+      return
 
   if user.telegram_id is not None:
     await notify_user_about_approval(telegram_id=user.telegram_id, approved=True)
@@ -252,6 +259,125 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
       f"Заявка #{row_id} одобрена.\nИмя: {user.name}\nTelegram ID: {user.telegram_id}",
     )
   await callback.answer(Text.admin.APPROVE_ACTION.value)
+
+
+@router.callback_query(F.data.startswith("correct:"))
+async def correct_registration_callback(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+
+  row_id = int(callback.data.split(":", 1)[1])
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+
+    user = await repository.get_by_row_id(row_id)
+    if user is None:
+      await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
+      return
+    if user.is_approved:
+      await callback.answer(Text.admin.REQUEST_ALREADY_APPROVED.value, show_alert=True)
+      return
+
+  review_chat_id = callback.message.chat.id if callback.message is not None else None
+  review_message_id = callback.message.message_id if callback.message is not None else None
+
+  await state.set_state(RegistrationState.waiting_for_corrected_name)
+  await state.update_data(
+    pending_row_id=row_id,
+    review_chat_id=review_chat_id,
+    review_message_id=review_message_id,
+  )
+  if callback.message is None:
+    await callback.answer(Text.admin.CORRECT_PROMPT.value, show_alert=True)
+    return
+
+  await callback.answer(Text.admin.CORRECT_FLOW_STARTED.value)
+  await callback.message.answer(
+    f"{Text.admin.CORRECT_PROMPT.value}\n\n"
+    f"Текущее имя: {user.name}"
+  )
+
+
+@router.message(RegistrationState.waiting_for_corrected_name)
+async def finish_correct_user(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or message.text is None:
+    await message.answer(Text.admin.EMPTY_CORRECTED_NAME.value)
+    return
+
+  corrected_name = " ".join(message.text.split())
+  if not corrected_name:
+    await message.answer(Text.admin.EMPTY_CORRECTED_NAME.value)
+    return
+
+  data = await state.get_data()
+  pending_row_id = data.get("pending_row_id")
+  review_chat_id = data.get("review_chat_id")
+  review_message_id = data.get("review_message_id")
+
+  if pending_row_id is None:
+    await state.clear()
+    await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
+    return
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await state.clear()
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+
+    use_case = CorrectUserUseCase(repository)
+    try:
+      user = await use_case.execute(
+        row_id=pending_row_id,
+        corrected_name=corrected_name,
+      )
+    except UserNotFoundError:
+      await state.clear()
+      await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
+      return
+    except UserNameRequiredError:
+      await message.answer(Text.admin.EMPTY_CORRECTED_NAME.value)
+      return
+    except UserAlreadyApprovedError:
+      await state.clear()
+      await message.answer(Text.admin.REQUEST_ALREADY_APPROVED.value)
+      return
+
+  if user.telegram_id is not None:
+    await notify_user_about_approval(telegram_id=user.telegram_id, approved=True)
+
+  if review_chat_id is not None and review_message_id is not None:
+    from app.bot.telegram.runtime import telegram_bot
+
+    if telegram_bot is not None:
+      await telegram_bot.edit_message_text(
+        chat_id=review_chat_id,
+        message_id=review_message_id,
+        text=(
+          f"{Text.admin.CORRECT_ACTION.value}\n\n"
+          f"Row ID: {user.row_id}\n"
+          f"Имя: {user.name}\n"
+          f"Telegram ID: {user.telegram_id}\n"
+          f"VK ID: {user.vk_id}"
+        ),
+      )
+
+  await state.clear()
+  await message.answer(
+    f"{Text.admin.CORRECT_ACTION.value}\n\n"
+    f"Row ID: {user.row_id}\n"
+    f"Имя: {user.name}\n"
+    f"Telegram ID: {user.telegram_id}\n"
+    f"VK ID: {user.vk_id}",
+  )
 
 
 @router.callback_query(F.data.startswith("reject:"))

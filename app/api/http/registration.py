@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
+  UserNameRequiredError,
   UserRegistrationPendingError,
 )
 from app.application.use_cases.list_pending_registrations import (
@@ -37,6 +38,11 @@ async def request_registration(
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
       detail="telegram_id or vk_id is required",
+    ) from error
+  except UserNameRequiredError as error:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail="name is required",
     ) from error
   except UserAlreadyRegisteredError as error:
     raise HTTPException(

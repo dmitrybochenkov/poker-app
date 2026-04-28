@@ -1,4 +1,8 @@
-from app.application.exceptions import UserAlreadyExistsError, UserIdentityRequiredError
+from app.application.exceptions import (
+  UserAlreadyExistsError,
+  UserIdentityRequiredError,
+  UserNameRequiredError,
+)
 from app.db.models.user import User
 from app.db.repositories.user_repository import UserRepository
 
@@ -18,6 +22,9 @@ class RegisterUserUseCase:
   ) -> User:
     if telegram_id is None and vk_id is None:
       raise UserIdentityRequiredError
+    normalized_name = " ".join(name.split())
+    if not normalized_name:
+      raise UserNameRequiredError
 
     if telegram_id is not None:
       existing_tg_user = await self.user_repository.get_by_telegram_id(telegram_id)
@@ -30,7 +37,7 @@ class RegisterUserUseCase:
         raise UserAlreadyExistsError("vk_id")
 
     return await self.user_repository.create(
-      name=name,
+      name=normalized_name,
       telegram_id=telegram_id,
       vk_id=vk_id,
       tel_number=tel_number,

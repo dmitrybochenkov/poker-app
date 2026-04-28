@@ -14,9 +14,14 @@ class UserRead(BaseModel):
 
   row_id: int
   name: str
+  name_needs_correction: bool
   telegram_id: int | None
   vk_id: int | None
   tel_number: str | None
   bank_name: str | None
   is_admin: bool
   is_approved: bool
+
+
+class UserCorrectionRequest(BaseModel):
+  name: str

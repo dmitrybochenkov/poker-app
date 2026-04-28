@@ -20,6 +20,7 @@ async def notify_admins_about_registration(
   *,
   row_id: int,
   name: str,
+  name_needs_correction: bool,
   vk_id: int,
   admin_ids: list[int],
   approved_users: list | None = None,
@@ -27,13 +28,21 @@ async def notify_admins_about_registration(
   if not admin_ids:
     return
 
+  correction_note = (
+    f"\n{Text.admin.NAME_REQUIRES_CORRECTION.value}"
+    if name_needs_correction
+    else ""
+  )
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
     f"Имя: {name}\n"
-    f"VK ID: {vk_id}\n\n"
+    f"VK ID: {vk_id}"
+    f"{correction_note}\n\n"
     f"{Text.admin.APPROVE_COMMAND_USAGE.value}\n"
     f"Пример: approve {row_id}\n"
+    f"{Text.admin.CORRECT_COMMAND_USAGE.value}\n"
+    f"Пример: correct {row_id} Иван Петров\n"
     f"{Text.admin.REJECT_COMMAND_USAGE.value}\n"
     f"Пример: reject {row_id}\n"
     f"{Text.admin.LINK_COMMAND_USAGE.value}\n"

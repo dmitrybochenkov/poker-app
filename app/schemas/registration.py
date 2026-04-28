@@ -14,6 +14,7 @@ class RegistrationRead(BaseModel):
 
   row_id: int
   name: str
+  name_needs_correction: bool
   telegram_id: int | None
   vk_id: int | None
   is_approved: bool

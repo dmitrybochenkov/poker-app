@@ -7,6 +7,7 @@ async def notify_admins_about_registration(
   *,
   row_id: int,
   name: str,
+  name_needs_correction: bool,
   telegram_id: int,
   admin_chat_ids: list[int],
   reply_markup: InlineKeyboardMarkup | None = None,
@@ -16,11 +17,17 @@ async def notify_admins_about_registration(
   if telegram_bot is None or not admin_chat_ids:
     return
 
+  correction_note = (
+    f"\n{Text.admin.NAME_REQUIRES_CORRECTION.value}"
+    if name_needs_correction
+    else ""
+  )
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
     f"Имя: {name}\n"
     f"Telegram ID: {telegram_id}"
+    f"{correction_note}"
   )
   for chat_id in admin_chat_ids:
     await telegram_bot.send_message(

@@ -6,6 +6,10 @@ class UserIdentityRequiredError(ApplicationError):
   """Raised when a user has neither Telegram nor VK identifier."""
 
 
+class UserNameRequiredError(ApplicationError):
+  """Raised when a user name is empty after normalization."""
+
+
 class UserAlreadyExistsError(ApplicationError):
   def __init__(self, field: str) -> None:
     self.field = field
@@ -22,6 +26,12 @@ class UserAlreadyApprovedError(ApplicationError):
   def __init__(self, row_id: int) -> None:
     self.row_id = row_id
     super().__init__(f"User with row_id={row_id} is already approved")
+
+
+class UserNameCorrectionRequiredError(ApplicationError):
+  def __init__(self, row_id: int) -> None:
+    self.row_id = row_id
+    super().__init__(f"User with row_id={row_id} requires name correction")
 
 
 class UserAlreadyRegisteredError(ApplicationError):

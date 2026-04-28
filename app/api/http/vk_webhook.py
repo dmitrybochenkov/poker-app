@@ -6,10 +6,13 @@ from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
   UserLinkConflictError,
+  UserNameCorrectionRequiredError,
+  UserNameRequiredError,
   UserNotFoundError,
   UserRegistrationPendingError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
+from app.application.use_cases.correct_user import CorrectUserUseCase
 from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
@@ -89,6 +92,12 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
           message=Text.admin.REQUEST_NOT_FOUND.value,
         )
         return PlainTextResponse("ok")
+      except UserNameCorrectionRequiredError:
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.admin.NAME_REQUIRES_CORRECTION.value,
+        )
+        return PlainTextResponse("ok")
 
     if approved_user.vk_id is not None:
       await send_vk_message(
@@ -104,6 +113,70 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
         f"Имя: {approved_user.name}\n"
         f"Telegram ID: {approved_user.telegram_id}\n"
         f"VK ID: {approved_user.vk_id}"
+      ),
+    )
+    return PlainTextResponse("ok")
+
+  if text.lower().startswith("correct "):
+    parts = text.split(maxsplit=2)
+    if len(parts) != 3 or not parts[1].isdigit() or not parts[2].strip():
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.admin.CORRECT_COMMAND_USAGE.value,
+      )
+      return PlainTextResponse("ok")
+
+    corrected_name = " ".join(parts[2].split())
+
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      admin_ids = await repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.admin.NO_RIGHTS.value,
+        )
+        return PlainTextResponse("ok")
+
+      use_case = CorrectUserUseCase(repository)
+      try:
+        corrected_user = await use_case.execute(
+          row_id=int(parts[1]),
+          corrected_name=corrected_name,
+        )
+      except UserNotFoundError:
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.admin.REQUEST_NOT_FOUND.value,
+        )
+        return PlainTextResponse("ok")
+      except UserNameRequiredError:
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.admin.EMPTY_CORRECTED_NAME.value,
+        )
+        return PlainTextResponse("ok")
+      except UserAlreadyApprovedError:
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.admin.REQUEST_ALREADY_APPROVED.value,
+        )
+        return PlainTextResponse("ok")
+
+    if corrected_user.vk_id is not None:
+      await send_vk_message(
+        user_id=corrected_user.vk_id,
+        message=Text.user.REGISTRATION_APPROVED.value,
+        keyboard=main_keyboard,
+      )
+    await send_vk_message(
+      user_id=user_id,
+      message=(
+        f"{Text.admin.CORRECT_ACTION.value}\n\n"
+        f"Row ID: {corrected_user.row_id}\n"
+        f"Имя: {corrected_user.name}\n"
+        f"Telegram ID: {corrected_user.telegram_id}\n"
+        f"VK ID: {corrected_user.vk_id}"
       ),
     )
     return PlainTextResponse("ok")
@@ -234,13 +307,7 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_NAME:
-    name = " ".join(text.split()).title()
-    if len(name.split()) < 2:
-      await send_vk_message(
-        user_id=user_id,
-        message=Text.user.REGISTRATION_INVALID_NAME.value,
-      )
-      return PlainTextResponse("ok")
+    name = " ".join(text.split())
 
     async with SessionFactory() as session:
       repository = UserRepository(session)
@@ -252,6 +319,12 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
         await send_vk_message(
           user_id=user_id,
           message=Text.user.REGISTRATION_ID_ERROR.value,
+        )
+        return PlainTextResponse("ok")
+      except UserNameRequiredError:
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.user.REGISTRATION_EMPTY_NAME.value,
         )
         return PlainTextResponse("ok")
       except UserAlreadyRegisteredError:
@@ -278,6 +351,7 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     await notify_admins_about_registration(
       row_id=user.row_id,
       name=name,
+      name_needs_correction=user.name_needs_correction,
       vk_id=user_id,
       admin_ids=admin_ids,
       approved_users=approved_users,
