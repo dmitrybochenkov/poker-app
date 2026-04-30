@@ -76,12 +76,17 @@ class UserRepository:
     return user
 
   async def link_pending_user(self, existing_user: User, pending_user: User) -> User:
-    if pending_user.telegram_id is not None:
-      existing_user.telegram_id = pending_user.telegram_id
-    if pending_user.vk_id is not None:
-      existing_user.vk_id = pending_user.vk_id
+    pending_telegram_id = pending_user.telegram_id
+    pending_vk_id = pending_user.vk_id
 
     await self.session.delete(pending_user)
+    await self.session.flush()
+
+    if pending_telegram_id is not None:
+      existing_user.telegram_id = pending_telegram_id
+    if pending_vk_id is not None:
+      existing_user.vk_id = pending_vk_id
+
     await self.session.commit()
     await self.session.refresh(existing_user)
     return existing_user
