@@ -14,7 +14,6 @@ class UserRead(BaseModel):
 
   row_id: int
   name: str
-  name_needs_correction: bool
   telegram_id: int | None
   vk_id: int | None
   tel_number: str | None

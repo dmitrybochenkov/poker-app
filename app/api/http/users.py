@@ -6,7 +6,6 @@ from app.application.exceptions import (
   UserAlreadyExistsError,
   UserIdentityRequiredError,
   UserLinkConflictError,
-  UserNameCorrectionRequiredError,
   UserNameRequiredError,
   UserNotFoundError,
 )
@@ -81,11 +80,6 @@ async def approve_user(
     raise HTTPException(
       status_code=status.HTTP_404_NOT_FOUND,
       detail=f"User with row_id={row_id} not found",
-    ) from error
-  except UserNameCorrectionRequiredError as error:
-    raise HTTPException(
-      status_code=status.HTTP_409_CONFLICT,
-      detail=f"User with row_id={error.row_id} requires name correction",
     ) from error
 
   return UserRead.model_validate(user)

@@ -28,12 +28,6 @@ class UserAlreadyApprovedError(ApplicationError):
     super().__init__(f"User with row_id={row_id} is already approved")
 
 
-class UserNameCorrectionRequiredError(ApplicationError):
-  def __init__(self, row_id: int) -> None:
-    self.row_id = row_id
-    super().__init__(f"User with row_id={row_id} requires name correction")
-
-
 class UserAlreadyRegisteredError(ApplicationError):
   def __init__(self, row_id: int) -> None:
     self.row_id = row_id

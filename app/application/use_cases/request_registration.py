@@ -38,15 +38,11 @@ class RequestRegistrationUseCase:
 
     return await self.user_repository.create(
       name=normalized_name,
-      name_needs_correction=self._name_needs_correction(normalized_name),
       telegram_id=telegram_id,
       vk_id=vk_id,
       tel_number=tel_number,
       bank_name=bank_name,
     )
-
-  def _name_needs_correction(self, name: str) -> bool:
-    return len(name.split()) < 2
 
   async def _find_existing_user(
     self,

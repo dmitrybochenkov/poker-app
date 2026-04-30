@@ -8,7 +8,6 @@ from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
   UserLinkConflictError,
-  UserNameCorrectionRequiredError,
   UserNameRequiredError,
   UserNotFoundError,
   UserRegistrationPendingError,
@@ -210,12 +209,13 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
       return
 
     admin_chat_ids = await repository.list_telegram_admin_ids()
+    all_users = await repository.list_all()
 
   await notify_admins_about_registration(
     row_id=user.row_id,
     name=name,
-    name_needs_correction=user.name_needs_correction,
     telegram_id=message.from_user.id,
+    all_users=all_users,
     admin_chat_ids=admin_chat_ids,
     reply_markup=registration_review_keyboard(row_id=user.row_id),
   )
@@ -246,9 +246,6 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
       user = await use_case.execute(row_id=row_id)
     except UserNotFoundError:
       await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
-      return
-    except UserNameCorrectionRequiredError:
-      await callback.answer(Text.admin.NAME_REQUIRES_CORRECTION.value, show_alert=True)
       return
 
   if user.telegram_id is not None:

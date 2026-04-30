@@ -23,12 +23,6 @@ class User(Base):
   )
 
   name: Mapped[str] = mapped_column(String(255), nullable=False)
-  name_needs_correction: Mapped[bool] = mapped_column(
-    Boolean,
-    default=False,
-    nullable=False,
-  )
-
   is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

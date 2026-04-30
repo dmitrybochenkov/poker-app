@@ -12,7 +12,6 @@ class UserRepository:
     self,
     *,
     name: str,
-    name_needs_correction: bool = False,
     telegram_id: int | None = None,
     vk_id: int | None = None,
     tel_number: str | None = None,
@@ -22,7 +21,6 @@ class UserRepository:
   ) -> User:
     user = User(
       name=name,
-      name_needs_correction=name_needs_correction,
       telegram_id=telegram_id,
       vk_id=vk_id,
       tel_number=tel_number,
@@ -96,7 +94,6 @@ class UserRepository:
 
   async def correct_name_and_approve(self, user: User, *, corrected_name: str) -> User:
     user.name = corrected_name
-    user.name_needs_correction = False
     user.is_approved = True
     await self.session.commit()
     await self.session.refresh(user)

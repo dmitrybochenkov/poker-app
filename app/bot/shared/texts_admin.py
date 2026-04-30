@@ -22,7 +22,6 @@ class AdminText(Enum):
   CORRECT_FLOW_STARTED = "Исправление имени начато."
   CORRECT_PROMPT = "Отправь исправленное имя одним сообщением. После этого заявка будет одобрена."
   CORRECT_ACTION = "Имя исправлено, заявка одобрена."
-  NAME_REQUIRES_CORRECTION = "Имя требует правки перед подтверждением."
   EMPTY_CORRECTED_NAME = "Исправленное имя не должно быть пустым."
   REJECT_ACTION = "Заявка отклонена."
   IDENTIFY_USER_ERROR = "Не удалось определить пользователя."
@@ -32,3 +31,5 @@ class AdminText(Enum):
   BUTTON_CORRECT = "Исправить"
   BUTTON_REJECT = "Отклонить"
   BUTTON_LINK = "Привязать"
+  PROFILE_LINK_LABEL = "Профиль"
+  SIMILAR_USERS_TITLE = "Похожие имена в базе:"

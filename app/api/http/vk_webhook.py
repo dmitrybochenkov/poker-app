@@ -6,7 +6,6 @@ from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
   UserLinkConflictError,
-  UserNameCorrectionRequiredError,
   UserNameRequiredError,
   UserNotFoundError,
   UserRegistrationPendingError,
@@ -90,12 +89,6 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
         await send_vk_message(
           user_id=user_id,
           message=Text.admin.REQUEST_NOT_FOUND.value,
-        )
-        return PlainTextResponse("ok")
-      except UserNameCorrectionRequiredError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.NAME_REQUIRES_CORRECTION.value,
         )
         return PlainTextResponse("ok")
 
@@ -345,15 +338,16 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
         return PlainTextResponse("ok")
 
       admin_ids = await repository.list_vk_admin_ids()
+      all_users = await repository.list_all()
       approved_users = await repository.list_approved()
 
     vk_user_states.pop(user_id, None)
     await notify_admins_about_registration(
       row_id=user.row_id,
       name=name,
-      name_needs_correction=user.name_needs_correction,
       vk_id=user_id,
       admin_ids=admin_ids,
+      all_users=all_users,
       approved_users=approved_users,
     )
     await send_vk_message(
