@@ -18,9 +18,14 @@ from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
+from app.bot.shared.registration_hints import find_similar_users
 from app.bot.shared.buttons import Buttons
 from app.bot.shared.texts import Text
-from app.bot.telegram.keyboards import main_keyboard, registration_review_keyboard
+from app.bot.telegram.keyboards import (
+  main_keyboard,
+  played_before_keyboard,
+  registration_review_keyboard,
+)
 from app.bot.telegram.notifications import (
   notify_admins_about_registration,
   notify_user_about_approval,
@@ -47,6 +52,17 @@ def _format_link_candidates(users: list[User]) -> str:
   return "\n".join(lines)
 
 
+def _format_similar_users_for_user(users: list[User]) -> str:
+  lines = [Text.user.REGISTRATION_SIMILAR_USERS_FOUND.value]
+  for user in users[:5]:
+    lines.append(f"{user.name}")
+
+  if len(users) > 5:
+    lines.append("...")
+
+  return "\n".join(lines)
+
+
 @router.message(CommandStart())
 async def start_command(message: Message, state: FSMContext) -> None:
   await state.clear()
@@ -58,14 +74,27 @@ async def start_command(message: Message, state: FSMContext) -> None:
 
 @router.message(F.text == Buttons.new_user.REGISTRATION.value)
 async def start_registration(message: Message, state: FSMContext) -> None:
-  await state.set_state(RegistrationState.waiting_for_name)
-  await message.answer(Text.user.REGISTRATION_NEW_USER.value)
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
 
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    existing_user = await repository.get_by_telegram_id(message.from_user.id)
 
-@router.message(F.text == Buttons.new_user.ALREADY_REGISTERED_VK.value)
-async def start_link_from_vk(message: Message, state: FSMContext) -> None:
-  await state.set_state(RegistrationState.waiting_for_name)
-  await message.answer(Text.user.REGISTRATION_LINK_VK.value)
+  if existing_user is not None:
+    await state.clear()
+    if existing_user.is_approved:
+      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=main_keyboard)
+      return
+    await message.answer(Text.user.REGISTRATION_PENDING.value, reply_markup=main_keyboard)
+    return
+
+  await state.set_state(RegistrationState.waiting_for_played_before_answer)
+  await message.answer(
+    Text.user.REGISTRATION_PLAYED_BEFORE.value,
+    reply_markup=played_before_keyboard(),
+  )
 
 
 @router.message(Command("make_admin"))
@@ -173,13 +202,16 @@ async def finish_link_pending_user(message: Message, state: FSMContext) -> None:
   )
 
 
-@router.message(RegistrationState.waiting_for_name)
-async def finish_registration(message: Message, state: FSMContext) -> None:
-  if message.from_user is None or not message.text:
+async def _submit_registration_request(
+  *,
+  message: Message,
+  state: FSMContext,
+  name: str,
+  success_text: str,
+) -> None:
+  if message.from_user is None:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
     return
-
-  name = " ".join(message.text.split())
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -221,8 +253,75 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
   )
   await state.clear()
   await message.answer(
-    Text.user.REGISTRATION_WAIT.value,
+    success_text,
     reply_markup=main_keyboard,
+  )
+
+
+@router.callback_query(F.data.startswith("registration_played_before:"))
+async def choose_registration_branch(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+
+  choice = callback.data.split(":", 1)[1]
+  if choice == "yes":
+    await state.set_state(RegistrationState.waiting_for_existing_name)
+    await callback.message.edit_text(Text.user.REGISTRATION_EXISTING_NAME_PROMPT.value)
+  else:
+    await state.set_state(RegistrationState.waiting_for_new_name)
+    await callback.message.edit_text(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
+  await callback.answer()
+
+
+@router.message(RegistrationState.waiting_for_played_before_answer)
+async def repeat_registration_branch_prompt(message: Message) -> None:
+  await message.answer(
+    Text.user.REGISTRATION_PLAYED_BEFORE.value,
+    reply_markup=played_before_keyboard(),
+  )
+
+
+@router.message(RegistrationState.waiting_for_existing_name)
+async def finish_existing_name_registration(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or not message.text:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  name = " ".join(message.text.split())
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    approved_users = await repository.list_approved()
+
+  similar_users = find_similar_users(name=name, users=approved_users)
+  if similar_users:
+    await message.answer(_format_similar_users_for_user(similar_users))
+    success_text = Text.user.REGISTRATION_LINK_WAIT.value
+  else:
+    await message.answer(Text.user.REGISTRATION_SIMILAR_USERS_NOT_FOUND.value)
+    success_text = Text.user.REGISTRATION_WAIT.value
+
+  await _submit_registration_request(
+    message=message,
+    state=state,
+    name=name,
+    success_text=success_text,
+  )
+
+
+@router.message(RegistrationState.waiting_for_new_name)
+async def finish_registration(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or not message.text:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  name = " ".join(message.text.split())
+  await _submit_registration_request(
+    message=message,
+    state=state,
+    name=name,
+    success_text=Text.user.REGISTRATION_WAIT.value,
   )
 
 

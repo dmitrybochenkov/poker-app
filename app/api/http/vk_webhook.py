@@ -16,18 +16,100 @@ from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
 from app.bot.shared.buttons import Buttons
+from app.bot.shared.registration_hints import find_similar_users
 from app.bot.shared.texts import Text
 from app.bot.vk.api import send_vk_message
-from app.bot.vk.keyboards import main_keyboard
+from app.bot.vk.keyboards import main_keyboard, played_before_keyboard
 from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
-from app.bot.vk.state import WAITING_FOR_NAME, vk_user_states
+from app.bot.vk.state import (
+  WAITING_FOR_EXISTING_NAME,
+  WAITING_FOR_NEW_NAME,
+  WAITING_FOR_PLAYED_BEFORE,
+  vk_user_contexts,
+  vk_user_states,
+)
 from app.config.settings import settings
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 router = APIRouter(prefix="/webhooks/vk", tags=["vk"])
+
+
+def _format_similar_users_for_user(users: list) -> str:
+  lines = [Text.user.REGISTRATION_SIMILAR_USERS_FOUND.value]
+  for user in users[:5]:
+    lines.append(user.name)
+
+  if len(users) > 5:
+    lines.append("...")
+
+  return "\n".join(lines)
+
+
+async def _submit_registration_request(
+  *,
+  user_id: int,
+  name: str,
+  success_message: str,
+) -> None:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    use_case = RequestRegistrationUseCase(repository)
+
+    try:
+      user = await use_case.execute(name=name, vk_id=user_id)
+    except UserIdentityRequiredError:
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_ID_ERROR.value,
+      )
+      return
+    except UserNameRequiredError:
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_EMPTY_NAME.value,
+      )
+      return
+    except UserAlreadyRegisteredError:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_EXIST.value,
+        keyboard=main_keyboard,
+      )
+      return
+    except UserRegistrationPendingError:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_PENDING.value,
+        keyboard=main_keyboard,
+      )
+      return
+
+    admin_ids = await repository.list_vk_admin_ids()
+    all_users = await repository.list_all()
+    approved_users = await repository.list_approved()
+
+  vk_user_states.pop(user_id, None)
+  vk_user_contexts.pop(user_id, None)
+  await notify_admins_about_registration(
+    row_id=user.row_id,
+    name=name,
+    vk_id=user_id,
+    admin_ids=admin_ids,
+    all_users=all_users,
+    approved_users=approved_users,
+  )
+  await send_vk_message(
+    user_id=user_id,
+    message=success_message,
+    keyboard=main_keyboard,
+  )
 
 
 @router.post("")
@@ -56,6 +138,7 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
 
   if text.lower() in {"начать", "start", "/start"}:
     vk_user_states.pop(user_id, None)
+    vk_user_contexts.pop(user_id, None)
     await send_vk_message(
       user_id=user_id,
       message=Text.user.BOT_INFO.value,
@@ -284,76 +367,99 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     return PlainTextResponse("ok")
 
   if text == Buttons.new_user.REGISTRATION.value:
-    vk_user_states[user_id] = WAITING_FOR_NAME
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      existing_user = await repository.get_by_vk_id(user_id)
+
+    if existing_user is not None:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await send_vk_message(
+        user_id=user_id,
+        message=(
+          Text.user.REGISTRATION_EXIST.value
+          if existing_user.is_approved
+          else Text.user.REGISTRATION_PENDING.value
+        ),
+        keyboard=main_keyboard,
+      )
+      return PlainTextResponse("ok")
+
+    vk_user_states[user_id] = WAITING_FOR_PLAYED_BEFORE
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.REGISTRATION_NEW_USER.value,
+      message=Text.user.REGISTRATION_PLAYED_BEFORE.value,
+      keyboard=played_before_keyboard,
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.new_user.ALREADY_REGISTERED_TG.value:
-    vk_user_states[user_id] = WAITING_FOR_NAME
+  if vk_user_states.get(user_id) == WAITING_FOR_PLAYED_BEFORE:
+    normalized_text = text.lower()
+    if normalized_text == Buttons.registration_flow.YES.value.lower():
+      vk_user_states[user_id] = WAITING_FOR_EXISTING_NAME
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_EXISTING_NAME_PROMPT.value,
+      )
+      return PlainTextResponse("ok")
+    if normalized_text == Buttons.registration_flow.NO.value.lower():
+      vk_user_states[user_id] = WAITING_FOR_NEW_NAME
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_NEW_NAME_PROMPT.value,
+      )
+      return PlainTextResponse("ok")
+
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.REGISTRATION_LINK_TG.value,
+      message=Text.user.REGISTRATION_PLAYED_BEFORE.value,
+      keyboard=played_before_keyboard,
     )
     return PlainTextResponse("ok")
 
-  if vk_user_states.get(user_id) == WAITING_FOR_NAME:
+  if vk_user_states.get(user_id) == WAITING_FOR_EXISTING_NAME:
     name = " ".join(text.split())
 
     async with SessionFactory() as session:
       repository = UserRepository(session)
-      use_case = RequestRegistrationUseCase(repository)
-
-      try:
-        user = await use_case.execute(name=name, vk_id=user_id)
-      except UserIdentityRequiredError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.user.REGISTRATION_ID_ERROR.value,
-        )
-        return PlainTextResponse("ok")
-      except UserNameRequiredError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.user.REGISTRATION_EMPTY_NAME.value,
-        )
-        return PlainTextResponse("ok")
-      except UserAlreadyRegisteredError:
-        vk_user_states.pop(user_id, None)
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.user.REGISTRATION_EXIST.value,
-          keyboard=main_keyboard,
-        )
-        return PlainTextResponse("ok")
-      except UserRegistrationPendingError:
-        vk_user_states.pop(user_id, None)
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.user.REGISTRATION_PENDING.value,
-          keyboard=main_keyboard,
-        )
-        return PlainTextResponse("ok")
-
-      admin_ids = await repository.list_vk_admin_ids()
-      all_users = await repository.list_all()
       approved_users = await repository.list_approved()
 
-    vk_user_states.pop(user_id, None)
-    await notify_admins_about_registration(
-      row_id=user.row_id,
+    similar_users = find_similar_users(name=name, users=approved_users)
+    if similar_users:
+      await send_vk_message(
+        user_id=user_id,
+        message=_format_similar_users_for_user(similar_users),
+      )
+      success_message = Text.user.REGISTRATION_LINK_WAIT.value
+    else:
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_SIMILAR_USERS_NOT_FOUND.value,
+      )
+      success_message = Text.user.REGISTRATION_WAIT.value
+
+    await _submit_registration_request(
+      user_id=user_id,
       name=name,
-      vk_id=user_id,
-      admin_ids=admin_ids,
-      all_users=all_users,
-      approved_users=approved_users,
+      success_message=success_message,
     )
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_NEW_NAME:
+    name = " ".join(text.split())
+    await _submit_registration_request(
+      user_id=user_id,
+      name=name,
+      success_message=Text.user.REGISTRATION_WAIT.value,
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.new_user.ABOUT.value:
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.REGISTRATION_WAIT.value,
+      message=Text.user.BOT_INFO.value,
       keyboard=main_keyboard,
     )
+    return PlainTextResponse("ok")
 
   return PlainTextResponse("ok")

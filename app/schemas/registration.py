@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -7,6 +9,7 @@ class RegistrationRequest(BaseModel):
   vk_id: int | None = None
   tel_number: str | None = None
   bank_name: str | None = None
+  notification_platform: Literal["tg", "vk"] | None = None
 
 
 class RegistrationRead(BaseModel):
@@ -16,5 +19,6 @@ class RegistrationRead(BaseModel):
   name: str
   telegram_id: int | None
   vk_id: int | None
+  notification_platform: Literal["tg", "vk"] | None
   is_approved: bool
   status: str = "waiting_admin_approval"

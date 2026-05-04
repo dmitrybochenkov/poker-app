@@ -10,6 +10,12 @@ class UserNameRequiredError(ApplicationError):
   """Raised when a user name is empty after normalization."""
 
 
+class UserNotificationPlatformUnavailableError(ApplicationError):
+  def __init__(self, platform: str) -> None:
+    self.platform = platform
+    super().__init__(f"Notification platform {platform} is unavailable for this user")
+
+
 class UserAlreadyExistsError(ApplicationError):
   def __init__(self, field: str) -> None:
     self.field = field

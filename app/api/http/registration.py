@@ -5,6 +5,7 @@ from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
   UserNameRequiredError,
+  UserNotificationPlatformUnavailableError,
   UserRegistrationPendingError,
 )
 from app.application.use_cases.list_pending_registrations import (
@@ -33,6 +34,7 @@ async def request_registration(
       vk_id=payload.vk_id,
       tel_number=payload.tel_number,
       bank_name=payload.bank_name,
+      notification_platform=payload.notification_platform,
     )
   except UserIdentityRequiredError as error:
     raise HTTPException(
@@ -43,6 +45,11 @@ async def request_registration(
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
       detail="name is required",
+    ) from error
+  except UserNotificationPlatformUnavailableError as error:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail=f"notification_platform={error.platform} requires matching platform id",
     ) from error
   except UserAlreadyRegisteredError as error:
     raise HTTPException(

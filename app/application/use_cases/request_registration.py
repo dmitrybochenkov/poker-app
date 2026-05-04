@@ -20,10 +20,11 @@ class RequestRegistrationUseCase:
     vk_id: int | None = None,
     tel_number: str | None = None,
     bank_name: str | None = None,
+    notification_platform: str | None = None,
   ) -> User:
     if telegram_id is None and vk_id is None:
       raise UserIdentityRequiredError
-    normalized_name = " ".join(name.split())
+    normalized_name = " ".join(name.split()).title()
     if not normalized_name:
       raise UserNameRequiredError
 
@@ -42,6 +43,7 @@ class RequestRegistrationUseCase:
       vk_id=vk_id,
       tel_number=tel_number,
       bank_name=bank_name,
+      notification_platform=notification_platform,
     )
 
   async def _find_existing_user(

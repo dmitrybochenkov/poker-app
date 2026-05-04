@@ -25,7 +25,7 @@ class User(Base):
   name: Mapped[str] = mapped_column(String(255), nullable=False)
   is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
+  notification_platform: Mapped[str | None] = mapped_column(String(2), nullable=True)
   tel_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
   bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 

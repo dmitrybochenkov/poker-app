@@ -7,6 +7,7 @@ from app.application.exceptions import (
   UserIdentityRequiredError,
   UserLinkConflictError,
   UserNameRequiredError,
+  UserNotificationPlatformUnavailableError,
   UserNotFoundError,
 )
 from app.application.use_cases.approve_user import ApproveUserUseCase
@@ -37,6 +38,7 @@ async def create_user(
       vk_id=payload.vk_id,
       tel_number=payload.tel_number,
       bank_name=payload.bank_name,
+      notification_platform=payload.notification_platform,
     )
   except UserIdentityRequiredError as error:
     raise HTTPException(
@@ -47,6 +49,11 @@ async def create_user(
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
       detail="name is required",
+    ) from error
+  except UserNotificationPlatformUnavailableError as error:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail=f"notification_platform={error.platform} requires matching platform id",
     ) from error
   except UserAlreadyExistsError as error:
     raise HTTPException(

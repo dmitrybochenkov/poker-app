@@ -1,21 +1,29 @@
 from difflib import SequenceMatcher
 
-from app.db.models.user import User
 from app.bot.shared.texts import Text
+from app.db.models.user import User
 
 
-def build_similar_users_hint(*, row_id: int, name: str, users: list[User]) -> str:
+def find_similar_users(*, name: str, users: list[User], excluded_row_id: int | None = None) -> list[User]:
   normalized_name = _normalize_name(name)
   if not normalized_name:
-    return ""
+    return []
 
   similar_users: list[User] = []
   for user in users:
-    if user.row_id == row_id:
+    if excluded_row_id is not None and user.row_id == excluded_row_id:
       continue
     if _is_similar_name(normalized_name, _normalize_name(user.name)):
       similar_users.append(user)
+  return similar_users
 
+
+def build_similar_users_hint(*, row_id: int, name: str, users: list[User]) -> str:
+  similar_users = find_similar_users(
+    name=name,
+    users=users,
+    excluded_row_id=row_id,
+  )
   if not similar_users:
     return ""
 
