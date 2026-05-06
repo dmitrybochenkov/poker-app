@@ -25,6 +25,7 @@ from app.bot.telegram.keyboards import (
   main_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
+  registration_link_review_keyboard,
   registration_review_keyboard,
 )
 from app.bot.telegram.notifications import (
@@ -206,7 +207,11 @@ async def _submit_registration_request(
       all_users=all_users,
       admin_chat_ids=tg_admin_chat_ids,
       linked_to_user=linked_to_user,
-      reply_markup=registration_review_keyboard(row_id=user.row_id),
+      reply_markup=(
+        registration_link_review_keyboard(row_id=user.row_id)
+        if linked_to_user is not None
+        else registration_review_keyboard(row_id=user.row_id)
+      ),
     )
   await state.clear()
   await message.answer(

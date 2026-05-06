@@ -155,6 +155,26 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def registration_link_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(
+      InlineKeyboardButton(
+        text=Text.admin.BUTTON_APPROVE.value,
+        callback_data=f"approve:{row_id}",
+      ),
+      InlineKeyboardButton(
+        text=Text.admin.BUTTON_REJECT.value,
+        callback_data=f"reject:{row_id}",
+      ),
+      InlineKeyboardButton(
+        text=Text.admin.BUTTON_LINK.value,
+        callback_data=f"link:{row_id}",
+      ),
+    )
+    keyboard.adjust(2, 1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_review_vk(*, row_id: int) -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -205,6 +225,50 @@ class InlineKbs:
             },
             "color": "primary",
           },
+        ],
+      ]
+    )
+
+  @staticmethod
+  def registration_link_review_vk(*, row_id: int) -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_APPROVE.value,
+              "payload": {
+                "action": "approve",
+                "row_id": row_id,
+              },
+            },
+            "color": "positive",
+          },
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_REJECT.value,
+              "payload": {
+                "action": "reject",
+                "row_id": row_id,
+              },
+            },
+            "color": "negative",
+          },
+        ],
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_LINK.value,
+              "payload": {
+                "action": "link",
+                "row_id": row_id,
+              },
+            },
+            "color": "primary",
+          }
         ],
       ]
     )

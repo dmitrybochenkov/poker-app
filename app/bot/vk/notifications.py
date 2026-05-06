@@ -1,7 +1,6 @@
 from app.bot.shared.registration_hints import build_similar_users_hint
 from app.bot.shared.texts import Text
 from app.bot.vk.api import send_vk_message
-from app.bot.vk.keyboards import registration_review_keyboard
 from app.db.models.user import User
 
 
@@ -29,6 +28,7 @@ async def notify_admins_about_registration(
   all_users: list[User],
   approved_users: list[User],
   linked_to_user: User | None = None,
+  keyboard: str | None = None,
 ) -> None:
   if not admin_ids:
     return
@@ -75,5 +75,5 @@ async def notify_admins_about_registration(
     await send_vk_message(
       user_id=admin_id,
       message=text,
-      keyboard=registration_review_keyboard(row_id=row_id),
+      keyboard=keyboard,
     )

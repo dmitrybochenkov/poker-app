@@ -23,11 +23,17 @@ from app.bot.vk.keyboards import (
   main_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
+  registration_link_review_keyboard as vk_registration_link_review_keyboard,
+  registration_review_keyboard as vk_registration_review_keyboard,
 )
 from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
 from app.bot.telegram.notifications import notify_admins_about_registration as notify_tg_admins_about_registration
+from app.bot.telegram.keyboards import (
+  registration_link_review_keyboard as tg_registration_link_review_keyboard,
+  registration_review_keyboard as tg_registration_review_keyboard,
+)
 from app.bot.vk.state import (
   WAITING_FOR_ADMIN_CORRECTED_NAME,
   WAITING_FOR_EXISTING_ROW_ID,
@@ -117,6 +123,11 @@ async def _submit_registration_request(
       all_users=all_users,
       admin_chat_ids=tg_admin_chat_ids,
       linked_to_user=linked_to_user,
+      reply_markup=(
+        tg_registration_link_review_keyboard(row_id=user.row_id)
+        if linked_to_user is not None
+        else tg_registration_review_keyboard(row_id=user.row_id)
+      ),
     )
   else:
     await notify_admins_about_registration(
@@ -127,6 +138,11 @@ async def _submit_registration_request(
       all_users=all_users,
       approved_users=approved_users,
       linked_to_user=linked_to_user,
+      keyboard=(
+        vk_registration_link_review_keyboard(row_id=user.row_id)
+        if linked_to_user is not None
+        else vk_registration_review_keyboard(row_id=user.row_id)
+      ),
     )
   await send_vk_message(
     user_id=user_id,
