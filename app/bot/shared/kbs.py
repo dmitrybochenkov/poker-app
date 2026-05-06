@@ -289,7 +289,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for user in users[:20]:
       keyboard.button(
-        text=f"{user.row_id} — {user.name}",
+        text=user.name,
         callback_data=f"registration_existing:{user.row_id}",
       )
     keyboard.adjust(1)
@@ -304,7 +304,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": f"{user.row_id} — {user.name[:32]}",
+              "label": user.name[:40],
               "payload": {
                 "action": "registration_existing",
                 "row_id": user.row_id,

@@ -2,7 +2,6 @@ from html import escape
 
 from aiogram.types import InlineKeyboardMarkup
 
-from app.bot.shared.registration_hints import build_similar_users_hint
 from app.bot.shared.texts import Text
 from app.db.models.user import User
 
@@ -22,11 +21,6 @@ async def notify_admins_about_registration(
   if telegram_bot is None or not admin_chat_ids:
     return
 
-  similar_users_hint = build_similar_users_hint(
-    row_id=row_id,
-    name=name,
-    users=all_users,
-  )
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
@@ -45,8 +39,6 @@ async def notify_admins_about_registration(
       f"Заявка на привязку к row_id {linked_to_user.row_id}\n"
       f"Существующая запись: {escape(linked_to_user.name)}"
     )
-  if similar_users_hint:
-    text = f"{text}\n\n{escape(similar_users_hint)}"
   for chat_id in admin_chat_ids:
     await telegram_bot.send_message(
       chat_id=chat_id,

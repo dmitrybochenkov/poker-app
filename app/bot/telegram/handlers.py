@@ -33,6 +33,10 @@ from app.bot.telegram.notifications import (
   notify_user_about_approval,
 )
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
+from app.bot.vk.keyboards import (
+  registration_link_review_keyboard as vk_registration_link_review_keyboard,
+  registration_review_keyboard as vk_registration_review_keyboard,
+)
 from app.bot.telegram.states import RegistrationState
 from app.db.models.user import User
 from app.db.repositories.user_repository import UserRepository
@@ -183,36 +187,37 @@ async def _submit_registration_request(
 
     all_users = await repository.list_all()
     approved_users = await repository.list_approved()
-    tg_admin_chat_ids = await repository.list_telegram_admin_ids()
-    vk_admin_ids = await repository.list_vk_admin_ids()
+    tg_admin_chat_ids = await repository.list_admin_tg_ids()
+    vk_admin_ids = await repository.list_admin_vk_ids()
 
-  target_admin_platform = linked_to_user.notification_platform if linked_to_user is not None else "tg"
-
-  if target_admin_platform == "vk":
-    await notify_vk_admins_about_registration(
-      row_id=user.row_id,
-      name=name,
-      vk_id=None,
-      telegram_id=telegram_id,
-      admin_ids=vk_admin_ids,
-      all_users=all_users,
-      approved_users=approved_users,
-      linked_to_user=linked_to_user,
-    )
-  else:
-    await notify_admins_about_registration(
-      row_id=user.row_id,
-      name=name,
-      telegram_id=telegram_id,
-      all_users=all_users,
-      admin_chat_ids=tg_admin_chat_ids,
-      linked_to_user=linked_to_user,
-      reply_markup=(
-        registration_link_review_keyboard(row_id=user.row_id)
-        if linked_to_user is not None
-        else registration_review_keyboard(row_id=user.row_id)
-      ),
-    )
+  await notify_admins_about_registration(
+    row_id=user.row_id,
+    name=name,
+    telegram_id=telegram_id,
+    all_users=all_users,
+    admin_chat_ids=tg_admin_chat_ids,
+    linked_to_user=linked_to_user,
+    reply_markup=(
+      registration_link_review_keyboard(row_id=user.row_id)
+      if linked_to_user is not None
+      else registration_review_keyboard(row_id=user.row_id)
+    ),
+  )
+  await notify_vk_admins_about_registration(
+    row_id=user.row_id,
+    name=name,
+    vk_id=None,
+    telegram_id=telegram_id,
+    admin_ids=vk_admin_ids,
+    all_users=all_users,
+    approved_users=approved_users,
+    linked_to_user=linked_to_user,
+    keyboard=(
+      vk_registration_link_review_keyboard(row_id=user.row_id)
+      if linked_to_user is not None
+      else vk_registration_review_keyboard(row_id=user.row_id)
+    ),
+  )
   await state.clear()
   await message.answer(
     success_text,

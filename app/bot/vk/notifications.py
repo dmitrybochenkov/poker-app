@@ -1,4 +1,3 @@
-from app.bot.shared.registration_hints import build_similar_users_hint
 from app.bot.shared.texts import Text
 from app.bot.vk.api import send_vk_message
 from app.db.models.user import User
@@ -33,11 +32,6 @@ async def notify_admins_about_registration(
   if not admin_ids:
     return
 
-  similar_users_hint = build_similar_users_hint(
-    row_id=row_id,
-    name=name,
-    users=all_users,
-  )
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
@@ -69,8 +63,6 @@ async def notify_admins_about_registration(
       f"Существующая запись: {linked_to_user.name}"
     )
   text = f"{text}\n\n{format_link_candidates(approved_users)}"
-  if similar_users_hint:
-    text = f"{text}\n\n{similar_users_hint}"
   for admin_id in admin_ids:
     await send_vk_message(
       user_id=admin_id,

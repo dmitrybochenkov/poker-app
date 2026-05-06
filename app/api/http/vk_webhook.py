@@ -107,43 +107,40 @@ async def _submit_registration_request(
       )
       return
 
-    admin_ids = await repository.list_vk_admin_ids()
-    tg_admin_chat_ids = await repository.list_telegram_admin_ids()
+    admin_ids = await repository.list_admin_vk_ids()
+    tg_admin_chat_ids = await repository.list_admin_tg_ids()
     all_users = await repository.list_all()
     approved_users = await repository.list_approved()
 
   vk_user_states.pop(user_id, None)
   vk_user_contexts.pop(user_id, None)
-  target_admin_platform = linked_to_user.notification_platform if linked_to_user is not None else "vk"
-  if target_admin_platform == "tg":
-    await notify_tg_admins_about_registration(
-      row_id=user.row_id,
-      name=name,
-      telegram_id=None,
-      all_users=all_users,
-      admin_chat_ids=tg_admin_chat_ids,
-      linked_to_user=linked_to_user,
-      reply_markup=(
-        tg_registration_link_review_keyboard(row_id=user.row_id)
-        if linked_to_user is not None
-        else tg_registration_review_keyboard(row_id=user.row_id)
-      ),
-    )
-  else:
-    await notify_admins_about_registration(
-      row_id=user.row_id,
-      name=name,
-      vk_id=user_id,
-      admin_ids=admin_ids,
-      all_users=all_users,
-      approved_users=approved_users,
-      linked_to_user=linked_to_user,
-      keyboard=(
-        vk_registration_link_review_keyboard(row_id=user.row_id)
-        if linked_to_user is not None
-        else vk_registration_review_keyboard(row_id=user.row_id)
-      ),
-    )
+  await notify_tg_admins_about_registration(
+    row_id=user.row_id,
+    name=name,
+    telegram_id=None,
+    all_users=all_users,
+    admin_chat_ids=tg_admin_chat_ids,
+    linked_to_user=linked_to_user,
+    reply_markup=(
+      tg_registration_link_review_keyboard(row_id=user.row_id)
+      if linked_to_user is not None
+      else tg_registration_review_keyboard(row_id=user.row_id)
+    ),
+  )
+  await notify_admins_about_registration(
+    row_id=user.row_id,
+    name=name,
+    vk_id=user_id,
+    admin_ids=admin_ids,
+    all_users=all_users,
+    approved_users=approved_users,
+    linked_to_user=linked_to_user,
+    keyboard=(
+      vk_registration_link_review_keyboard(row_id=user.row_id)
+      if linked_to_user is not None
+      else vk_registration_review_keyboard(row_id=user.row_id)
+    ),
+  )
   await send_vk_message(
     user_id=user_id,
     message=success_message,
