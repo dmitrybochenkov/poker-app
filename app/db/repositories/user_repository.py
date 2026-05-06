@@ -131,6 +131,7 @@ class UserRepository:
     result = await self.session.execute(
       select(User.telegram_id)
       .where(User.is_admin.is_(True))
+      .where(User.notification_platform == "tg")
       .where(User.telegram_id.is_not(None))
       .order_by(User.row_id)
     )
@@ -140,6 +141,7 @@ class UserRepository:
     result = await self.session.execute(
       select(User.vk_id)
       .where(User.is_admin.is_(True))
+      .where(User.notification_platform == "vk")
       .where(User.vk_id.is_not(None))
       .order_by(User.row_id)
     )
