@@ -8,9 +8,13 @@ class UserText(Enum):
     "Чтобы начать пользоваться моими функциями, тебе нужно зарегистрироваться."
   )
   REGISTRATION_PLAYED_BEFORE = "Ты раньше играл с нами?"
-  REGISTRATION_EXISTING_NAME_PROMPT = (
-    "Введи имя, под которым ты мог играть раньше. "
-    "Я покажу похожие записи и отправлю заявку админу на привязку."
+  REGISTRATION_EXISTING_ROW_ID_PROMPT = (
+    "Найди себя в списке и отправь row_id своей записи. "
+    "Я создам pending-заявку с этим же именем и сразу сообщу админу, к какой записи ее нужно привязать."
+  )
+  REGISTRATION_PLATFORM_CANDIDATES = "Вот игроки, у которых еще не привязана эта платформа:"
+  REGISTRATION_PLATFORM_CANDIDATES_EMPTY = (
+    "Сейчас не вижу approved-игроков без привязки этой платформы."
   )
   REGISTRATION_NEW_NAME_PROMPT = (
     "Введи свое имя в любом виде. "
@@ -25,6 +29,8 @@ class UserText(Enum):
   REGISTRATION_NOT_APPROVED = "Ты не зарегистрирован! Спроси у админа почему."
   REGISTRATION_PENDING = "Твоя заявка уже ожидает подтверждения администратора."
   REGISTRATION_EMPTY_NAME = "Имя не должно быть пустым."
+  REGISTRATION_INVALID_ROW_ID = "Нужно отправить числовой row_id из списка."
+  REGISTRATION_CHOOSE_FROM_LIST = "Не нашел такую запись в списке. Выбери row_id из списка выше."
   REGISTRATION_READ_ERROR = "Не удалось прочитать данные. Попробуй ещё раз."
   REGISTRATION_ID_ERROR = "Не удалось определить Telegram ID."
   REGISTRATION_SIMILAR_USERS_FOUND = "Похоже, в базе есть похожие игроки:"

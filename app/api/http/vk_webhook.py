@@ -16,7 +16,6 @@ from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
 from app.bot.shared.buttons import Buttons
-from app.bot.shared.registration_hints import find_similar_users
 from app.bot.shared.texts import Text
 from app.bot.vk.api import send_vk_message
 from app.bot.vk.keyboards import main_keyboard, played_before_keyboard
@@ -24,7 +23,7 @@ from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
 from app.bot.vk.state import (
-  WAITING_FOR_EXISTING_NAME,
+  WAITING_FOR_EXISTING_ROW_ID,
   WAITING_FOR_NEW_NAME,
   WAITING_FOR_PLAYED_BEFORE,
   vk_user_contexts,
@@ -37,12 +36,15 @@ from app.db.session import SessionFactory
 router = APIRouter(prefix="/webhooks/vk", tags=["vk"])
 
 
-def _format_similar_users_for_user(users: list) -> str:
-  lines = [Text.user.REGISTRATION_SIMILAR_USERS_FOUND.value]
-  for user in users[:5]:
-    lines.append(user.name)
+def _format_platform_candidates_for_user(users: list) -> str:
+  if not users:
+    return Text.user.REGISTRATION_PLATFORM_CANDIDATES_EMPTY.value
 
-  if len(users) > 5:
+  lines = [Text.user.REGISTRATION_PLATFORM_CANDIDATES.value]
+  for user in users[:10]:
+    lines.append(f"{user.row_id} — {user.name}")
+
+  if len(users) > 10:
     lines.append("...")
 
   return "\n".join(lines)
@@ -53,6 +55,7 @@ async def _submit_registration_request(
   user_id: int,
   name: str,
   success_message: str,
+  linked_to_user=None,
 ) -> None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -104,6 +107,7 @@ async def _submit_registration_request(
     admin_ids=admin_ids,
     all_users=all_users,
     approved_users=approved_users,
+    linked_to_user=linked_to_user,
   )
   await send_vk_message(
     user_id=user_id,
@@ -396,10 +400,18 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
   if vk_user_states.get(user_id) == WAITING_FOR_PLAYED_BEFORE:
     normalized_text = text.lower()
     if normalized_text == Buttons.registration_flow.YES.value.lower():
-      vk_user_states[user_id] = WAITING_FOR_EXISTING_NAME
+      async with SessionFactory() as session:
+        repository = UserRepository(session)
+        candidates = await repository.list_approved_without_vk_id()
+
+      vk_user_states[user_id] = WAITING_FOR_EXISTING_ROW_ID
       await send_vk_message(
         user_id=user_id,
-        message=Text.user.REGISTRATION_EXISTING_NAME_PROMPT.value,
+        message=_format_platform_candidates_for_user(candidates),
+      )
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_EXISTING_ROW_ID_PROMPT.value,
       )
       return PlainTextResponse("ok")
     if normalized_text == Buttons.registration_flow.NO.value.lower():
@@ -417,31 +429,34 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     )
     return PlainTextResponse("ok")
 
-  if vk_user_states.get(user_id) == WAITING_FOR_EXISTING_NAME:
-    name = " ".join(text.split())
+  if vk_user_states.get(user_id) == WAITING_FOR_EXISTING_ROW_ID:
+    selected_row_id_text = text.strip()
+    if not selected_row_id_text.isdigit():
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_INVALID_ROW_ID.value,
+      )
+      return PlainTextResponse("ok")
 
     async with SessionFactory() as session:
       repository = UserRepository(session)
-      approved_users = await repository.list_approved()
-
-    similar_users = find_similar_users(name=name, users=approved_users)
-    if similar_users:
-      await send_vk_message(
-        user_id=user_id,
-        message=_format_similar_users_for_user(similar_users),
-      )
-      success_message = Text.user.REGISTRATION_LINK_WAIT.value
-    else:
-      await send_vk_message(
-        user_id=user_id,
-        message=Text.user.REGISTRATION_SIMILAR_USERS_NOT_FOUND.value,
-      )
-      success_message = Text.user.REGISTRATION_WAIT.value
+      selected_user = await repository.get_by_row_id(int(selected_row_id_text))
+      if (
+        selected_user is None
+        or not selected_user.is_approved
+        or selected_user.vk_id is not None
+      ):
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.user.REGISTRATION_CHOOSE_FROM_LIST.value,
+        )
+        return PlainTextResponse("ok")
 
     await _submit_registration_request(
       user_id=user_id,
-      name=name,
-      success_message=success_message,
+      name=selected_user.name,
+      success_message=Text.user.REGISTRATION_LINK_WAIT.value,
+      linked_to_user=selected_user,
     )
     return PlainTextResponse("ok")
 

@@ -18,7 +18,6 @@ from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
-from app.bot.shared.registration_hints import find_similar_users
 from app.bot.shared.buttons import Buttons
 from app.bot.shared.texts import Text
 from app.bot.telegram.keyboards import (
@@ -52,12 +51,15 @@ def _format_link_candidates(users: list[User]) -> str:
   return "\n".join(lines)
 
 
-def _format_similar_users_for_user(users: list[User]) -> str:
-  lines = [Text.user.REGISTRATION_SIMILAR_USERS_FOUND.value]
-  for user in users[:5]:
-    lines.append(f"{user.name}")
+def _format_platform_candidates_for_user(users: list[User]) -> str:
+  if not users:
+    return Text.user.REGISTRATION_PLATFORM_CANDIDATES_EMPTY.value
 
-  if len(users) > 5:
+  lines = [Text.user.REGISTRATION_PLATFORM_CANDIDATES.value]
+  for user in users[:10]:
+    lines.append(f"{user.row_id} — {user.name}")
+
+  if len(users) > 10:
     lines.append("...")
 
   return "\n".join(lines)
@@ -208,6 +210,7 @@ async def _submit_registration_request(
   state: FSMContext,
   name: str,
   success_text: str,
+  linked_to_user: User | None = None,
 ) -> None:
   if message.from_user is None:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
@@ -249,6 +252,7 @@ async def _submit_registration_request(
     telegram_id=message.from_user.id,
     all_users=all_users,
     admin_chat_ids=admin_chat_ids,
+    linked_to_user=linked_to_user,
     reply_markup=registration_review_keyboard(row_id=user.row_id),
   )
   await state.clear()
@@ -266,8 +270,13 @@ async def choose_registration_branch(callback: CallbackQuery, state: FSMContext)
 
   choice = callback.data.split(":", 1)[1]
   if choice == "yes":
-    await state.set_state(RegistrationState.waiting_for_existing_name)
-    await callback.message.edit_text(Text.user.REGISTRATION_EXISTING_NAME_PROMPT.value)
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      candidates = await repository.list_approved_without_telegram_id()
+
+    await state.set_state(RegistrationState.waiting_for_registration_existing_row_id)
+    await callback.message.edit_text(_format_platform_candidates_for_user(candidates))
+    await callback.message.answer(Text.user.REGISTRATION_EXISTING_ROW_ID_PROMPT.value)
   else:
     await state.set_state(RegistrationState.waiting_for_new_name)
     await callback.message.edit_text(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
@@ -282,31 +291,35 @@ async def repeat_registration_branch_prompt(message: Message) -> None:
   )
 
 
-@router.message(RegistrationState.waiting_for_existing_name)
-async def finish_existing_name_registration(message: Message, state: FSMContext) -> None:
+@router.message(RegistrationState.waiting_for_registration_existing_row_id)
+async def finish_existing_row_id_registration(message: Message, state: FSMContext) -> None:
   if message.from_user is None or not message.text:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
     return
 
-  name = " ".join(message.text.split())
+  selected_row_id_text = message.text.strip()
+  if not selected_row_id_text.isdigit():
+    await message.answer(Text.user.REGISTRATION_INVALID_ROW_ID.value)
+    return
 
+  selected_row_id = int(selected_row_id_text)
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    approved_users = await repository.list_approved()
-
-  similar_users = find_similar_users(name=name, users=approved_users)
-  if similar_users:
-    await message.answer(_format_similar_users_for_user(similar_users))
-    success_text = Text.user.REGISTRATION_LINK_WAIT.value
-  else:
-    await message.answer(Text.user.REGISTRATION_SIMILAR_USERS_NOT_FOUND.value)
-    success_text = Text.user.REGISTRATION_WAIT.value
+    selected_user = await repository.get_by_row_id(selected_row_id)
+    if (
+      selected_user is None
+      or not selected_user.is_approved
+      or selected_user.telegram_id is not None
+    ):
+      await message.answer(Text.user.REGISTRATION_CHOOSE_FROM_LIST.value)
+      return
 
   await _submit_registration_request(
     message=message,
     state=state,
-    name=name,
-    success_text=success_text,
+    name=selected_user.name,
+    success_text=Text.user.REGISTRATION_LINK_WAIT.value,
+    linked_to_user=selected_user,
   )
 
 

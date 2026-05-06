@@ -14,6 +14,7 @@ async def notify_admins_about_registration(
   telegram_id: int,
   all_users: list[User],
   admin_chat_ids: list[int],
+  linked_to_user: User | None = None,
   reply_markup: InlineKeyboardMarkup | None = None,
 ) -> None:
   from app.bot.telegram.runtime import telegram_bot
@@ -34,6 +35,12 @@ async def notify_admins_about_registration(
     f"Telegram ID: {telegram_id}\n"
     f"{Text.admin.PROFILE_LINK_LABEL.value}: {profile_link}"
   )
+  if linked_to_user is not None:
+    text = (
+      f"{text}\n\n"
+      f"Заявка на привязку к row_id {linked_to_user.row_id}\n"
+      f"Существующая запись: {escape(linked_to_user.name)}"
+    )
   if similar_users_hint:
     text = f"{text}\n\n{escape(similar_users_hint)}"
   for chat_id in admin_chat_ids:

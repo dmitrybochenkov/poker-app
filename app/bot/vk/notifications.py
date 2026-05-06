@@ -26,6 +26,7 @@ async def notify_admins_about_registration(
   admin_ids: list[int],
   all_users: list[User],
   approved_users: list[User],
+  linked_to_user: User | None = None,
 ) -> None:
   if not admin_ids:
     return
@@ -50,6 +51,12 @@ async def notify_admins_about_registration(
     f"{Text.admin.LINK_COMMAND_USAGE.value}\n"
     f"Пример: link {row_id} 3"
   )
+  if linked_to_user is not None:
+    text = (
+      f"{text}\n\n"
+      f"Заявка на привязку к row_id {linked_to_user.row_id}\n"
+      f"Существующая запись: {linked_to_user.name}"
+    )
   text = f"{text}\n\n{format_link_candidates(approved_users)}"
   if similar_users_hint:
     text = f"{text}\n\n{similar_users_hint}"

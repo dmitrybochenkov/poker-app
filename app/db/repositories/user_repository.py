@@ -89,6 +89,24 @@ class UserRepository:
     )
     return list(result.scalars().all())
 
+  async def list_approved_without_telegram_id(self) -> list[User]:
+    result = await self.session.execute(
+      select(User)
+      .where(User.is_approved.is_(True))
+      .where(User.telegram_id.is_(None))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
+  async def list_approved_without_vk_id(self) -> list[User]:
+    result = await self.session.execute(
+      select(User)
+      .where(User.is_approved.is_(True))
+      .where(User.vk_id.is_(None))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
   async def list_approved_tg_ids(self) -> list[int]:
     result = await self.session.execute(
       select(User.telegram_id)
@@ -126,6 +144,12 @@ class UserRepository:
       .order_by(User.row_id)
     )
     return list(result.scalars().all())
+
+  async def list_telegram_admin_ids(self) -> list[int]:
+    return await self.list_admin_tg_ids()
+
+  async def list_vk_admin_ids(self) -> list[int]:
+    return await self.list_admin_vk_ids()
 
   async def list_pending(self) -> list[User]:
     result = await self.session.execute(
