@@ -11,7 +11,7 @@ async def notify_admins_about_registration(
   *,
   row_id: int,
   name: str,
-  telegram_id: int,
+  telegram_id: int | None,
   all_users: list[User],
   admin_chat_ids: list[int],
   linked_to_user: User | None = None,
@@ -22,7 +22,6 @@ async def notify_admins_about_registration(
   if telegram_bot is None or not admin_chat_ids:
     return
 
-  profile_link = f'<a href="tg://user?id={telegram_id}">{Text.admin.PROFILE_LINK_LABEL.value}</a>'
   similar_users_hint = build_similar_users_hint(
     row_id=row_id,
     name=name,
@@ -31,10 +30,15 @@ async def notify_admins_about_registration(
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
-    f"Имя: {escape(name)}\n"
-    f"Telegram ID: {telegram_id}\n"
-    f"{Text.admin.PROFILE_LINK_LABEL.value}: {profile_link}"
+    f"Имя: {escape(name)}"
   )
+  if telegram_id is not None:
+    profile_link = f'<a href="tg://user?id={telegram_id}">{Text.admin.PROFILE_LINK_LABEL.value}</a>'
+    text = (
+      f"{text}\n"
+      f"Telegram ID: {telegram_id}\n"
+      f"{Text.admin.PROFILE_LINK_LABEL.value}: {profile_link}"
+    )
   if linked_to_user is not None:
     text = (
       f"{text}\n\n"

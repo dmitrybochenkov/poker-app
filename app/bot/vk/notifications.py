@@ -23,7 +23,8 @@ async def notify_admins_about_registration(
   *,
   row_id: int,
   name: str,
-  vk_id: int,
+  vk_id: int | None,
+  telegram_id: int | None = None,
   admin_ids: list[int],
   all_users: list[User],
   approved_users: list[User],
@@ -41,8 +42,17 @@ async def notify_admins_about_registration(
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
     f"Row ID: {row_id}\n"
     f"Имя: {name}\n"
-    f"VK ID: {vk_id}\n"
-    f"{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}\n\n"
+  )
+  if vk_id is not None:
+    text = (
+      f"{text}"
+      f"VK ID: {vk_id}\n"
+      f"{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}\n"
+    )
+  if telegram_id is not None:
+    text = f"{text}Telegram ID: {telegram_id}\n"
+  text = (
+    f"{text}\n"
     f"{Text.admin.APPROVE_COMMAND_USAGE.value}\n"
     f"Пример: approve {row_id}\n"
     f"{Text.admin.CORRECT_COMMAND_USAGE.value}\n"

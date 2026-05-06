@@ -22,6 +22,7 @@ from app.bot.vk.keyboards import link_candidates_keyboard, main_keyboard, played
 from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
+from app.bot.telegram.notifications import notify_admins_about_registration as notify_tg_admins_about_registration
 from app.bot.vk.state import (
   WAITING_FOR_ADMIN_CORRECTED_NAME,
   WAITING_FOR_EXISTING_ROW_ID,
@@ -96,20 +97,32 @@ async def _submit_registration_request(
       return
 
     admin_ids = await repository.list_vk_admin_ids()
+    tg_admin_chat_ids = await repository.list_telegram_admin_ids()
     all_users = await repository.list_all()
     approved_users = await repository.list_approved()
 
   vk_user_states.pop(user_id, None)
   vk_user_contexts.pop(user_id, None)
-  await notify_admins_about_registration(
-    row_id=user.row_id,
-    name=name,
-    vk_id=user_id,
-    admin_ids=admin_ids,
-    all_users=all_users,
-    approved_users=approved_users,
-    linked_to_user=linked_to_user,
-  )
+  target_admin_platform = linked_to_user.notification_platform if linked_to_user is not None else "vk"
+  if target_admin_platform == "tg":
+    await notify_tg_admins_about_registration(
+      row_id=user.row_id,
+      name=name,
+      telegram_id=None,
+      all_users=all_users,
+      admin_chat_ids=tg_admin_chat_ids,
+      linked_to_user=linked_to_user,
+    )
+  else:
+    await notify_admins_about_registration(
+      row_id=user.row_id,
+      name=name,
+      vk_id=user_id,
+      admin_ids=admin_ids,
+      all_users=all_users,
+      approved_users=approved_users,
+      linked_to_user=linked_to_user,
+    )
   await send_vk_message(
     user_id=user_id,
     message=success_message,

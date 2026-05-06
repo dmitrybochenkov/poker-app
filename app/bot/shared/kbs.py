@@ -221,6 +221,17 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def registration_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for user in users[:20]:
+      keyboard.button(
+        text=f"{user.row_id} — {user.name}",
+        callback_data=f"registration_existing:{user.row_id}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for user in users[:10]:
