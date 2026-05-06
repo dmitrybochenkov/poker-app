@@ -18,7 +18,12 @@ from app.application.use_cases.request_registration import RequestRegistrationUs
 from app.bot.shared.buttons import Buttons
 from app.bot.shared.texts import Text
 from app.bot.vk.api import send_vk_message, send_vk_message_event_answer
-from app.bot.vk.keyboards import link_candidates_keyboard, main_keyboard, played_before_keyboard
+from app.bot.vk.keyboards import (
+  link_candidates_keyboard,
+  main_keyboard,
+  played_before_keyboard,
+  registration_candidates_keyboard,
+)
 from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
@@ -284,11 +289,13 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     callback_payload = event_object.get("payload") or {}
 
     action = callback_payload.get("action")
-    row_id = callback_payload.get("row_id")
-    if not admin_user_id or not peer_id or not event_id or not isinstance(row_id, int):
+    if not admin_user_id or not peer_id or not event_id:
       return PlainTextResponse("ok")
 
     if action == "approve":
+      row_id = callback_payload.get("row_id")
+      if not isinstance(row_id, int):
+        return PlainTextResponse("ok")
       result_text = await _process_vk_approve(admin_user_id=admin_user_id, row_id=row_id)
       await send_vk_message_event_answer(
         event_id=event_id,
@@ -300,6 +307,9 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       return PlainTextResponse("ok")
 
     if action == "reject":
+      row_id = callback_payload.get("row_id")
+      if not isinstance(row_id, int):
+        return PlainTextResponse("ok")
       result_text = await _process_vk_reject(admin_user_id=admin_user_id, row_id=row_id)
       await send_vk_message_event_answer(
         event_id=event_id,
@@ -311,6 +321,9 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       return PlainTextResponse("ok")
 
     if action == "correct":
+      row_id = callback_payload.get("row_id")
+      if not isinstance(row_id, int):
+        return PlainTextResponse("ok")
       vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CORRECTED_NAME
       vk_user_contexts[admin_user_id] = {"pending_row_id": str(row_id)}
       await send_vk_message_event_answer(
@@ -326,6 +339,9 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       return PlainTextResponse("ok")
 
     if action == "link":
+      row_id = callback_payload.get("row_id")
+      if not isinstance(row_id, int):
+        return PlainTextResponse("ok")
       async with SessionFactory() as session:
         repository = UserRepository(session)
         approved_users = await repository.list_approved()
@@ -343,6 +359,41 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
           pending_row_id=row_id,
           users=approved_users,
         ),
+      )
+      return PlainTextResponse("ok")
+
+    if action == "registration_existing":
+      selected_row_id = callback_payload.get("row_id")
+      if not isinstance(selected_row_id, int):
+        return PlainTextResponse("ok")
+
+      async with SessionFactory() as session:
+        repository = UserRepository(session)
+        selected_user = await repository.get_by_row_id(selected_row_id)
+        if (
+          selected_user is None
+          or not selected_user.is_approved
+          or selected_user.vk_id is not None
+        ):
+          await send_vk_message_event_answer(
+            event_id=event_id,
+            user_id=admin_user_id,
+            peer_id=peer_id,
+            text=Text.user.REGISTRATION_CHOOSE_FROM_LIST.value,
+          )
+          return PlainTextResponse("ok")
+
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_LINK_WAIT.value,
+      )
+      await _submit_registration_request(
+        user_id=admin_user_id,
+        name=selected_user.name,
+        success_message=Text.user.REGISTRATION_LINK_WAIT.value,
+        linked_to_user=selected_user,
       )
       return PlainTextResponse("ok")
 
@@ -509,14 +560,11 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
         repository = UserRepository(session)
         candidates = await repository.list_approved_without_vk_id()
 
-      vk_user_states[user_id] = WAITING_FOR_EXISTING_ROW_ID
-      await send_vk_message(
-        user_id=user_id,
-        message=_format_platform_candidates_for_user(candidates),
-      )
+      vk_user_states.pop(user_id, None)
       await send_vk_message(
         user_id=user_id,
         message=Text.user.REGISTRATION_EXISTING_ROW_ID_PROMPT.value,
+        keyboard=registration_candidates_keyboard(users=candidates),
       )
       return PlainTextResponse("ok")
     if normalized_text == Buttons.registration_flow.NO.value.lower():
@@ -531,37 +579,6 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       user_id=user_id,
       message=Text.user.REGISTRATION_PLAYED_BEFORE.value,
       keyboard=played_before_keyboard,
-    )
-    return PlainTextResponse("ok")
-
-  if vk_user_states.get(user_id) == WAITING_FOR_EXISTING_ROW_ID:
-    selected_row_id_text = text.strip()
-    if not selected_row_id_text.isdigit():
-      await send_vk_message(
-        user_id=user_id,
-        message=Text.user.REGISTRATION_INVALID_ROW_ID.value,
-      )
-      return PlainTextResponse("ok")
-
-    async with SessionFactory() as session:
-      repository = UserRepository(session)
-      selected_user = await repository.get_by_row_id(int(selected_row_id_text))
-      if (
-        selected_user is None
-        or not selected_user.is_approved
-        or selected_user.vk_id is not None
-      ):
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.user.REGISTRATION_CHOOSE_FROM_LIST.value,
-        )
-        return PlainTextResponse("ok")
-
-    await _submit_registration_request(
-      user_id=user_id,
-      name=selected_user.name,
-      success_message=Text.user.REGISTRATION_LINK_WAIT.value,
-      linked_to_user=selected_user,
     )
     return PlainTextResponse("ok")
 

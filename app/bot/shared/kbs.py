@@ -232,6 +232,27 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def registration_candidates_vk(*, users: list[User]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for user in users[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": f"{user.row_id} — {user.name[:32]}",
+              "payload": {
+                "action": "registration_existing",
+                "row_id": user.row_id,
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for user in users[:10]:
