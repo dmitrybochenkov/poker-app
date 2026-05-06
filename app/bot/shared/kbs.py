@@ -11,6 +11,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from app.bot.shared.buttons import Buttons
 from app.bot.shared.texts import Text
+from app.db.models.user import User
 
 
 def _button_labels(buttons: Iterable) -> list[str]:
@@ -57,6 +58,22 @@ class ReplyKbs:
     if current_row:
       rows.append(current_row)
 
+    return json.dumps(
+      {
+        "one_time": one_time,
+        "inline": inline,
+        "buttons": rows,
+      },
+      ensure_ascii=False,
+    )
+
+  @staticmethod
+  def make_vk_callback(
+    rows: list[list[dict[str, str | dict[str, int | str]]]],
+    *,
+    one_time: bool = False,
+    inline: bool = True,
+  ) -> str:
     return json.dumps(
       {
         "one_time": one_time,
@@ -136,3 +153,91 @@ class InlineKbs:
     )
     keyboard.adjust(3, 1)
     return keyboard.as_markup()
+
+  @staticmethod
+  def registration_review_vk(*, row_id: int) -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_APPROVE.value,
+              "payload": {
+                "action": "approve",
+                "row_id": row_id,
+              },
+            },
+            "color": "positive",
+          },
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_REJECT.value,
+              "payload": {
+                "action": "reject",
+                "row_id": row_id,
+              },
+            },
+            "color": "negative",
+          },
+        ],
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_CORRECT.value,
+              "payload": {
+                "action": "correct",
+                "row_id": row_id,
+              },
+            },
+            "color": "secondary",
+          },
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.admin.BUTTON_LINK.value,
+              "payload": {
+                "action": "link",
+                "row_id": row_id,
+              },
+            },
+            "color": "primary",
+          },
+        ],
+      ]
+    )
+
+  @staticmethod
+  def link_candidates_tg(*, pending_row_id: int, users: list[User]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for user in users[:20]:
+      keyboard.button(
+        text=f"{user.row_id} — {user.name}",
+        callback_data=f"linkto:{pending_row_id}:{user.row_id}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for user in users[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": f"{user.row_id} — {user.name[:32]}",
+              "payload": {
+                "action": "link_to",
+                "pending_row_id": pending_row_id,
+                "existing_row_id": user.row_id,
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)

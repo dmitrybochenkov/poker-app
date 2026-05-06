@@ -21,6 +21,7 @@ from app.application.use_cases.request_registration import RequestRegistrationUs
 from app.bot.shared.buttons import Buttons
 from app.bot.shared.texts import Text
 from app.bot.telegram.keyboards import (
+  link_candidates_keyboard,
   main_keyboard,
   played_before_keyboard,
   registration_review_keyboard,
@@ -131,76 +132,6 @@ async def make_admin_command(message: Message) -> None:
     f"Row ID: {user.row_id}\n"
     f"Имя: {user.name}\n"
     f"Telegram ID: {user.telegram_id}",
-  )
-
-
-@router.message(RegistrationState.waiting_for_existing_row_id)
-async def finish_link_pending_user(message: Message, state: FSMContext) -> None:
-  if message.from_user is None or message.text is None:
-    await message.answer(Text.admin.LINK_USAGE.value)
-    return
-
-  existing_row_id_text = message.text.strip()
-  if not existing_row_id_text.isdigit():
-    await message.answer(Text.admin.LINK_USAGE.value)
-    return
-
-  existing_row_id = int(existing_row_id_text)
-  data = await state.get_data()
-  pending_row_id = data.get("pending_row_id")
-  review_chat_id = data.get("review_chat_id")
-  review_message_id = data.get("review_message_id")
-
-  if pending_row_id is None:
-    await state.clear()
-    await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
-    return
-
-  async with SessionFactory() as session:
-    repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await state.clear()
-      await message.answer(Text.admin.NO_RIGHTS.value)
-      return
-
-    use_case = LinkPendingUserUseCase(repository)
-    try:
-      user = await use_case.execute(
-        pending_row_id=pending_row_id,
-        existing_row_id=existing_row_id,
-      )
-    except UserNotFoundError:
-      await message.answer(Text.admin.USER_NOT_FOUND.value)
-      return
-    except UserLinkConflictError:
-      await message.answer(Text.admin.LINK_CONFLICT.value)
-      return
-
-  if review_chat_id is not None and review_message_id is not None:
-    from app.bot.telegram.runtime import telegram_bot
-
-    if telegram_bot is not None:
-      await telegram_bot.edit_message_text(
-        chat_id=review_chat_id,
-        message_id=review_message_id,
-        text=(
-          f"{Text.admin.LINK_SUCCESS.value}\n\n"
-          f"Pending row_id: {pending_row_id}\n"
-          f"Linked to row_id: {user.row_id}\n"
-          f"Имя: {user.name}\n"
-          f"Telegram ID: {user.telegram_id}\n"
-          f"VK ID: {user.vk_id}"
-        ),
-      )
-
-  await state.clear()
-  await message.answer(
-    f"{Text.admin.LINK_SUCCESS.value}\n\n"
-    f"Row ID: {user.row_id}\n"
-    f"Имя: {user.name}\n"
-    f"Telegram ID: {user.telegram_id}\n"
-    f"VK ID: {user.vk_id}",
   )
 
 
@@ -533,7 +464,7 @@ async def reject_registration_callback(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("link:"))
-async def link_registration_callback(callback: CallbackQuery, state: FSMContext) -> None:
+async def link_registration_callback(callback: CallbackQuery) -> None:
   if callback.from_user is None:
     await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
     return
@@ -549,13 +480,55 @@ async def link_registration_callback(callback: CallbackQuery, state: FSMContext)
 
     approved_users = await repository.list_approved()
 
-  await state.set_state(RegistrationState.waiting_for_existing_row_id)
-  await state.update_data(
-    pending_row_id=row_id,
-    review_chat_id=callback.message.chat.id if callback.message is not None else None,
-    review_message_id=callback.message.message_id if callback.message is not None else None,
-  )
   await callback.answer(Text.admin.LINK_ACTION.value)
   if callback.message is not None:
     await callback.message.answer(Text.admin.LINK_PROMPT.value)
-    await callback.message.answer(_format_link_candidates(approved_users))
+    await callback.message.answer(
+      Text.admin.LINK_CHOICES_TITLE.value,
+      reply_markup=link_candidates_keyboard(
+        pending_row_id=row_id,
+        users=approved_users,
+      ),
+    )
+
+
+@router.callback_query(F.data.startswith("linkto:"))
+async def choose_link_target_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+
+  _, pending_row_id_text, existing_row_id_text = callback.data.split(":", 2)
+  pending_row_id = int(pending_row_id_text)
+  existing_row_id = int(existing_row_id_text)
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+
+    use_case = LinkPendingUserUseCase(repository)
+    try:
+      user = await use_case.execute(
+        pending_row_id=pending_row_id,
+        existing_row_id=existing_row_id,
+      )
+    except UserNotFoundError:
+      await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
+      return
+    except UserLinkConflictError:
+      await callback.answer(Text.admin.LINK_CONFLICT.value, show_alert=True)
+      return
+
+  if callback.message is not None:
+    await callback.message.edit_text(
+      f"{Text.admin.LINK_SUCCESS.value}\n\n"
+      f"Pending row_id: {pending_row_id}\n"
+      f"Linked to row_id: {user.row_id}\n"
+      f"Имя: {user.name}\n"
+      f"Telegram ID: {user.telegram_id}\n"
+      f"VK ID: {user.vk_id}"
+    )
+  await callback.answer(Text.admin.LINK_SUCCESS.value)

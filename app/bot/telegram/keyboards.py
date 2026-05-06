@@ -3,3 +3,4 @@ from app.bot.shared.kbs import InlineKbs, ReplyKbs
 main_keyboard = ReplyKbs.new_user_tg()
 played_before_keyboard = InlineKbs.played_before_tg
 registration_review_keyboard = InlineKbs.registration_review_tg
+link_candidates_keyboard = InlineKbs.link_candidates_tg

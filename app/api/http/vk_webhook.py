@@ -17,12 +17,13 @@ from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
 from app.bot.shared.buttons import Buttons
 from app.bot.shared.texts import Text
-from app.bot.vk.api import send_vk_message
-from app.bot.vk.keyboards import main_keyboard, played_before_keyboard
+from app.bot.vk.api import send_vk_message, send_vk_message_event_answer
+from app.bot.vk.keyboards import link_candidates_keyboard, main_keyboard, played_before_keyboard
 from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
 from app.bot.vk.state import (
+  WAITING_FOR_ADMIN_CORRECTED_NAME,
   WAITING_FOR_EXISTING_ROW_ID,
   WAITING_FOR_NEW_NAME,
   WAITING_FOR_PLAYED_BEFORE,
@@ -116,6 +117,138 @@ async def _submit_registration_request(
   )
 
 
+async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_vk_admin_ids()
+    if admin_user_id not in admin_ids:
+      return Text.admin.NO_RIGHTS.value
+
+    use_case = ApproveUserUseCase(repository)
+    try:
+      approved_user = await use_case.execute(row_id=row_id)
+    except UserNotFoundError:
+      return Text.admin.REQUEST_NOT_FOUND.value
+
+  if approved_user.vk_id is not None:
+    await send_vk_message(
+      user_id=approved_user.vk_id,
+      message=Text.user.REGISTRATION_APPROVED.value,
+      keyboard=main_keyboard,
+    )
+
+  return (
+    f"{Text.admin.APPROVE_ACTION.value}\n\n"
+    f"Row ID: {approved_user.row_id}\n"
+    f"Имя: {approved_user.name}\n"
+    f"Telegram ID: {approved_user.telegram_id}\n"
+    f"VK ID: {approved_user.vk_id}"
+  )
+
+
+async def _process_vk_reject(*, admin_user_id: int, row_id: int) -> str:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_vk_admin_ids()
+    if admin_user_id not in admin_ids:
+      return Text.admin.NO_RIGHTS.value
+
+    pending_user = await repository.get_by_row_id(row_id)
+    if pending_user is None:
+      return Text.admin.REQUEST_NOT_FOUND.value
+
+    pending_vk_id = pending_user.vk_id
+    use_case = RejectUserUseCase(repository)
+    try:
+      await use_case.execute(row_id=row_id)
+    except UserNotFoundError:
+      return Text.admin.REQUEST_NOT_FOUND.value
+    except UserAlreadyApprovedError:
+      return Text.admin.REQUEST_ALREADY_APPROVED.value
+
+  if pending_vk_id is not None:
+    await send_vk_message(
+      user_id=pending_vk_id,
+      message=Text.user.REGISTRATION_NOT_APPROVED.value,
+      keyboard=main_keyboard,
+    )
+
+  return f"{Text.admin.REJECT_ACTION.value}\n\nRow ID: {row_id}"
+
+
+async def _process_vk_correct(
+  *,
+  admin_user_id: int,
+  row_id: int,
+  corrected_name: str,
+) -> str:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_vk_admin_ids()
+    if admin_user_id not in admin_ids:
+      return Text.admin.NO_RIGHTS.value
+
+    use_case = CorrectUserUseCase(repository)
+    try:
+      corrected_user = await use_case.execute(
+        row_id=row_id,
+        corrected_name=corrected_name,
+      )
+    except UserNotFoundError:
+      return Text.admin.REQUEST_NOT_FOUND.value
+    except UserNameRequiredError:
+      return Text.admin.EMPTY_CORRECTED_NAME.value
+    except UserAlreadyApprovedError:
+      return Text.admin.REQUEST_ALREADY_APPROVED.value
+
+  if corrected_user.vk_id is not None:
+    await send_vk_message(
+      user_id=corrected_user.vk_id,
+      message=Text.user.REGISTRATION_APPROVED.value,
+      keyboard=main_keyboard,
+    )
+
+  return (
+    f"{Text.admin.CORRECT_ACTION.value}\n\n"
+    f"Row ID: {corrected_user.row_id}\n"
+    f"Имя: {corrected_user.name}\n"
+    f"Telegram ID: {corrected_user.telegram_id}\n"
+    f"VK ID: {corrected_user.vk_id}"
+  )
+
+
+async def _process_vk_link(
+  *,
+  admin_user_id: int,
+  pending_row_id: int,
+  existing_row_id: int,
+) -> str:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_vk_admin_ids()
+    if admin_user_id not in admin_ids:
+      return Text.admin.NO_RIGHTS.value
+
+    use_case = LinkPendingUserUseCase(repository)
+    try:
+      linked_user = await use_case.execute(
+        pending_row_id=pending_row_id,
+        existing_row_id=existing_row_id,
+      )
+    except UserNotFoundError:
+      return Text.admin.USER_NOT_FOUND.value
+    except UserLinkConflictError:
+      return Text.admin.LINK_CONFLICT.value
+
+  return (
+    f"{Text.admin.LINK_SUCCESS.value}\n\n"
+    f"Row ID: {linked_user.row_id}\n"
+    f"Имя: {linked_user.name}\n"
+    f"Telegram ID: {linked_user.telegram_id}\n"
+    f"VK ID: {linked_user.vk_id}"
+  )
+
+
 @router.post("")
 async def vk_webhook(payload: dict) -> PlainTextResponse:
   event_type = payload.get("type")
@@ -129,6 +262,98 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
 
   if event_type == "confirmation":
     return PlainTextResponse(settings.vk_confirmation_token)
+
+  if event_type == "message_event":
+    event_object = payload.get("object", {})
+    admin_user_id = event_object.get("user_id")
+    peer_id = event_object.get("peer_id")
+    event_id = event_object.get("event_id")
+    callback_payload = event_object.get("payload") or {}
+
+    action = callback_payload.get("action")
+    row_id = callback_payload.get("row_id")
+    if not admin_user_id or not peer_id or not event_id or not isinstance(row_id, int):
+      return PlainTextResponse("ok")
+
+    if action == "approve":
+      result_text = await _process_vk_approve(admin_user_id=admin_user_id, row_id=row_id)
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.admin.APPROVE_ACTION.value if result_text.startswith(Text.admin.APPROVE_ACTION.value) else result_text,
+      )
+      await send_vk_message(user_id=admin_user_id, message=result_text)
+      return PlainTextResponse("ok")
+
+    if action == "reject":
+      result_text = await _process_vk_reject(admin_user_id=admin_user_id, row_id=row_id)
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.admin.REJECT_ACTION.value if result_text.startswith(Text.admin.REJECT_ACTION.value) else result_text,
+      )
+      await send_vk_message(user_id=admin_user_id, message=result_text)
+      return PlainTextResponse("ok")
+
+    if action == "correct":
+      vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CORRECTED_NAME
+      vk_user_contexts[admin_user_id] = {"pending_row_id": str(row_id)}
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.admin.CORRECT_FLOW_STARTED.value,
+      )
+      await send_vk_message(
+        user_id=admin_user_id,
+        message=Text.admin.CORRECT_PROMPT.value,
+      )
+      return PlainTextResponse("ok")
+
+    if action == "link":
+      async with SessionFactory() as session:
+        repository = UserRepository(session)
+        approved_users = await repository.list_approved()
+
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.admin.LINK_ACTION.value,
+      )
+      await send_vk_message(
+        user_id=admin_user_id,
+        message=Text.admin.LINK_PROMPT.value,
+        keyboard=link_candidates_keyboard(
+          pending_row_id=row_id,
+          users=approved_users,
+        ),
+      )
+      return PlainTextResponse("ok")
+
+    if action == "link_to":
+      pending_row_id = callback_payload.get("pending_row_id")
+      existing_row_id = callback_payload.get("existing_row_id")
+      if not isinstance(pending_row_id, int) or not isinstance(existing_row_id, int):
+        return PlainTextResponse("ok")
+
+      result_text = await _process_vk_link(
+        admin_user_id=admin_user_id,
+        pending_row_id=pending_row_id,
+        existing_row_id=existing_row_id,
+      )
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.admin.LINK_SUCCESS.value if result_text.startswith(Text.admin.LINK_SUCCESS.value) else result_text,
+      )
+      await send_vk_message(user_id=admin_user_id, message=result_text)
+      return PlainTextResponse("ok")
+
+    return PlainTextResponse("ok")
 
   if event_type != "message_new":
     return PlainTextResponse("ok")
@@ -150,6 +375,25 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     )
     return PlainTextResponse("ok")
 
+  if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_CORRECTED_NAME:
+    pending_row_id = vk_user_contexts.get(user_id, {}).get("pending_row_id")
+    corrected_name = " ".join(text.split())
+    if pending_row_id is None:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await send_vk_message(user_id=user_id, message=Text.admin.REQUEST_NOT_FOUND.value)
+      return PlainTextResponse("ok")
+
+    result_text = await _process_vk_correct(
+      admin_user_id=user_id,
+      row_id=int(pending_row_id),
+      corrected_name=corrected_name,
+    )
+    vk_user_states.pop(user_id, None)
+    vk_user_contexts.pop(user_id, None)
+    await send_vk_message(user_id=user_id, message=result_text)
+    return PlainTextResponse("ok")
+
   if text.lower().startswith("approve "):
     parts = text.split()
     if len(parts) != 2 or not parts[1].isdigit():
@@ -159,41 +403,9 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       )
       return PlainTextResponse("ok")
 
-    async with SessionFactory() as session:
-      repository = UserRepository(session)
-      admin_ids = await repository.list_vk_admin_ids()
-      if user_id not in admin_ids:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.NO_RIGHTS.value,
-        )
-        return PlainTextResponse("ok")
-
-      use_case = ApproveUserUseCase(repository)
-      try:
-        approved_user = await use_case.execute(row_id=int(parts[1]))
-      except UserNotFoundError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.REQUEST_NOT_FOUND.value,
-        )
-        return PlainTextResponse("ok")
-
-    if approved_user.vk_id is not None:
-      await send_vk_message(
-        user_id=approved_user.vk_id,
-        message=Text.user.REGISTRATION_APPROVED.value,
-        keyboard=main_keyboard,
-      )
     await send_vk_message(
       user_id=user_id,
-      message=(
-        f"{Text.admin.APPROVE_ACTION.value}\n\n"
-        f"Row ID: {approved_user.row_id}\n"
-        f"Имя: {approved_user.name}\n"
-        f"Telegram ID: {approved_user.telegram_id}\n"
-        f"VK ID: {approved_user.vk_id}"
-      ),
+      message=await _process_vk_approve(admin_user_id=user_id, row_id=int(parts[1])),
     )
     return PlainTextResponse("ok")
 
@@ -206,57 +418,12 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       )
       return PlainTextResponse("ok")
 
-    corrected_name = " ".join(parts[2].split())
-
-    async with SessionFactory() as session:
-      repository = UserRepository(session)
-      admin_ids = await repository.list_vk_admin_ids()
-      if user_id not in admin_ids:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.NO_RIGHTS.value,
-        )
-        return PlainTextResponse("ok")
-
-      use_case = CorrectUserUseCase(repository)
-      try:
-        corrected_user = await use_case.execute(
-          row_id=int(parts[1]),
-          corrected_name=corrected_name,
-        )
-      except UserNotFoundError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.REQUEST_NOT_FOUND.value,
-        )
-        return PlainTextResponse("ok")
-      except UserNameRequiredError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.EMPTY_CORRECTED_NAME.value,
-        )
-        return PlainTextResponse("ok")
-      except UserAlreadyApprovedError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.REQUEST_ALREADY_APPROVED.value,
-        )
-        return PlainTextResponse("ok")
-
-    if corrected_user.vk_id is not None:
-      await send_vk_message(
-        user_id=corrected_user.vk_id,
-        message=Text.user.REGISTRATION_APPROVED.value,
-        keyboard=main_keyboard,
-      )
     await send_vk_message(
       user_id=user_id,
-      message=(
-        f"{Text.admin.CORRECT_ACTION.value}\n\n"
-        f"Row ID: {corrected_user.row_id}\n"
-        f"Имя: {corrected_user.name}\n"
-        f"Telegram ID: {corrected_user.telegram_id}\n"
-        f"VK ID: {corrected_user.vk_id}"
+      message=await _process_vk_correct(
+        admin_user_id=user_id,
+        row_id=int(parts[1]),
+        corrected_name=" ".join(parts[2].split()),
       ),
     )
     return PlainTextResponse("ok")
@@ -270,53 +437,9 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       )
       return PlainTextResponse("ok")
 
-    async with SessionFactory() as session:
-      repository = UserRepository(session)
-      admin_ids = await repository.list_vk_admin_ids()
-      if user_id not in admin_ids:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.NO_RIGHTS.value,
-        )
-        return PlainTextResponse("ok")
-
-      pending_user = await repository.get_by_row_id(int(parts[1]))
-      if pending_user is None:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.REQUEST_NOT_FOUND.value,
-        )
-        return PlainTextResponse("ok")
-
-      pending_vk_id = pending_user.vk_id
-      use_case = RejectUserUseCase(repository)
-      try:
-        await use_case.execute(row_id=int(parts[1]))
-      except UserNotFoundError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.REQUEST_NOT_FOUND.value,
-        )
-        return PlainTextResponse("ok")
-      except UserAlreadyApprovedError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.REQUEST_ALREADY_APPROVED.value,
-        )
-        return PlainTextResponse("ok")
-
-    if pending_vk_id is not None:
-      await send_vk_message(
-        user_id=pending_vk_id,
-        message=Text.user.REGISTRATION_NOT_APPROVED.value,
-        keyboard=main_keyboard,
-      )
     await send_vk_message(
       user_id=user_id,
-      message=(
-        f"{Text.admin.REJECT_ACTION.value}\n\n"
-        f"Row ID: {parts[1]}"
-      ),
+      message=await _process_vk_reject(admin_user_id=user_id, row_id=int(parts[1])),
     )
     return PlainTextResponse("ok")
 
@@ -329,43 +452,12 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       )
       return PlainTextResponse("ok")
 
-    async with SessionFactory() as session:
-      repository = UserRepository(session)
-      admin_ids = await repository.list_vk_admin_ids()
-      if user_id not in admin_ids:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.NO_RIGHTS.value,
-        )
-        return PlainTextResponse("ok")
-
-      use_case = LinkPendingUserUseCase(repository)
-      try:
-        linked_user = await use_case.execute(
-          pending_row_id=int(parts[1]),
-          existing_row_id=int(parts[2]),
-        )
-      except UserNotFoundError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.USER_NOT_FOUND.value,
-        )
-        return PlainTextResponse("ok")
-      except UserLinkConflictError:
-        await send_vk_message(
-          user_id=user_id,
-          message=Text.admin.LINK_CONFLICT.value,
-        )
-        return PlainTextResponse("ok")
-
     await send_vk_message(
       user_id=user_id,
-      message=(
-        f"{Text.admin.LINK_SUCCESS.value}\n\n"
-        f"Row ID: {linked_user.row_id}\n"
-        f"Имя: {linked_user.name}\n"
-        f"Telegram ID: {linked_user.telegram_id}\n"
-        f"VK ID: {linked_user.vk_id}"
+      message=await _process_vk_link(
+        admin_user_id=user_id,
+        pending_row_id=int(parts[1]),
+        existing_row_id=int(parts[2]),
       ),
     )
     return PlainTextResponse("ok")

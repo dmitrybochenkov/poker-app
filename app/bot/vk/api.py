@@ -1,4 +1,5 @@
 import secrets
+import json
 
 import aiohttp
 
@@ -28,3 +29,25 @@ async def send_vk_message(*, user_id: int, message: str, keyboard: str | None = 
     params["keyboard"] = keyboard
 
   await vk_api_call("messages.send", **params)
+
+
+async def send_vk_message_event_answer(
+  *,
+  event_id: str,
+  user_id: int,
+  peer_id: int,
+  text: str,
+) -> None:
+  await vk_api_call(
+    "messages.sendMessageEventAnswer",
+    event_id=event_id,
+    user_id=user_id,
+    peer_id=peer_id,
+    event_data=json.dumps(
+      {
+        "type": "show_snackbar",
+        "text": text,
+      },
+      ensure_ascii=False,
+    ),
+  )
