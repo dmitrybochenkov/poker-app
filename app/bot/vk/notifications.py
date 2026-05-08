@@ -59,7 +59,7 @@ async def notify_admins_about_registration(
   if linked_to_user is not None:
     text = (
       f"{text}\n\n"
-      f"Заявка на привязку к row_id {linked_to_user.row_id}\n"
+      f"Заявка на привязку к записи {linked_to_user.row_id}\n"
       f"Существующая запись: {linked_to_user.name}"
     )
   text = f"{text}\n\n{format_link_candidates(approved_users)}"

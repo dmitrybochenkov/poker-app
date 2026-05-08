@@ -131,6 +131,24 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def registration_optional_details_tg() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=Text.user.REGISTRATION_OPTIONAL_BANK.value,
+      callback_data="registration_optional:bank",
+    )
+    keyboard.button(
+      text=Text.user.REGISTRATION_OPTIONAL_PHONE.value,
+      callback_data="registration_optional:phone",
+    )
+    keyboard.button(
+      text=Text.user.REGISTRATION_OPTIONAL_SKIP.value,
+      callback_data="registration_optional:skip",
+    )
+    keyboard.adjust(2, 1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(
@@ -315,6 +333,41 @@ class InlineKbs:
         ]
       )
     return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def registration_optional_details_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.user.REGISTRATION_OPTIONAL_BANK.value,
+              "payload": {"action": "registration_optional_bank"},
+            },
+            "color": "primary",
+          },
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.user.REGISTRATION_OPTIONAL_PHONE.value,
+              "payload": {"action": "registration_optional_phone"},
+            },
+            "color": "primary",
+          },
+        ],
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.user.REGISTRATION_OPTIONAL_SKIP.value,
+              "payload": {"action": "registration_optional_skip"},
+            },
+            "color": "secondary",
+          }
+        ],
+      ]
+    )
 
   @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:

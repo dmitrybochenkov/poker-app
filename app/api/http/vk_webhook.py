@@ -23,6 +23,7 @@ from app.bot.vk.keyboards import (
   main_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
+  registration_optional_details_keyboard,
   registration_link_review_keyboard as vk_registration_link_review_keyboard,
   registration_review_keyboard as vk_registration_review_keyboard,
 )
@@ -36,8 +37,10 @@ from app.bot.telegram.keyboards import (
 )
 from app.bot.vk.state import (
   WAITING_FOR_ADMIN_CORRECTED_NAME,
-  WAITING_FOR_EXISTING_ROW_ID,
   WAITING_FOR_NEW_NAME,
+  WAITING_FOR_OPTIONAL_BANK,
+  WAITING_FOR_OPTIONAL_DETAILS_ACTION,
+  WAITING_FOR_OPTIONAL_PHONE,
   WAITING_FOR_PLAYED_BEFORE,
   vk_user_contexts,
   vk_user_states,
@@ -69,13 +72,20 @@ async def _submit_registration_request(
   name: str,
   success_message: str,
   linked_to_user=None,
+  bank_name: str | None = None,
+  tel_number: str | None = None,
 ) -> None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
     use_case = RequestRegistrationUseCase(repository)
 
     try:
-      user = await use_case.execute(name=name, vk_id=user_id)
+      user = await use_case.execute(
+        name=name,
+        vk_id=user_id,
+        bank_name=bank_name,
+        tel_number=tel_number,
+      )
     except UserIdentityRequiredError:
       await send_vk_message(
         user_id=user_id,
@@ -146,6 +156,13 @@ async def _submit_registration_request(
     message=success_message,
     keyboard=main_keyboard,
   )
+
+
+def _normalize_phone(value: str) -> str | None:
+  digits = "".join(ch for ch in value if ch.isdigit())
+  if digits.startswith("7") and len(digits) == 11:
+    return f"+{digits}"
+  return None
 
 
 async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
@@ -430,6 +447,70 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       await send_vk_message(user_id=admin_user_id, message=result_text)
       return PlainTextResponse("ok")
 
+    if action == "registration_optional_bank":
+      if "registration_name" not in vk_user_contexts.get(admin_user_id, {}):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.user.REGISTRATION_READ_ERROR.value,
+        )
+        return PlainTextResponse("ok")
+      vk_user_states[admin_user_id] = WAITING_FOR_OPTIONAL_BANK
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_BANK_PROMPT.value,
+      )
+      await send_vk_message(user_id=admin_user_id, message=Text.user.REGISTRATION_BANK_PROMPT.value)
+      return PlainTextResponse("ok")
+
+    if action == "registration_optional_phone":
+      if "registration_name" not in vk_user_contexts.get(admin_user_id, {}):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.user.REGISTRATION_READ_ERROR.value,
+        )
+        return PlainTextResponse("ok")
+      vk_user_states[admin_user_id] = WAITING_FOR_OPTIONAL_PHONE
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_PHONE_PROMPT.value,
+      )
+      await send_vk_message(user_id=admin_user_id, message=Text.user.REGISTRATION_PHONE_PROMPT.value)
+      return PlainTextResponse("ok")
+
+    if action == "registration_optional_skip":
+      context = vk_user_contexts.get(admin_user_id, {})
+      registration_name = context.get("registration_name")
+      if not registration_name:
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.user.REGISTRATION_READ_ERROR.value,
+        )
+        return PlainTextResponse("ok")
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_WAIT.value,
+      )
+      await _submit_registration_request(
+        user_id=admin_user_id,
+        name=registration_name,
+        success_message=Text.user.REGISTRATION_WAIT.value,
+        bank_name=context.get("bank_name"),
+        tel_number=context.get("tel_number"),
+      )
+      return PlainTextResponse("ok")
+
     return PlainTextResponse("ok")
 
   if event_type != "message_new":
@@ -597,10 +678,54 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
 
   if vk_user_states.get(user_id) == WAITING_FOR_NEW_NAME:
     name = " ".join(text.split())
-    await _submit_registration_request(
+    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_DETAILS_ACTION
+    vk_user_contexts[user_id] = {
+      "registration_name": name,
+      "bank_name": "",
+      "tel_number": "",
+    }
+    await send_vk_message(
       user_id=user_id,
-      name=name,
-      success_message=Text.user.REGISTRATION_WAIT.value,
+      message=Text.user.REGISTRATION_OPTIONAL_DETAILS_PROMPT.value,
+      keyboard=registration_optional_details_keyboard(),
+    )
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_BANK:
+    bank_name = " ".join(text.split()).title()
+    if not bank_name:
+      await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_BANK_PROMPT.value)
+      return PlainTextResponse("ok")
+    context = vk_user_contexts.setdefault(user_id, {})
+    context["bank_name"] = bank_name
+    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_DETAILS_ACTION
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.REGISTRATION_BANK_SAVED.value,
+      keyboard=registration_optional_details_keyboard(),
+    )
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_PHONE:
+    normalized_phone = _normalize_phone(text)
+    if normalized_phone is None:
+      await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PHONE_INVALID.value)
+      return PlainTextResponse("ok")
+    context = vk_user_contexts.setdefault(user_id, {})
+    context["tel_number"] = normalized_phone
+    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_DETAILS_ACTION
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.REGISTRATION_PHONE_SAVED.value,
+      keyboard=registration_optional_details_keyboard(),
+    )
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_DETAILS_ACTION:
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.REGISTRATION_OPTIONAL_DETAILS_PROMPT.value,
+      keyboard=registration_optional_details_keyboard(),
     )
     return PlainTextResponse("ok")
 

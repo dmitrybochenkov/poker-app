@@ -26,6 +26,7 @@ from app.bot.telegram.keyboards import (
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_link_review_keyboard,
+  registration_optional_details_keyboard,
   registration_review_keyboard,
 )
 from app.bot.telegram.notifications import (
@@ -150,6 +151,8 @@ async def _submit_registration_request(
   success_text: str,
   linked_to_user: User | None = None,
   requester_telegram_id: int | None = None,
+  bank_name: str | None = None,
+  tel_number: str | None = None,
 ) -> None:
   telegram_id = requester_telegram_id if requester_telegram_id is not None else (
     message.from_user.id if message.from_user is not None else None
@@ -166,6 +169,8 @@ async def _submit_registration_request(
       user = await use_case.execute(
         name=name,
         telegram_id=telegram_id,
+        bank_name=bank_name,
+        tel_number=tel_number,
       )
     except UserIdentityRequiredError:
       await message.answer(Text.user.REGISTRATION_ID_ERROR.value)
@@ -293,11 +298,100 @@ async def finish_registration(message: Message, state: FSMContext) -> None:
     return
 
   name = " ".join(message.text.split())
+  await state.set_state(RegistrationState.waiting_for_optional_details_action)
+  await state.update_data(
+    registration_name=name,
+    bank_name=None,
+    tel_number=None,
+  )
+  await message.answer(
+    Text.user.REGISTRATION_OPTIONAL_DETAILS_PROMPT.value,
+    reply_markup=registration_optional_details_keyboard(),
+  )
+
+
+def _normalize_phone(value: str) -> str | None:
+  digits = "".join(ch for ch in value if ch.isdigit())
+  if digits.startswith("7") and len(digits) == 11:
+    return f"+{digits}"
+  return None
+
+
+@router.callback_query(F.data.startswith("registration_optional:"))
+async def choose_optional_registration_data(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None or callback.from_user is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+
+  action = callback.data.split(":", 1)[1]
+  if action == "bank":
+    await state.set_state(RegistrationState.waiting_for_bank_name)
+    await callback.message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)
+    await callback.answer()
+    return
+  if action == "phone":
+    await state.set_state(RegistrationState.waiting_for_phone)
+    await callback.message.answer(Text.user.REGISTRATION_PHONE_PROMPT.value)
+    await callback.answer()
+    return
+
+  data = await state.get_data()
+  registration_name = data.get("registration_name")
+  if not registration_name:
+    await state.clear()
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
   await _submit_registration_request(
-    message=message,
+    message=callback.message,
     state=state,
-    name=name,
+    name=registration_name,
     success_text=Text.user.REGISTRATION_WAIT.value,
+    requester_telegram_id=callback.from_user.id,
+    bank_name=data.get("bank_name"),
+    tel_number=data.get("tel_number"),
+  )
+  await callback.answer()
+
+
+@router.message(RegistrationState.waiting_for_bank_name)
+async def save_optional_bank_name(message: Message, state: FSMContext) -> None:
+  if not message.text:
+    await message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)
+    return
+  bank_name = " ".join(message.text.split()).title()
+  if not bank_name:
+    await message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)
+    return
+  await state.update_data(bank_name=bank_name)
+  await state.set_state(RegistrationState.waiting_for_optional_details_action)
+  await message.answer(
+    Text.user.REGISTRATION_BANK_SAVED.value,
+    reply_markup=registration_optional_details_keyboard(),
+  )
+
+
+@router.message(RegistrationState.waiting_for_phone)
+async def save_optional_phone(message: Message, state: FSMContext) -> None:
+  if not message.text:
+    await message.answer(Text.user.REGISTRATION_PHONE_PROMPT.value)
+    return
+  normalized_phone = _normalize_phone(message.text)
+  if normalized_phone is None:
+    await message.answer(Text.user.REGISTRATION_PHONE_INVALID.value)
+    return
+  await state.update_data(tel_number=normalized_phone)
+  await state.set_state(RegistrationState.waiting_for_optional_details_action)
+  await message.answer(
+    Text.user.REGISTRATION_PHONE_SAVED.value,
+    reply_markup=registration_optional_details_keyboard(),
+  )
+
+
+@router.message(RegistrationState.waiting_for_optional_details_action)
+async def repeat_optional_registration_prompt(message: Message) -> None:
+  await message.answer(
+    Text.user.REGISTRATION_OPTIONAL_DETAILS_PROMPT.value,
+    reply_markup=registration_optional_details_keyboard(),
   )
 
 
