@@ -29,7 +29,7 @@ htmlcov/
 # Editor / OS
 .DS_Store
 .vscode/
+*.code-workspace
 
 # Alembic cache
 alembic/__pycache__/
-
