@@ -28,15 +28,12 @@ class UserText(Enum):
   REGISTRATION_APPROVED = "Ты успешно зарегистрирован!"
   REGISTRATION_NOT_APPROVED = "Ты не зарегистрирован! Спроси у админа почему."
   REGISTRATION_PENDING = "Твоя заявка уже ожидает подтверждения администратора."
+  REGISTRATION_IN_PROGRESS = "Мы уже начали регистрацию. Продолжай по предыдущему сообщению."
   REGISTRATION_EMPTY_NAME = "Имя не должно быть пустым."
   REGISTRATION_INVALID_ROW_ID = "Нужно выбрать игрока из списка."
   REGISTRATION_CHOOSE_FROM_LIST = "Не нашел такую запись в списке. Выбери игрока из списка."
   REGISTRATION_READ_ERROR = "Не удалось прочитать данные. Попробуй ещё раз."
   REGISTRATION_ID_ERROR = "Не удалось определить Telegram ID."
-  REGISTRATION_SIMILAR_USERS_FOUND = "Похоже, в базе есть похожие игроки:"
-  REGISTRATION_SIMILAR_USERS_NOT_FOUND = (
-    "Похожих игроков в базе не нашел, но заявку админу все равно отправил."
-  )
   REGISTRATION_OPTIONAL_DETAILS_PROMPT = (
     "Если хочешь, укажи свои банк и номер телефона. "
     "В случае твоей победы по этим данным тебе быстрее переведут деньги."
@@ -46,6 +43,4 @@ class UserText(Enum):
   REGISTRATION_OPTIONAL_SKIP = "🥷 Не хочу указывать"
   REGISTRATION_BANK_PROMPT = "Введи название банка."
   REGISTRATION_PHONE_PROMPT = "Введи номер телефона, начиная с 7."
-  REGISTRATION_BANK_SAVED = "Банк сохранен. Можешь добавить телефон или завершить."
-  REGISTRATION_PHONE_SAVED = "Телефон сохранен. Можешь добавить банк или завершить."
   REGISTRATION_PHONE_INVALID = "Номер должен начинаться с 7 и содержать 11 цифр."

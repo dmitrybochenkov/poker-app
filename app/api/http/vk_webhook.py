@@ -31,6 +31,7 @@ from app.bot.vk.notifications import (
   notify_admins_about_registration,
 )
 from app.bot.telegram.notifications import notify_admins_about_registration as notify_tg_admins_about_registration
+from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.keyboards import (
   registration_link_review_keyboard as tg_registration_link_review_keyboard,
   registration_review_keyboard as tg_registration_review_keyboard,
@@ -50,20 +51,6 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 router = APIRouter(prefix="/webhooks/vk", tags=["vk"])
-
-
-def _format_platform_candidates_for_user(users: list) -> str:
-  if not users:
-    return Text.user.REGISTRATION_PLATFORM_CANDIDATES_EMPTY.value
-
-  lines = [Text.user.REGISTRATION_PLATFORM_CANDIDATES.value]
-  for user in users[:10]:
-    lines.append(f"{user.row_id} — {user.name}")
-
-  if len(users) > 10:
-    lines.append("...")
-
-  return "\n".join(lines)
 
 
 async def _submit_registration_request(
@@ -184,6 +171,8 @@ async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
       message=Text.user.REGISTRATION_APPROVED.value,
       keyboard=main_keyboard,
     )
+  if approved_user.telegram_id is not None:
+    await notify_user_about_approval(telegram_id=approved_user.telegram_id, approved=True)
 
   return (
     f"{Text.admin.APPROVE_ACTION.value}\n\n"
@@ -206,6 +195,7 @@ async def _process_vk_reject(*, admin_user_id: int, row_id: int) -> str:
       return Text.admin.REQUEST_NOT_FOUND.value
 
     pending_vk_id = pending_user.vk_id
+    pending_telegram_id = pending_user.telegram_id
     use_case = RejectUserUseCase(repository)
     try:
       await use_case.execute(row_id=row_id)
@@ -220,6 +210,8 @@ async def _process_vk_reject(*, admin_user_id: int, row_id: int) -> str:
       message=Text.user.REGISTRATION_NOT_APPROVED.value,
       keyboard=main_keyboard,
     )
+  if pending_telegram_id is not None:
+    await notify_user_about_approval(telegram_id=pending_telegram_id, approved=False)
 
   return f"{Text.admin.REJECT_ACTION.value}\n\nRow ID: {row_id}"
 
@@ -255,6 +247,8 @@ async def _process_vk_correct(
       message=Text.user.REGISTRATION_APPROVED.value,
       keyboard=main_keyboard,
     )
+  if corrected_user.telegram_id is not None:
+    await notify_user_about_approval(telegram_id=corrected_user.telegram_id, approved=True)
 
   return (
     f"{Text.admin.CORRECT_ACTION.value}\n\n"
@@ -621,6 +615,19 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     return PlainTextResponse("ok")
 
   if text == Buttons.new_user.REGISTRATION.value:
+    if vk_user_states.get(user_id) in {
+      WAITING_FOR_PLAYED_BEFORE,
+      WAITING_FOR_NEW_NAME,
+      WAITING_FOR_OPTIONAL_DETAILS_ACTION,
+      WAITING_FOR_OPTIONAL_BANK,
+      WAITING_FOR_OPTIONAL_PHONE,
+    }:
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_IN_PROGRESS.value,
+      )
+      return PlainTextResponse("ok")
+
     async with SessionFactory() as session:
       repository = UserRepository(session)
       existing_user = await repository.get_by_vk_id(user_id)
@@ -698,12 +705,25 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       return PlainTextResponse("ok")
     context = vk_user_contexts.setdefault(user_id, {})
     context["bank_name"] = bank_name
-    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_DETAILS_ACTION
-    await send_vk_message(
-      user_id=user_id,
-      message=Text.user.REGISTRATION_BANK_SAVED.value,
-      keyboard=registration_optional_details_keyboard(),
-    )
+    existing_phone = context.get("tel_number")
+    if existing_phone:
+      registration_name = context.get("registration_name")
+      if not registration_name:
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_READ_ERROR.value)
+        return PlainTextResponse("ok")
+      await _submit_registration_request(
+        user_id=user_id,
+        name=registration_name,
+        success_message=Text.user.REGISTRATION_WAIT.value,
+        bank_name=bank_name,
+        tel_number=existing_phone,
+      )
+      return PlainTextResponse("ok")
+
+    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_PHONE
+    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PHONE_PROMPT.value)
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_PHONE:
@@ -713,12 +733,25 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       return PlainTextResponse("ok")
     context = vk_user_contexts.setdefault(user_id, {})
     context["tel_number"] = normalized_phone
-    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_DETAILS_ACTION
-    await send_vk_message(
-      user_id=user_id,
-      message=Text.user.REGISTRATION_PHONE_SAVED.value,
-      keyboard=registration_optional_details_keyboard(),
-    )
+    existing_bank = context.get("bank_name")
+    if existing_bank:
+      registration_name = context.get("registration_name")
+      if not registration_name:
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_READ_ERROR.value)
+        return PlainTextResponse("ok")
+      await _submit_registration_request(
+        user_id=user_id,
+        name=registration_name,
+        success_message=Text.user.REGISTRATION_WAIT.value,
+        bank_name=existing_bank,
+        tel_number=normalized_phone,
+      )
+      return PlainTextResponse("ok")
+
+    vk_user_states[user_id] = WAITING_FOR_OPTIONAL_BANK
+    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_BANK_PROMPT.value)
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_DETAILS_ACTION:

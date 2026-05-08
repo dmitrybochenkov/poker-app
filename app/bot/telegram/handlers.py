@@ -46,32 +46,23 @@ from app.db.session import SessionFactory
 router = Router()
 
 
-def _format_link_candidates(users: list[User]) -> str:
-  if not users:
-    return Text.admin.LINK_CHOICES_EMPTY.value
-
-  lines = [Text.admin.LINK_CHOICES_TITLE.value]
-  for user in users[:20]:
-    lines.append(f"{user.row_id} — {user.name}")
-
-  if len(users) > 20:
-    lines.append("...")
-
-  return "\n".join(lines)
+async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    return
+  try:
+    await callback.message.edit_reply_markup(reply_markup=None)
+  except Exception:
+    return
 
 
-def _format_platform_candidates_for_user(users: list[User]) -> str:
-  if not users:
-    return Text.user.REGISTRATION_PLATFORM_CANDIDATES_EMPTY.value
-
-  lines = [Text.user.REGISTRATION_PLATFORM_CANDIDATES.value]
-  for user in users[:10]:
-    lines.append(f"{user.row_id} — {user.name}")
-
-  if len(users) > 10:
-    lines.append("...")
-
-  return "\n".join(lines)
+REGISTRATION_USER_STATES = {
+  RegistrationState.waiting_for_played_before_answer.state,
+  RegistrationState.waiting_for_new_name.state,
+  RegistrationState.waiting_for_registration_existing_row_id.state,
+  RegistrationState.waiting_for_optional_details_action.state,
+  RegistrationState.waiting_for_bank_name.state,
+  RegistrationState.waiting_for_phone.state,
+}
 
 
 @router.message(CommandStart())
@@ -87,6 +78,11 @@ async def start_command(message: Message, state: FSMContext) -> None:
 async def start_registration(message: Message, state: FSMContext) -> None:
   if message.from_user is None:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  current_state = await state.get_state()
+  if current_state in REGISTRATION_USER_STATES:
+    await message.answer(Text.user.REGISTRATION_IN_PROGRESS.value)
     return
 
   async with SessionFactory() as session:
@@ -238,6 +234,7 @@ async def choose_registration_branch(callback: CallbackQuery, state: FSMContext)
 
   choice = callback.data.split(":", 1)[1]
   if choice == "yes":
+    await _clear_inline_keyboard(callback)
     async with SessionFactory() as session:
       repository = UserRepository(session)
       candidates = await repository.list_approved_without_telegram_id()
@@ -249,6 +246,7 @@ async def choose_registration_branch(callback: CallbackQuery, state: FSMContext)
       reply_markup=registration_candidates_keyboard(users=candidates),
     )
   else:
+    await _clear_inline_keyboard(callback)
     await state.set_state(RegistrationState.waiting_for_new_name)
     await callback.message.edit_text(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
   await callback.answer()
@@ -269,6 +267,7 @@ async def finish_existing_row_id_registration(callback: CallbackQuery, state: FS
     return
 
   selected_row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
     repository = UserRepository(session)
     selected_user = await repository.get_by_row_id(selected_row_id)
@@ -324,6 +323,7 @@ async def choose_optional_registration_data(callback: CallbackQuery, state: FSMC
     return
 
   action = callback.data.split(":", 1)[1]
+  await _clear_inline_keyboard(callback)
   if action == "bank":
     await state.set_state(RegistrationState.waiting_for_bank_name)
     await callback.message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)
@@ -362,12 +362,27 @@ async def save_optional_bank_name(message: Message, state: FSMContext) -> None:
   if not bank_name:
     await message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)
     return
+  data = await state.get_data()
   await state.update_data(bank_name=bank_name)
-  await state.set_state(RegistrationState.waiting_for_optional_details_action)
-  await message.answer(
-    Text.user.REGISTRATION_BANK_SAVED.value,
-    reply_markup=registration_optional_details_keyboard(),
-  )
+  existing_phone = data.get("tel_number")
+  if existing_phone:
+    registration_name = data.get("registration_name")
+    if not registration_name:
+      await state.clear()
+      await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+      return
+    await _submit_registration_request(
+      message=message,
+      state=state,
+      name=registration_name,
+      success_text=Text.user.REGISTRATION_WAIT.value,
+      bank_name=bank_name,
+      tel_number=existing_phone,
+    )
+    return
+
+  await state.set_state(RegistrationState.waiting_for_phone)
+  await message.answer(Text.user.REGISTRATION_PHONE_PROMPT.value)
 
 
 @router.message(RegistrationState.waiting_for_phone)
@@ -379,12 +394,27 @@ async def save_optional_phone(message: Message, state: FSMContext) -> None:
   if normalized_phone is None:
     await message.answer(Text.user.REGISTRATION_PHONE_INVALID.value)
     return
+  data = await state.get_data()
   await state.update_data(tel_number=normalized_phone)
-  await state.set_state(RegistrationState.waiting_for_optional_details_action)
-  await message.answer(
-    Text.user.REGISTRATION_PHONE_SAVED.value,
-    reply_markup=registration_optional_details_keyboard(),
-  )
+  existing_bank = data.get("bank_name")
+  if existing_bank:
+    registration_name = data.get("registration_name")
+    if not registration_name:
+      await state.clear()
+      await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+      return
+    await _submit_registration_request(
+      message=message,
+      state=state,
+      name=registration_name,
+      success_text=Text.user.REGISTRATION_WAIT.value,
+      bank_name=existing_bank,
+      tel_number=normalized_phone,
+    )
+    return
+
+  await state.set_state(RegistrationState.waiting_for_bank_name)
+  await message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)
 
 
 @router.message(RegistrationState.waiting_for_optional_details_action)
@@ -402,6 +432,7 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
     return
 
   row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -434,6 +465,7 @@ async def correct_registration_callback(callback: CallbackQuery, state: FSMConte
     return
 
   row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -553,6 +585,7 @@ async def reject_registration_callback(callback: CallbackQuery) -> None:
     return
 
   row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -596,6 +629,7 @@ async def link_registration_callback(callback: CallbackQuery) -> None:
     return
 
   row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -625,6 +659,7 @@ async def choose_link_target_callback(callback: CallbackQuery) -> None:
     return
 
   _, pending_row_id_text, existing_row_id_text = callback.data.split(":", 2)
+  await _clear_inline_keyboard(callback)
   pending_row_id = int(pending_row_id_text)
   existing_row_id = int(existing_row_id_text)
 
