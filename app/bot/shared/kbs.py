@@ -149,6 +149,20 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def registration_platform_tg() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=Text.user.REGISTRATION_PLATFORM_TG.value,
+      callback_data="registration_platform:tg",
+    )
+    keyboard.button(
+      text=Text.user.REGISTRATION_PLATFORM_VK.value,
+      callback_data="registration_platform:vk",
+    )
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(
@@ -366,6 +380,31 @@ class InlineKbs:
             "color": "secondary",
           }
         ],
+      ]
+    )
+
+  @staticmethod
+  def registration_platform_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.user.REGISTRATION_PLATFORM_TG.value,
+              "payload": {"action": "registration_platform_tg"},
+            },
+            "color": "primary",
+          },
+          {
+            "action": {
+              "type": "callback",
+              "label": Text.user.REGISTRATION_PLATFORM_VK.value,
+              "payload": {"action": "registration_platform_vk"},
+            },
+            "color": "primary",
+          },
+        ]
       ]
     )
 

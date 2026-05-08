@@ -1,7 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.application.exceptions import UserNotificationPlatformUnavailableError
 from app.db.models.user import User
 
 
@@ -181,10 +180,6 @@ class UserRepository:
     vk_id: int | None,
   ) -> str | None:
     if notification_platform is not None:
-      if notification_platform == "tg" and telegram_id is None:
-        raise UserNotificationPlatformUnavailableError(notification_platform)
-      if notification_platform == "vk" and vk_id is None:
-        raise UserNotificationPlatformUnavailableError(notification_platform)
       return notification_platform
     if telegram_id is not None and vk_id is None:
       return "tg"

@@ -24,6 +24,7 @@ from app.bot.vk.keyboards import (
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_optional_details_keyboard,
+  registration_platform_keyboard,
   registration_link_review_keyboard as vk_registration_link_review_keyboard,
   registration_review_keyboard as vk_registration_review_keyboard,
 )
@@ -61,6 +62,7 @@ async def _submit_registration_request(
   linked_to_user=None,
   bank_name: str | None = None,
   tel_number: str | None = None,
+  notification_platform: str | None = None,
 ) -> None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -72,6 +74,7 @@ async def _submit_registration_request(
         vk_id=user_id,
         bank_name=bank_name,
         tel_number=tel_number,
+        notification_platform=notification_platform,
       )
     except UserIdentityRequiredError:
       await send_vk_message(
@@ -106,16 +109,14 @@ async def _submit_registration_request(
 
     admin_ids = await repository.list_admin_vk_ids()
     tg_admin_chat_ids = await repository.list_admin_tg_ids()
-    all_users = await repository.list_all()
-    approved_users = await repository.list_approved()
 
   vk_user_states.pop(user_id, None)
   vk_user_contexts.pop(user_id, None)
   await notify_tg_admins_about_registration(
-    row_id=user.row_id,
     name=name,
     telegram_id=None,
-    all_users=all_users,
+    vk_id=user_id,
+    requester_platform="vk",
     admin_chat_ids=tg_admin_chat_ids,
     linked_to_user=linked_to_user,
     reply_markup=(
@@ -125,12 +126,10 @@ async def _submit_registration_request(
     ),
   )
   await notify_admins_about_registration(
-    row_id=user.row_id,
     name=name,
     vk_id=user_id,
+    requester_platform="vk",
     admin_ids=admin_ids,
-    all_users=all_users,
-    approved_users=approved_users,
     linked_to_user=linked_to_user,
     keyboard=(
       vk_registration_link_review_keyboard(row_id=user.row_id)
@@ -407,6 +406,46 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
           )
           return PlainTextResponse("ok")
 
+      context = vk_user_contexts.setdefault(admin_user_id, {})
+      context["linked_user_row_id"] = str(selected_user.row_id)
+      context["linked_user_name"] = selected_user.name
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=admin_user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_PLATFORM_PROMPT.value,
+      )
+      await send_vk_message(
+        user_id=admin_user_id,
+        message=Text.user.REGISTRATION_PLATFORM_PROMPT.value,
+        keyboard=registration_platform_keyboard(),
+      )
+      return PlainTextResponse("ok")
+
+    if action in {"registration_platform_tg", "registration_platform_vk"}:
+      context = vk_user_contexts.get(admin_user_id, {})
+      selected_name = context.get("linked_user_name")
+      selected_row_id = context.get("linked_user_row_id")
+      if not selected_name or not selected_row_id:
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.user.REGISTRATION_READ_ERROR.value,
+        )
+        return PlainTextResponse("ok")
+      platform = "tg" if action.endswith("_tg") else "vk"
+      async with SessionFactory() as session:
+        repository = UserRepository(session)
+        linked_user = await repository.get_by_row_id(int(selected_row_id))
+        if linked_user is None:
+          await send_vk_message_event_answer(
+            event_id=event_id,
+            user_id=admin_user_id,
+            peer_id=peer_id,
+            text=Text.user.REGISTRATION_READ_ERROR.value,
+          )
+          return PlainTextResponse("ok")
       await send_vk_message_event_answer(
         event_id=event_id,
         user_id=admin_user_id,
@@ -415,9 +454,10 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
       )
       await _submit_registration_request(
         user_id=admin_user_id,
-        name=selected_user.name,
+        name=selected_name,
         success_message=Text.user.REGISTRATION_LINK_WAIT.value,
-        linked_to_user=selected_user,
+        linked_to_user=linked_user,
+        notification_platform=platform,
       )
       return PlainTextResponse("ok")
 

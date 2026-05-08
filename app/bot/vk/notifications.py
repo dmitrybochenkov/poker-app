@@ -3,66 +3,36 @@ from app.bot.vk.api import send_vk_message
 from app.db.models.user import User
 
 
-def format_link_candidates(users: list[User]) -> str:
-  if not users:
-    return Text.admin.LINK_CHOICES_EMPTY.value
-
-  lines = [Text.admin.LINK_CHOICES_TITLE.value]
-  for user in users[:20]:
-    lines.append(f"{user.row_id} — {user.name}")
-
-  if len(users) > 20:
-    lines.append("...")
-
-  return "\n".join(lines)
-
-
 async def notify_admins_about_registration(
   *,
-  row_id: int,
   name: str,
   vk_id: int | None,
   telegram_id: int | None = None,
+  requester_platform: str,
   admin_ids: list[int],
-  all_users: list[User],
-  approved_users: list[User],
   linked_to_user: User | None = None,
   keyboard: str | None = None,
 ) -> None:
   if not admin_ids:
     return
 
+  kind_line = (
+    Text.admin.NEW_REGISTRATION_KIND_LINK.value
+    if linked_to_user is not None
+    else Text.admin.NEW_REGISTRATION_KIND_NEW.value
+  )
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
-    f"Row ID: {row_id}\n"
+    f"{kind_line}\n"
     f"Имя: {name}\n"
+    f"Платформа: {requester_platform.upper()}\n"
   )
   if vk_id is not None:
-    text = (
-      f"{text}"
-      f"VK ID: {vk_id}\n"
-      f"{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}\n"
-    )
-  if telegram_id is not None:
-    text = f"{text}Telegram ID: {telegram_id}\n"
-  text = (
-    f"{text}\n"
-    f"{Text.admin.APPROVE_COMMAND_USAGE.value}\n"
-    f"Пример: approve {row_id}\n"
-    f"{Text.admin.CORRECT_COMMAND_USAGE.value}\n"
-    f"Пример: correct {row_id} Иван Петров\n"
-    f"{Text.admin.REJECT_COMMAND_USAGE.value}\n"
-    f"Пример: reject {row_id}\n"
-    f"{Text.admin.LINK_COMMAND_USAGE.value}\n"
-    f"Пример: link {row_id} 3"
-  )
+    text = f"{text}{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}\n"
+  elif telegram_id is not None:
+    text = f"{text}{Text.admin.PROFILE_LINK_LABEL.value}: tg://user?id={telegram_id}\n"
   if linked_to_user is not None:
-    text = (
-      f"{text}\n\n"
-      f"Заявка на привязку к записи {linked_to_user.row_id}\n"
-      f"Существующая запись: {linked_to_user.name}"
-    )
-  text = f"{text}\n\n{format_link_candidates(approved_users)}"
+    text = f"{text}Существующая запись: {linked_to_user.name}\n"
   for admin_id in admin_ids:
     await send_vk_message(
       user_id=admin_id,

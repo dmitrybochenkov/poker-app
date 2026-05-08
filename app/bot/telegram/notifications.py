@@ -8,10 +8,10 @@ from app.db.models.user import User
 
 async def notify_admins_about_registration(
   *,
-  row_id: int,
   name: str,
   telegram_id: int | None,
-  all_users: list[User],
+  vk_id: int | None = None,
+  requester_platform: str,
   admin_chat_ids: list[int],
   linked_to_user: User | None = None,
   reply_markup: InlineKeyboardMarkup | None = None,
@@ -21,24 +21,24 @@ async def notify_admins_about_registration(
   if telegram_bot is None or not admin_chat_ids:
     return
 
+  kind_line = (
+    Text.admin.NEW_REGISTRATION_KIND_LINK.value
+    if linked_to_user is not None
+    else Text.admin.NEW_REGISTRATION_KIND_NEW.value
+  )
   text = (
     f"{Text.admin.NEW_REGISTRATION.value}\n\n"
-    f"Row ID: {row_id}\n"
-    f"Имя: {escape(name)}"
+    f"{kind_line}\n"
+    f"Имя: {escape(name)}\n"
+    f"Платформа: {requester_platform.upper()}"
   )
   if telegram_id is not None:
     profile_link = f'<a href="tg://user?id={telegram_id}">{Text.admin.PROFILE_LINK_LABEL.value}</a>'
-    text = (
-      f"{text}\n"
-      f"Telegram ID: {telegram_id}\n"
-      f"{Text.admin.PROFILE_LINK_LABEL.value}: {profile_link}"
-    )
+    text = f"{text}\n{Text.admin.PROFILE_LINK_LABEL.value}: {profile_link}"
+  elif vk_id is not None:
+    text = f"{text}\n{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}"
   if linked_to_user is not None:
-    text = (
-      f"{text}\n\n"
-      f"Заявка на привязку к записи {linked_to_user.row_id}\n"
-      f"Существующая запись: {escape(linked_to_user.name)}"
-    )
+    text = f"{text}\nСуществующая запись: {escape(linked_to_user.name)}"
   for chat_id in admin_chat_ids:
     await telegram_bot.send_message(
       chat_id=chat_id,

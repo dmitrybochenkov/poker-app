@@ -27,6 +27,7 @@ from app.bot.telegram.keyboards import (
   registration_candidates_keyboard,
   registration_link_review_keyboard,
   registration_optional_details_keyboard,
+  registration_platform_keyboard,
   registration_review_keyboard,
 )
 from app.bot.telegram.notifications import (
@@ -58,7 +59,7 @@ async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
 REGISTRATION_USER_STATES = {
   RegistrationState.waiting_for_played_before_answer.state,
   RegistrationState.waiting_for_new_name.state,
-  RegistrationState.waiting_for_registration_existing_row_id.state,
+  RegistrationState.waiting_for_registration_platform_choice.state,
   RegistrationState.waiting_for_optional_details_action.state,
   RegistrationState.waiting_for_bank_name.state,
   RegistrationState.waiting_for_phone.state,
@@ -149,6 +150,7 @@ async def _submit_registration_request(
   requester_telegram_id: int | None = None,
   bank_name: str | None = None,
   tel_number: str | None = None,
+  notification_platform: str | None = None,
 ) -> None:
   telegram_id = requester_telegram_id if requester_telegram_id is not None else (
     message.from_user.id if message.from_user is not None else None
@@ -167,6 +169,7 @@ async def _submit_registration_request(
         telegram_id=telegram_id,
         bank_name=bank_name,
         tel_number=tel_number,
+        notification_platform=notification_platform,
       )
     except UserIdentityRequiredError:
       await message.answer(Text.user.REGISTRATION_ID_ERROR.value)
@@ -186,16 +189,14 @@ async def _submit_registration_request(
       await state.clear()
       return
 
-    all_users = await repository.list_all()
-    approved_users = await repository.list_approved()
     tg_admin_chat_ids = await repository.list_admin_tg_ids()
     vk_admin_ids = await repository.list_admin_vk_ids()
 
   await notify_admins_about_registration(
-    row_id=user.row_id,
     name=name,
     telegram_id=telegram_id,
-    all_users=all_users,
+    vk_id=None,
+    requester_platform="tg",
     admin_chat_ids=tg_admin_chat_ids,
     linked_to_user=linked_to_user,
     reply_markup=(
@@ -205,13 +206,11 @@ async def _submit_registration_request(
     ),
   )
   await notify_vk_admins_about_registration(
-    row_id=user.row_id,
     name=name,
     vk_id=None,
     telegram_id=telegram_id,
+    requester_platform="tg",
     admin_ids=vk_admin_ids,
-    all_users=all_users,
-    approved_users=approved_users,
     linked_to_user=linked_to_user,
     keyboard=(
       vk_registration_link_review_keyboard(row_id=user.row_id)
@@ -279,13 +278,53 @@ async def finish_existing_row_id_registration(callback: CallbackQuery, state: FS
       await callback.answer(Text.user.REGISTRATION_CHOOSE_FROM_LIST.value, show_alert=True)
       return
 
+  await state.set_state(RegistrationState.waiting_for_registration_platform_choice)
+  await state.update_data(
+    linked_user_row_id=selected_user.row_id,
+    linked_user_name=selected_user.name,
+  )
+  await callback.message.answer(
+    Text.user.REGISTRATION_PLATFORM_PROMPT.value,
+    reply_markup=registration_platform_keyboard(),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("registration_platform:"))
+async def choose_registration_platform(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None or callback.from_user is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  await _clear_inline_keyboard(callback)
+  platform = callback.data.split(":", 1)[1]
+  if platform not in {"tg", "vk"}:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+
+  data = await state.get_data()
+  selected_name = data.get("linked_user_name")
+  selected_row_id = data.get("linked_user_row_id")
+  if not selected_name or not selected_row_id:
+    await state.clear()
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    linked_user = await repository.get_by_row_id(int(selected_row_id))
+    if linked_user is None:
+      await state.clear()
+      await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+      return
+
   await _submit_registration_request(
     message=callback.message,
     state=state,
-    name=selected_user.name,
+    name=selected_name,
     success_text=Text.user.REGISTRATION_LINK_WAIT.value,
-    linked_to_user=selected_user,
+    linked_to_user=linked_user,
     requester_telegram_id=callback.from_user.id,
+    notification_platform=platform,
   )
   await callback.answer()
 
