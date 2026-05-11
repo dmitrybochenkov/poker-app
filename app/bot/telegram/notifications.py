@@ -50,6 +50,7 @@ async def notify_admins_about_registration(
 
 async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> None:
   from app.bot.telegram.runtime import telegram_bot
+  from app.bot.telegram.keyboards import main_keyboard
 
   if telegram_bot is None:
     return
@@ -59,4 +60,8 @@ async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> Non
     if approved
     else Text.user.REGISTRATION_NOT_APPROVED.value
   )
-  await telegram_bot.send_message(chat_id=telegram_id, text=text)
+  await telegram_bot.send_message(
+    chat_id=telegram_id,
+    text=text,
+    reply_markup=main_keyboard if approved else None,
+  )
