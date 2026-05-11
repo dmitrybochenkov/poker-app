@@ -1,0 +1,24 @@
+from sqlalchemy import BigInteger, Boolean, Date, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
+
+
+class PokerData(Base):
+  __tablename__ = "poker_data"
+
+  row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+  date: Mapped[Date] = mapped_column(Date, nullable=False, index=True)
+  player_name: Mapped[str] = mapped_column(String(255), nullable=False)
+  player_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+  is_prev_winner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+  buyins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+  big_buyin_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+  super_buyin_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+  chips: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+  money_rub: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+
+  __table_args__ = (
+    UniqueConstraint("date", "player_id", name="uq_poker_data_date_player"),
+  )
