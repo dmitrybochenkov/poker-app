@@ -48,6 +48,15 @@ async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
     return
 
 
+async def _delete_message_if_possible(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    return
+  try:
+    await callback.message.delete()
+  except Exception:
+    return
+
+
 REGISTRATION_USER_STATES = {
   RegistrationState.waiting_for_played_before_answer.state,
   RegistrationState.waiting_for_new_name.state,
@@ -292,10 +301,11 @@ async def finish_existing_row_id_registration(callback: CallbackQuery, state: FS
     return
 
   selected_value = callback.data.split(":", 1)[1]
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   if selected_value == "new":
     await state.set_state(RegistrationState.waiting_for_new_name)
-    await callback.message.answer(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
+    if callback.message is not None:
+      await callback.message.answer(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
     await callback.answer()
     return
 
@@ -316,10 +326,11 @@ async def finish_existing_row_id_registration(callback: CallbackQuery, state: FS
     linked_user_row_id=selected_user.row_id,
     linked_user_name=selected_user.name,
   )
-  await callback.message.answer(
-    Text.user.REGISTRATION_PLATFORM_PROMPT.value,
-    reply_markup=registration_platform_keyboard(),
-  )
+  if callback.message is not None:
+    await callback.message.answer(
+      Text.user.REGISTRATION_PLATFORM_PROMPT.value,
+      reply_markup=registration_platform_keyboard(),
+    )
   await callback.answer()
 
 
@@ -344,7 +355,7 @@ async def choose_registration_platform(callback: CallbackQuery, state: FSMContex
   if callback.message is None or callback.from_user is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   platform = callback.data.split(":", 1)[1]
   if platform not in {"tg", "vk"}:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
