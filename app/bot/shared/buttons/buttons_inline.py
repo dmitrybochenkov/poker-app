@@ -12,6 +12,6 @@ class RegistrationInlineBtns(Enum):
 
 class AdminInlineBtns(Enum):
   APPROVE = "✅ Принять"
-  CORRECT = "✏️ Изменить"
+  CORRECT = "✏️ Изменить имя"
   REJECT = "❌ Отклонить"
   LINK = "🔗 Привязать"
