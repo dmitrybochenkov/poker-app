@@ -265,9 +265,8 @@ async def choose_registration_branch(callback: CallbackQuery, state: FSMContext)
       candidates = await repository.list_approved_without_telegram_id()
 
     await state.clear()
-    await callback.message.edit_text(Text.user.REGISTRATION_PLAYED_BEFORE_Y.value)
-    await callback.message.answer(
-      Text.user.REGISTRATION_PLATFORM_CANDIDATES.value,
+    await callback.message.edit_text(
+      Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
       reply_markup=registration_candidates_keyboard(users=candidates),
     )
   else:
@@ -354,7 +353,7 @@ async def choose_registration_platform(callback: CallbackQuery, state: FSMContex
     message=callback.message,
     state=state,
     name=selected_name,
-    success_text=Text.user.REGISTRATION_LINK_WAIT.value,
+    success_text=Text.user.REGISTRATION_WAIT.value,
     linked_to_user=linked_user,
     requester_telegram_id=callback.from_user.id,
     notification_platform=platform,
