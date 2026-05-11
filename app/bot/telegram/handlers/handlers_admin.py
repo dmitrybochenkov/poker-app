@@ -14,10 +14,15 @@ from app.application.use_cases.correct_user import CorrectUserUseCase
 from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
+from app.application.use_cases.poker.start_poker import StartPokerUseCase
+from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
-from app.bot.telegram.keyboards import link_candidates_keyboard, make_admin_candidates_keyboard
+from app.bot.telegram.keyboards import link_candidates_keyboard, make_admin_candidates_keyboard, poker_params_keyboard
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.states import RegistrationState
+from app.bot.vk.api import send_vk_message
+from app.db.repositories.poker_param_repository import PokerParamRepository
+from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -31,6 +36,79 @@ async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
     await callback.message.edit_reply_markup(reply_markup=None)
   except Exception:
     return
+
+
+@router.message(Command("start_poker"))
+@router.message(F.text == Buttons.admin_main.START_POKER.value)
+async def start_poker_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+
+    use_case = StartPokerUseCase(
+      poker_repository=PokerRepository(session),
+      poker_param_repository=PokerParamRepository(session),
+    )
+    can_start, params = await use_case.get_start_data()
+    if not can_start:
+      await message.answer(Text.admin.POKER_STARTED.value)
+      return
+    if not params:
+      await message.answer(Text.admin.POKER_PARAMS_EMPTY.value)
+      return
+
+  await message.answer(
+    Text.admin.POKER_PARAMS_CHOOSE.value,
+    reply_markup=poker_params_keyboard(params=params),
+  )
+
+
+@router.callback_query(F.data.startswith("pokerstart:"))
+async def start_poker_with_param(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+
+  params_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+
+    use_case = StartPokerUseCase(
+      poker_repository=PokerRepository(session),
+      poker_param_repository=PokerParamRepository(session),
+    )
+    created = await use_case.execute(params_id=params_id)
+    if created is None:
+      await callback.answer(Text.admin.POKER_STARTED.value, show_alert=True)
+      return
+
+    tg_user_ids = await user_repository.list_approved_tg_ids()
+    vk_user_ids = await user_repository.list_approved_vk_ids()
+
+  from app.bot.telegram.runtime import telegram_bot
+
+  if telegram_bot is not None:
+    for user_id in tg_user_ids:
+      await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_POKER.value)
+  for user_id in vk_user_ids:
+    await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value)
+
+  if callback.message is not None:
+    await callback.message.edit_text(Text.admin.POKER_START_SUCCESS.value)
+  await callback.answer(Text.admin.POKER_START_SUCCESS.value)
 
 
 @router.message(Command("make_admin"))

@@ -8,4 +8,5 @@ registration_review_keyboard = InlineKbs.registration_review_vk
 registration_link_review_keyboard = InlineKbs.registration_link_review_vk
 link_candidates_keyboard = InlineKbs.link_candidates_vk
 make_admin_candidates_keyboard = InlineKbs.make_admin_candidates_vk
+poker_params_keyboard = InlineKbs.poker_params_vk
 registration_candidates_keyboard = InlineKbs.registration_candidates_vk

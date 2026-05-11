@@ -220,6 +220,17 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def poker_params_tg(*, params: list) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for p in params[:20]:
+      keyboard.button(
+        text=f"ID {p.row_id}: {p.buyin_size_chips}/{p.buyin_size_rub}, BB {p.bb_size_chips}",
+        callback_data=f"pokerstart:{p.row_id}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for user in users[:20]:
@@ -317,6 +328,27 @@ class InlineKbs:
               "payload": {
                 "action": "make_admin_select",
                 "row_id": user.row_id,
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_params_vk(*, params: list) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for p in params[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": f"ID {p.row_id}: {p.buyin_size_chips}/{p.buyin_size_rub}, BB {p.bb_size_chips}"[:40],
+              "payload": {
+                "action": "poker_start_param",
+                "params_id": p.row_id,
               },
             },
             "color": "primary",

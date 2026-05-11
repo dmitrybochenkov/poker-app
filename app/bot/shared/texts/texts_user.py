@@ -42,3 +42,4 @@ class UserText(Enum):
   REGISTRATION_BANK_PROMPT = "Введи название банка."
   REGISTRATION_PHONE_PROMPT = "Введи номер телефона, начиная с 7."
   REGISTRATION_PHONE_INVALID = "Номер должен начинаться с 7 и содержать 11 цифр."
+  START_POKER = "Начало покера. Желающим принять участие в игре пора заходить в покер рум!"

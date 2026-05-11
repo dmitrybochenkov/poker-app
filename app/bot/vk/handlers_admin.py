@@ -10,11 +10,15 @@ from app.application.use_cases.approve_user import ApproveUserUseCase
 from app.application.use_cases.correct_user import CorrectUserUseCase
 from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
+from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
+from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.vk.api import clear_vk_inline_keyboard, send_vk_message, send_vk_message_event_answer
-from app.bot.vk.keyboards import link_candidates_keyboard, main_keyboard, make_admin_candidates_keyboard
+from app.bot.vk.keyboards import link_candidates_keyboard, main_keyboard, make_admin_candidates_keyboard, poker_params_keyboard
+from app.db.repositories.poker_param_repository import PokerParamRepository
+from app.db.repositories.poker_repository import PokerRepository
 from app.bot.vk.state import WAITING_FOR_ADMIN_CORRECTED_NAME, vk_user_contexts, vk_user_states
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
@@ -304,6 +308,44 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     await send_vk_message(user_id=admin_user_id, message=result_text)
     return PlainTextResponse("ok")
 
+  if action == "poker_start_param":
+    params_id = callback_payload.get("params_id")
+    if not isinstance(params_id, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if admin_user_id not in admin_ids:
+        result_text = Text.admin.NO_RIGHTS.value
+      else:
+        use_case = StartPokerUseCase(
+          poker_repository=PokerRepository(session),
+          poker_param_repository=PokerParamRepository(session),
+        )
+        created = await use_case.execute(params_id=params_id)
+        if created is None:
+          result_text = Text.admin.POKER_STARTED.value
+        else:
+          result_text = Text.admin.POKER_START_SUCCESS.value
+          tg_user_ids = await user_repository.list_approved_tg_ids()
+          vk_user_ids = await user_repository.list_approved_vk_ids()
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text=result_text,
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=admin_user_id, message=result_text)
+    if result_text == Text.admin.POKER_START_SUCCESS.value:
+      from app.bot.telegram.runtime import telegram_bot
+      if telegram_bot is not None:
+        for user_id in tg_user_ids:
+          await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_POKER.value)
+      for user_id in vk_user_ids:
+        await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value)
+    return PlainTextResponse("ok")
+
   return PlainTextResponse("ok")
 
 
@@ -388,6 +430,31 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       user_id=user_id,
       message=Text.admin.MAKE_ADMIN_PROMPT.value,
       keyboard=make_admin_candidates_keyboard(users=candidates),
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_main.START_POKER.value or text.lower() in {"start_poker", "/start_poker"}:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      use_case = StartPokerUseCase(
+        poker_repository=PokerRepository(session),
+        poker_param_repository=PokerParamRepository(session),
+      )
+      can_start, params = await use_case.get_start_data()
+      if not can_start:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_STARTED.value)
+        return PlainTextResponse("ok")
+      if not params:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_PARAMS_EMPTY.value)
+        return PlainTextResponse("ok")
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.admin.POKER_PARAMS_CHOOSE.value,
+      keyboard=poker_params_keyboard(params=params),
     )
     return PlainTextResponse("ok")
 

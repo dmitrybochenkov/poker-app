@@ -5,6 +5,7 @@ from app.application.use_cases.poker.navigation import NavigationUseCases
 from app.application.use_cases.poker.player import PlayerUseCases
 from app.application.use_cases.poker.stat import StatUseCases
 from app.application.use_cases.poker.table import PokerTableUseCases
+from app.application.use_cases.poker.start_poker import StartPokerUseCase
 
 __all__ = [
   "BetUseCases",
@@ -14,4 +15,5 @@ __all__ = [
   "PlayerUseCases",
   "StatUseCases",
   "PokerTableUseCases",
+  "StartPokerUseCase",
 ]
