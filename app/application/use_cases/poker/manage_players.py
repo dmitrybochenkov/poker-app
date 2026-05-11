@@ -49,6 +49,13 @@ class ManagePokerPlayersUseCase:
     poker, _ = active
     return await self.poker_repository.set_cashier(poker, cashier_id=cashier_id)
 
+  async def remove_player_from_active_poker(self, *, player_id: int) -> bool | None:
+    active = await self.poker_repository.get_started()
+    if active is None:
+      return None
+    poker, _ = active
+    return await self.poker_data_repository.remove_player(date=poker.date, player_id=player_id)
+
   async def add_buyin_to_active_player(self, *, player_id: int, buyins_count: int):
     active = await self.poker_repository.get_started()
     if active is None:

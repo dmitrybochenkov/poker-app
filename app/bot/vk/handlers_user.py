@@ -7,6 +7,7 @@ from app.application.exceptions import (
   UserRegistrationPendingError,
 )
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -35,6 +36,8 @@ from app.bot.vk.state import (
   vk_user_states,
 )
 from app.db.models.user import User
+from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -217,6 +220,67 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
 
 
 async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextResponse | None:
+  if text == Buttons.main.ROOM.value:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value)
+        return PlainTextResponse("ok")
+      if not user.is_approved:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value)
+        return PlainTextResponse("ok")
+
+      use_case = ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+      )
+      players = await use_case.list_active_poker_players()
+      if players:
+        already_in_room = any(int(item.player_id) == int(user_id) for item in players)
+        if already_in_room:
+          await send_vk_message(user_id=user_id, message=Text.user.ROOM_ALREADY_JOINED.value)
+          return PlainTextResponse("ok")
+
+      created = await use_case.add_player_to_active_poker(
+        player_id=int(user_id),
+        player_name=user.name,
+      )
+      if created is None:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
+        return PlainTextResponse("ok")
+
+    await send_vk_message(user_id=user_id, message=Text.user.ROOM_JOINED.value)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.room.STATUS.value:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value)
+        return PlainTextResponse("ok")
+      if not user.is_approved:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value)
+        return PlainTextResponse("ok")
+
+      use_case = ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+      )
+      players = await use_case.list_active_poker_players()
+      if not players:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
+        return PlainTextResponse("ok")
+
+      player = next((item for item in players if int(item.player_id) == int(user_id)), None)
+      if player is None:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
+        return PlainTextResponse("ok")
+
+    await send_vk_message(user_id=user_id, message=Text.user.STATUS_BUYINS.value.format(buyins=player.buyins))
+    return PlainTextResponse("ok")
+
   if text == Buttons.new_user.REGISTRATION.value:
     if vk_user_states.get(user_id) in {
       WAITING_FOR_PLAYED_BEFORE,

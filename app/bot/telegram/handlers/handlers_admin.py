@@ -24,6 +24,7 @@ from app.bot.telegram.keyboards import (
   poker_add_player_candidates_keyboard,
   poker_buyin_candidates_keyboard,
   poker_cashier_candidates_keyboard,
+  poker_remove_player_candidates_keyboard,
   poker_params_keyboard,
 )
 from app.bot.telegram.notifications import notify_user_about_approval
@@ -238,6 +239,61 @@ async def add_player_callback(callback: CallbackQuery) -> None:
   if callback.message is not None:
     await callback.message.edit_text(f"{Text.admin.POKER_ADD_PLAYER_SUCCESS.value}\n\nИмя: {user.name}")
   await callback.answer(Text.admin.POKER_ADD_PLAYER_SUCCESS.value)
+
+
+@router.message(Command("remove_player"))
+@router.message(F.text == Buttons.admin_room.REMOVE_PLAYER.value)
+async def remove_player_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    if not players:
+      await message.answer(Text.admin.POKER_PLAYERS_EMPTY.value)
+      return
+  await message.answer(
+    Text.admin.POKER_REMOVE_PLAYER_CHOOSE.value,
+    reply_markup=poker_remove_player_candidates_keyboard(players=players),
+  )
+
+
+@router.callback_query(F.data.startswith("pokerremove:"))
+async def remove_player_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  player_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    removed = await use_case.remove_player_from_active_poker(player_id=player_id)
+    if removed is None:
+      await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
+      return
+    if removed is False:
+      await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
+      return
+  if callback.message is not None:
+    await callback.message.edit_text(Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value)
+  await callback.answer(Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value)
 
 
 @router.message(Command("buyin"))

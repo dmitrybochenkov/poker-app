@@ -51,3 +51,11 @@ class PokerDataRepository:
     await self.session.commit()
     await self.session.refresh(item)
     return item
+
+  async def remove_player(self, *, date, player_id: int) -> bool:
+    item = await self.get_player(date=date, player_id=player_id)
+    if item is None:
+      return False
+    await self.session.delete(item)
+    await self.session.commit()
+    return True

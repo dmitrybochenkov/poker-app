@@ -24,6 +24,8 @@ class AdminText(Enum):
   POKER_ADD_PLAYER_CHOOSE = "Выбери игрока для добавления в активный покер:"
   POKER_ADD_PLAYER_EMPTY = "Нет доступных игроков для добавления."
   POKER_ADD_PLAYER_SUCCESS = "Игрок добавлен в активный покер."
+  POKER_REMOVE_PLAYER_CHOOSE = "Выбери игрока для удаления из активного покера:"
+  POKER_REMOVE_PLAYER_SUCCESS = "Игрок удален из активного покера."
   POKER_BUYIN_CHOOSE = "Выбери игрока для закупа:"
   POKER_BUYIN_EMPTY = "Некого закупать: в активном покере нет игроков."
   POKER_BUYIN_PROMPT = "Введи количество закупов (целое число > 0)."

@@ -253,6 +253,17 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def poker_remove_player_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for player in players[:20]:
+      keyboard.button(
+        text=player.player_name,
+        callback_data=f"pokerremove:{player.player_id}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def poker_buyin_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -427,6 +438,27 @@ class InlineKbs:
               },
             },
             "color": "primary",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_remove_player_candidates_vk(*, players: list) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for player in players[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": player.player_name[:40],
+              "payload": {
+                "action": "poker_remove_player_select",
+                "player_id": int(player.player_id),
+              },
+            },
+            "color": "negative",
           }
         ]
       )

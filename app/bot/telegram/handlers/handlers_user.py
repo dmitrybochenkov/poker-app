@@ -10,6 +10,7 @@ from app.application.exceptions import (
   UserRegistrationPendingError,
 )
 from app.application.use_cases.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -29,6 +30,8 @@ from app.bot.vk.keyboards import (
 )
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
 from app.db.models.user import User
+from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -91,6 +94,76 @@ async def start_registration(message: Message, state: FSMContext) -> None:
     Text.user.REGISTRATION_PLAYED_BEFORE_Q.value,
     reply_markup=played_before_keyboard(),
   )
+
+
+@router.message(F.text == Buttons.room.STATUS.value)
+async def show_user_status(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    user = await user_repository.get_by_telegram_id(message.from_user.id)
+    if user is None:
+      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value)
+      return
+    if not user.is_approved:
+      await message.answer(Text.user.STATUS_PENDING.value)
+      return
+
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    if not players:
+      await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
+      return
+
+    player = next((item for item in players if int(item.player_id) == int(message.from_user.id)), None)
+    if player is None:
+      await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
+      return
+
+  await message.answer(Text.user.STATUS_BUYINS.value.format(buyins=player.buyins))
+
+
+@router.message(F.text == Buttons.main.ROOM.value)
+async def join_poker_room(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    user = await user_repository.get_by_telegram_id(message.from_user.id)
+    if user is None:
+      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value)
+      return
+    if not user.is_approved:
+      await message.answer(Text.user.STATUS_PENDING.value)
+      return
+
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    if players:
+      already_in_room = any(int(item.player_id) == int(message.from_user.id) for item in players)
+      if already_in_room:
+        await message.answer(Text.user.ROOM_ALREADY_JOINED.value)
+        return
+    created = await use_case.add_player_to_active_poker(
+      player_id=int(message.from_user.id),
+      player_name=user.name,
+    )
+    if created is None:
+      await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
+      return
+
+  await message.answer(Text.user.ROOM_JOINED.value)
 
 
 async def _submit_registration_request(

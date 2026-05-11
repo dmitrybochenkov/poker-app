@@ -36,6 +36,7 @@ class AdminRoomBtns(Enum):
   FINISH_POKER = "🏁 Финиш покера"
   CALCULATE_POKER = "🤖 Рассчитать покер"
   ADD_PLAYER = "👨 Добавить игрока"
+  REMOVE_PLAYER = "❌ Удалить игрока"
   CORRECT_POKER = "🔧 Исправить данные"
   TO_ROOM = "♣️ В ПокерРум"
 
