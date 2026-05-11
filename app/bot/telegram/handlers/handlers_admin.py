@@ -23,6 +23,7 @@ from app.bot.telegram.keyboards import (
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
   poker_buyin_candidates_keyboard,
+  poker_cashout_candidates_keyboard,
   poker_cashier_candidates_keyboard,
   poker_remove_player_candidates_keyboard,
   poker_params_keyboard,
@@ -376,6 +377,87 @@ async def buyin_count_input(message: Message, state: FSMContext) -> None:
       return
   await state.clear()
   await message.answer(f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
+
+
+@router.message(Command("cashout"))
+@router.message(F.text == Buttons.admin_room.CASHOUT.value)
+async def cashout_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    if not players:
+      await message.answer(Text.admin.POKER_CASHOUT_EMPTY.value)
+      return
+  await message.answer(
+    Text.admin.POKER_CASHOUT_CHOOSE.value,
+    reply_markup=poker_cashout_candidates_keyboard(players=players),
+  )
+
+
+@router.callback_query(F.data.startswith("pokercashout:"))
+async def cashout_select_callback(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  player_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+  await state.set_state(AdminPokerState.waiting_for_cashout_amount)
+  await state.update_data(cashout_player_id=player_id)
+  if callback.message is not None:
+    await callback.message.answer(Text.admin.POKER_CASHOUT_PROMPT.value)
+  await callback.answer()
+
+
+@router.message(AdminPokerState.waiting_for_cashout_amount)
+async def cashout_amount_input(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or not message.text:
+    await message.answer(Text.admin.POKER_CASHOUT_INVALID.value)
+    return
+  if not message.text.isdigit() or int(message.text) < 0:
+    await message.answer(Text.admin.POKER_CASHOUT_INVALID.value)
+    return
+  money_rub = int(message.text)
+  data = await state.get_data()
+  player_id = data.get("cashout_player_id")
+  if player_id is None:
+    await state.clear()
+    await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await state.clear()
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    updated = await use_case.set_cashout_for_active_player(player_id=int(player_id), money_rub=money_rub)
+    if updated is None:
+      await state.clear()
+      await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+      return
+  await state.clear()
+  await message.answer(f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n{updated.player_name}: {updated.money_rub} ₽")
 
 
 @router.message(Command("make_admin"))

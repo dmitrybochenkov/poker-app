@@ -23,6 +23,7 @@ from app.bot.vk.keyboards import (
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
   poker_buyin_candidates_keyboard,
+  poker_cashout_candidates_keyboard,
   poker_cashier_candidates_keyboard,
   poker_remove_player_candidates_keyboard,
   poker_params_keyboard,
@@ -31,7 +32,13 @@ from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
-from app.bot.vk.state import WAITING_FOR_ADMIN_BUYIN_COUNT, WAITING_FOR_ADMIN_CORRECTED_NAME, vk_user_contexts, vk_user_states
+from app.bot.vk.state import (
+  WAITING_FOR_ADMIN_BUYIN_COUNT,
+  WAITING_FOR_ADMIN_CASHOUT_AMOUNT,
+  WAITING_FOR_ADMIN_CORRECTED_NAME,
+  vk_user_contexts,
+  vk_user_states,
+)
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -474,6 +481,29 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     await send_vk_message(user_id=admin_user_id, message=result_text)
     return PlainTextResponse("ok")
 
+  if action == "poker_cashout_select":
+    player_id = callback_payload.get("player_id")
+    if not isinstance(player_id, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if admin_user_id not in admin_ids:
+        result_text = Text.admin.NO_RIGHTS.value
+      else:
+        vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CASHOUT_AMOUNT
+        vk_user_contexts[admin_user_id] = {"cashout_player_id": str(player_id)}
+        result_text = Text.admin.POKER_CASHOUT_PROMPT.value
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text=result_text,
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=admin_user_id, message=result_text)
+    return PlainTextResponse("ok")
+
   return PlainTextResponse("ok")
 
 
@@ -529,6 +559,40 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await send_vk_message(user_id=user_id, message=f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_CASHOUT_AMOUNT:
+    if not text.isdigit() or int(text) < 0:
+      await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_INVALID.value)
+      return PlainTextResponse("ok")
+    money_rub = int(text)
+    player_id = vk_user_contexts.get(user_id, {}).get("cashout_player_id")
+    if player_id is None:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await send_vk_message(user_id=user_id, message=Text.admin.REQUEST_NOT_FOUND.value)
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      use_case = ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+      )
+      updated = await use_case.set_cashout_for_active_player(player_id=int(player_id), money_rub=money_rub)
+      if updated is None:
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+        return PlainTextResponse("ok")
+    vk_user_states.pop(user_id, None)
+    vk_user_contexts.pop(user_id, None)
+    await send_vk_message(user_id=user_id, message=f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n{updated.player_name}: {updated.money_rub} ₽")
     return PlainTextResponse("ok")
 
   if text.lower().startswith("approve "):
@@ -712,6 +776,28 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       user_id=user_id,
       message=Text.admin.POKER_BUYIN_CHOOSE.value,
       keyboard=poker_buyin_candidates_keyboard(players=players),
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_room.CASHOUT.value or text.lower() in {"cashout", "/cashout"}:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      use_case = ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+      )
+      players = await use_case.list_active_poker_players()
+      if not players:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_EMPTY.value)
+        return PlainTextResponse("ok")
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.admin.POKER_CASHOUT_CHOOSE.value,
+      keyboard=poker_cashout_candidates_keyboard(players=players),
     )
     return PlainTextResponse("ok")
 
