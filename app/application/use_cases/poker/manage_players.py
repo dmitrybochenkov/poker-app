@@ -1,3 +1,4 @@
+from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 
@@ -7,9 +8,11 @@ class ManagePokerPlayersUseCase:
     self,
     poker_repository: PokerRepository,
     poker_data_repository: PokerDataRepository,
+    buyin_data_repository: BuyinDataRepository | None = None,
   ) -> None:
     self.poker_repository = poker_repository
     self.poker_data_repository = poker_data_repository
+    self.buyin_data_repository = buyin_data_repository
 
   async def add_player_to_active_poker(
     self,
@@ -45,3 +48,25 @@ class ManagePokerPlayersUseCase:
       return None
     poker, _ = active
     return await self.poker_repository.set_cashier(poker, cashier_id=cashier_id)
+
+  async def add_buyin_to_active_player(self, *, player_id: int, buyins_count: int):
+    active = await self.poker_repository.get_started()
+    if active is None:
+      return None
+    poker, _ = active
+    updated = await self.poker_data_repository.add_buyins(
+      date=poker.date,
+      player_id=player_id,
+      buyins_count=buyins_count,
+    )
+    if updated is None:
+      return None
+    if self.buyin_data_repository is not None:
+      await self.buyin_data_repository.add_buyin(
+        poker_date=poker.date,
+        player_id=player_id,
+        player_name=updated.player_name,
+        buyins_count=buyins_count,
+      )
+      await self.buyin_data_repository.session.commit()
+    return updated

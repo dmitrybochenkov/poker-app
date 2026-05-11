@@ -22,15 +22,17 @@ from app.bot.telegram.keyboards import (
   link_candidates_keyboard,
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
+  poker_buyin_candidates_keyboard,
   poker_cashier_candidates_keyboard,
   poker_params_keyboard,
 )
 from app.bot.telegram.notifications import notify_user_about_approval
-from app.bot.telegram.states import RegistrationState
+from app.bot.telegram.states import AdminPokerState, RegistrationState
 from app.bot.vk.api import send_vk_message
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -134,6 +136,7 @@ async def set_cashier_menu(message: Message) -> None:
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
+      buyin_data_repository=BuyinDataRepository(session),
     )
     players = await use_case.list_active_poker_players()
     if not players:
@@ -161,6 +164,7 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
+      buyin_data_repository=BuyinDataRepository(session),
     )
     updated = await use_case.set_cashier_for_active_poker(cashier_id=player_id)
     if updated is None:
@@ -234,6 +238,88 @@ async def add_player_callback(callback: CallbackQuery) -> None:
   if callback.message is not None:
     await callback.message.edit_text(f"{Text.admin.POKER_ADD_PLAYER_SUCCESS.value}\n\nИмя: {user.name}")
   await callback.answer(Text.admin.POKER_ADD_PLAYER_SUCCESS.value)
+
+
+@router.message(Command("buyin"))
+@router.message(F.text == Buttons.room.BUYIN.value)
+async def buyin_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    if not players:
+      await message.answer(Text.admin.POKER_BUYIN_EMPTY.value)
+      return
+  await message.answer(
+    Text.admin.POKER_BUYIN_CHOOSE.value,
+    reply_markup=poker_buyin_candidates_keyboard(players=players),
+  )
+
+
+@router.callback_query(F.data.startswith("pokerbuyin:"))
+async def buyin_select_callback(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  player_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+  await state.set_state(AdminPokerState.waiting_for_buyin_count)
+  await state.update_data(buyin_player_id=player_id)
+  if callback.message is not None:
+    await callback.message.answer(Text.admin.POKER_BUYIN_PROMPT.value)
+  await callback.answer()
+
+
+@router.message(AdminPokerState.waiting_for_buyin_count)
+async def buyin_count_input(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or not message.text:
+    await message.answer(Text.admin.POKER_BUYIN_INVALID.value)
+    return
+  if not message.text.isdigit() or int(message.text) <= 0:
+    await message.answer(Text.admin.POKER_BUYIN_INVALID.value)
+    return
+  buyins_count = int(message.text)
+  data = await state.get_data()
+  player_id = data.get("buyin_player_id")
+  if player_id is None:
+    await state.clear()
+    await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await state.clear()
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+      buyin_data_repository=BuyinDataRepository(session),
+    )
+    updated = await use_case.add_buyin_to_active_player(player_id=int(player_id), buyins_count=buyins_count)
+    if updated is None:
+      await state.clear()
+      await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+      return
+  await state.clear()
+  await message.answer(f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
 
 
 @router.message(Command("make_admin"))

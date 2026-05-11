@@ -11,4 +11,5 @@ make_admin_candidates_keyboard = InlineKbs.make_admin_candidates_vk
 poker_params_keyboard = InlineKbs.poker_params_vk
 poker_add_player_candidates_keyboard = InlineKbs.poker_add_player_candidates_vk
 poker_cashier_candidates_keyboard = InlineKbs.poker_cashier_candidates_vk
+poker_buyin_candidates_keyboard = InlineKbs.poker_buyin_candidates_vk
 registration_candidates_keyboard = InlineKbs.registration_candidates_vk
