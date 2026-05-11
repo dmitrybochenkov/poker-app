@@ -129,3 +129,31 @@ class ReplyKbs:
       one_time=False,
       color="primary",
     )
+
+  @classmethod
+  def betting_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.betting.MAKE_BET,
+          Buttons.betting.CURRENT_TOURS,
+          Buttons.betting.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def betting_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.betting.MAKE_BET,
+          Buttons.betting.CURRENT_TOURS,
+          Buttons.betting.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )

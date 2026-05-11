@@ -11,6 +11,7 @@ from app.application.use_cases.user.correct_user import CorrectUserUseCase
 from app.application.use_cases.user.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.user.make_admin import MakeAdminUseCase
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.calculate_bet_scores import CalculateBetScoresUseCase
 from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.application.use_cases.user.reject_user import RejectUserUseCase
 from app.bot.shared.buttons.buttons import Buttons
@@ -31,6 +32,9 @@ from app.bot.vk.keyboards import (
 )
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_param_repository import BetParamRepository
+from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.bot.vk.state import (
@@ -762,7 +766,17 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
         return PlainTextResponse("ok")
       poker, _ = active
-      players = await PokerDataRepository(session).list_players(date=poker.date)
+      poker_data_repository = PokerDataRepository(session)
+      players = await poker_data_repository.list_players(date=poker.date)
+      await CalculateBetScoresUseCase(
+        bet_repository=BetRepository(session),
+        bet_param_repository=BetParamRepository(session),
+        bet_tournament_param_repository=BetTournamentParamRepository(session),
+        poker_data_repository=poker_data_repository,
+      ).execute(
+        poker_id=poker.row_id,
+        poker_date=poker.date,
+      )
       await poker_repository.finish(poker)
     await _notify_players_about_finish(players=players)
     await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)

@@ -19,3 +19,5 @@ class Poker(Base):
   is_going: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
   is_bettable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   is_ready_for_chips_entering: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+  winners: Mapped[str | None] = mapped_column(nullable=True)
+  loosers: Mapped[str | None] = mapped_column(nullable=True)

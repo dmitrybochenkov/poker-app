@@ -17,3 +17,8 @@ class AdminInlineBtns(Enum):
   CORRECT = "✏️ Изменить имя"
   REJECT = "❌ Отклонить"
   LINK = "🔗 Привязать"
+
+
+class BettingInlineBtns(Enum):
+  REGULAR_TOUR = "💰 Регулярный турнир"
+  YEAR_TOUR = "🎄 Годовой турнир"

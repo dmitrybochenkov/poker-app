@@ -92,6 +92,20 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def betting_tournament_tg() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=Buttons.betting_inline.REGULAR_TOUR.value,
+      callback_data="bet_tournament:regular",
+    )
+    keyboard.button(
+      text=Buttons.betting_inline.YEAR_TOUR.value,
+      callback_data="bet_tournament:year",
+    )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(
@@ -665,6 +679,33 @@ class InlineKbs:
             "color": "primary",
           },
         ]
+      ]
+    )
+
+  @staticmethod
+  def betting_tournament_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Buttons.betting_inline.REGULAR_TOUR.value,
+              "payload": {"action": "bet_tournament_regular"},
+            },
+            "color": "primary",
+          }
+        ],
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Buttons.betting_inline.YEAR_TOUR.value,
+              "payload": {"action": "bet_tournament_year"},
+            },
+            "color": "primary",
+          }
+        ],
       ]
     )
 

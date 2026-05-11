@@ -10,11 +10,14 @@ from app.application.exceptions import (
   UserRegistrationPendingError,
 )
 from app.application.use_cases.user.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.poker.bet import BetUseCases
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   main_keyboard,
+  betting_keyboard,
+  betting_tournament_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_candidates_page_keyboard,
@@ -32,6 +35,9 @@ from app.bot.vk.keyboards import (
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_tournament_repository import BetTournamentRepository
+from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
@@ -65,6 +71,10 @@ REGISTRATION_USER_STATES = {
   RegistrationState.waiting_for_bank_name.state,
   RegistrationState.waiting_for_phone.state,
 }
+
+
+def _format_tournament_name(tournament_type: str) -> str:
+  return "Регулярный турнир" if tournament_type == "regular" else "Годовой турнир"
 
 
 @router.message(CommandStart())
@@ -174,6 +184,79 @@ async def join_poker_room(message: Message) -> None:
       return
 
   await message.answer(Text.user.ROOM_JOINED.value)
+
+
+@router.message(F.text == Buttons.main.BETTING.value)
+async def open_betting_menu(message: Message) -> None:
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
+
+
+@router.message(F.text == Buttons.betting.TO_MAIN.value)
+async def back_to_main_from_betting(message: Message) -> None:
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=main_keyboard)
+
+
+@router.message(F.text == Buttons.betting.CURRENT_TOURS.value)
+async def show_current_betting_tournaments(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    use_case = BetUseCases(
+      user_repository=UserRepository(session),
+      poker_repository=PokerRepository(session),
+      bet_repository=BetRepository(session),
+      bet_tournament_repository=BetTournamentRepository(session),
+      bet_tournament_param_repository=BetTournamentParamRepository(session),
+    )
+    tournaments = await use_case.list_current_tournaments_with_banks()
+    bets = await use_case.list_user_bets_for_current_poker(better_id=message.from_user.id)
+
+  if not tournaments:
+    await message.answer(Text.user.BETTING_CURRENT_EMPTY.value)
+    return
+
+  tournament_lines = [
+    f"• {_format_tournament_name(tournament)} — банк {bank_kopecks // 100} ₽"
+    for tournament, bank_kopecks in tournaments
+  ]
+  await message.answer(Text.user.BETTING_CURRENT_LIST.value.format(tournaments="\n".join(tournament_lines)))
+
+  if bets:
+    bet_lines = [
+      f"• {_format_tournament_name(bet.tournament_type)} — {bet.amount_kopecks // 100} ₽"
+      for bet in bets
+    ]
+    await message.answer(Text.user.BETTING_USER_BETS.value.format(bets="\n".join(bet_lines)))
+  else:
+    await message.answer(Text.user.BETTING_USER_BETS_EMPTY.value)
+
+
+@router.message(F.text == Buttons.betting.MAKE_BET.value)
+async def start_make_bet(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  async with SessionFactory() as session:
+    use_case = BetUseCases(
+      user_repository=UserRepository(session),
+      poker_repository=PokerRepository(session),
+      bet_repository=BetRepository(session),
+      bet_tournament_repository=BetTournamentRepository(session),
+      bet_tournament_param_repository=BetTournamentParamRepository(session),
+    )
+    tournaments = await use_case.list_current_tournaments()
+
+  if not tournaments:
+    await message.answer(Text.user.BETTING_NOT_OPEN.value)
+    return
+
+  await state.set_state(RegistrationState.waiting_for_bet_amount)
+  await message.answer(
+    Text.user.BETTING_TOURNAMENT_CHOOSE.value,
+    reply_markup=betting_tournament_keyboard(),
+  )
 
 
 async def _submit_registration_request(
@@ -450,6 +533,79 @@ async def choose_optional_registration_data(callback: CallbackQuery, state: FSMC
     tel_number=data.get("tel_number"),
   )
   await callback.answer()
+
+
+@router.callback_query(F.data.startswith("bet_tournament:"))
+async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  tournament_type = callback.data.split(":", 1)[1]
+  if tournament_type not in {"regular", "year"}:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  await _clear_inline_keyboard(callback)
+  await state.set_state(RegistrationState.waiting_for_bet_amount)
+  await state.update_data(bet_tournament_type=tournament_type)
+  await callback.message.answer(Text.user.BETTING_AMOUNT_PROMPT.value)
+  await callback.answer()
+
+
+@router.message(RegistrationState.waiting_for_bet_amount)
+async def save_bet_amount(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or not message.text:
+    await message.answer(Text.user.BETTING_AMOUNT_PROMPT.value)
+    return
+  amount_text = "".join(ch for ch in message.text if ch.isdigit())
+  if not amount_text:
+    await message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
+    return
+  amount_rub = int(amount_text)
+  if amount_rub <= 0:
+    await message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
+    return
+
+  data = await state.get_data()
+  tournament_type = data.get("bet_tournament_type")
+  if tournament_type not in {"regular", "year"}:
+    await state.clear()
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    return
+
+  async with SessionFactory() as session:
+    use_case = BetUseCases(
+      user_repository=UserRepository(session),
+      poker_repository=PokerRepository(session),
+      bet_repository=BetRepository(session),
+      bet_tournament_repository=BetTournamentRepository(session),
+      bet_tournament_param_repository=BetTournamentParamRepository(session),
+    )
+    created, status = await use_case.create_bet(
+      better_id=message.from_user.id,
+      tournament_type=tournament_type,
+      amount_kopecks=amount_rub * 100,
+    )
+
+  if status == "already_bet":
+    await message.answer(Text.user.BETTING_ALREADY_EXISTS.value)
+    await state.clear()
+    return
+  if status in {"betting_closed", "user_not_approved", "invalid_tournament"}:
+    await message.answer(Text.user.BETTING_NOT_OPEN.value)
+    await state.clear()
+    return
+  if status == "invalid_amount" or created is None:
+    await message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
+    return
+
+  await message.answer(
+    Text.user.BETTING_CREATED.value.format(
+      tournament=_format_tournament_name(tournament_type),
+      amount_rub=amount_rub,
+    ),
+    reply_markup=betting_keyboard,
+  )
+  await state.clear()
 
 
 @router.message(RegistrationState.waiting_for_bank_name)

@@ -1,7 +1,9 @@
 from app.bot.shared.keyboards.keyboards import InlineKbs, ReplyKbs
 
 main_keyboard = ReplyKbs.main_vk()
+betting_keyboard = ReplyKbs.betting_vk()
 played_before_keyboard = InlineKbs.played_before_vk
+betting_tournament_keyboard = InlineKbs.betting_tournament_vk
 registration_optional_details_keyboard = InlineKbs.registration_optional_details_vk
 registration_platform_keyboard = InlineKbs.registration_platform_vk
 registration_review_keyboard = InlineKbs.registration_review_vk

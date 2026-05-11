@@ -29,7 +29,7 @@ class BuyinDataRepository:
     result = await self.session.execute(
       select(BuyinData)
       .where(BuyinData.player_id == player_id)
-      .order_by(BuyinData.created_at.desc(), BuyinData.row_id.desc())
+      .order_by(BuyinData.row_id.desc())
       .limit(limit)
     )
     return list(result.scalars().all())
