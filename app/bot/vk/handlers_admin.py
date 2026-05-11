@@ -378,6 +378,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
           created = await use_case.add_player_to_active_poker(
             player_id=int(user.vk_id),
             player_name=user.name,
+            notification_platform=user.notification_platform or "vk",
           )
           if created is None:
             result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value

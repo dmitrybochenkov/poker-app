@@ -231,6 +231,7 @@ async def add_player_callback(callback: CallbackQuery) -> None:
     created = await use_case.add_player_to_active_poker(
       player_id=int(user.telegram_id),
       player_name=user.name,
+      notification_platform=user.notification_platform or "tg",
     )
     if created is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
