@@ -50,6 +50,14 @@ async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
     return
 
 
+def _format_rub_from_kopecks(value_kopecks: int) -> str:
+  rub = int(value_kopecks) // 100
+  kop = int(value_kopecks) % 100
+  if kop == 0:
+    return str(rub)
+  return f"{rub}.{kop:02d}"
+
+
 async def _notify_players_about_finish(*, players: list) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
@@ -64,7 +72,7 @@ async def _notify_players_about_finish(*, players: list) -> None:
 
       text = Text.user.FINISH_POKER.value.format(
         buyins=player.buyins,
-        money_rub=player.money_rub,
+        cashout_rub=_format_rub_from_kopecks(player.money_kopecks),
       )
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
         await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
@@ -516,6 +524,7 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
     await message.answer(Text.admin.POKER_CASHOUT_INVALID.value)
     return
   money_rub = int(message.text)
+  money_kopecks = money_rub * 100
   data = await state.get_data()
   player_id = data.get("cashout_player_id")
   if player_id is None:
@@ -533,13 +542,16 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
     )
-    updated = await use_case.set_cashout_for_active_player(player_id=int(player_id), money_rub=money_rub)
+    updated = await use_case.set_cashout_for_active_player(player_id=int(player_id), money_kopecks=money_kopecks)
     if updated is None:
       await state.clear()
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
   await state.clear()
-  await message.answer(f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n{updated.player_name}: {updated.money_rub} ₽")
+  await message.answer(
+    f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n"
+    f"{updated.player_name}: {_format_rub_from_kopecks(updated.money_kopecks)} ₽"
+  )
 
 
 @router.message(Command("make_admin"))

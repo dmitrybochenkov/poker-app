@@ -17,7 +17,7 @@ class PokerData(Base):
   big_buyin_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
   super_buyin_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
   chips: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-  money_rub: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+  money_kopecks: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
   __table_args__ = (
     UniqueConstraint("date", "player_id", name="uq_poker_data_date_player"),

@@ -32,7 +32,7 @@ class UserText(Enum):
   REGISTRATION_PHONE_INVALID = "Номер должен начинаться с 7 и содержать 11 цифр."
   START_POKER = "Начало покера. Желающим принять участие в игре пора заходить в покер рум!"
   START_BETTING = "Ставки открыты. Можно делать ставки на текущую игру."
-  FINISH_POKER = "Покер завершен.\n\nИтог:\n🏦 Закупы: {buyins}\n💸 Кешаут: {money_rub} ₽"
+  FINISH_POKER = "Покер завершен.\n\nИтог:\n🏦 Закупы: {buyins}\n💸 Кешаут: {cashout_rub} ₽"
   STATUS_NEED_REGISTRATION = "Сначала зарегистрируйся."
   STATUS_PENDING = "Твоя заявка еще на рассмотрении у администратора."
   STATUS_ROOM_CLOSED = "Сейчас покер рум закрыт."

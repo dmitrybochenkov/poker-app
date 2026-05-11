@@ -60,11 +60,11 @@ class PokerDataRepository:
     await self.session.commit()
     return True
 
-  async def set_cashout(self, *, date, player_id: int, money_rub: int) -> PokerData | None:
+  async def set_cashout(self, *, date, player_id: int, money_kopecks: int) -> PokerData | None:
     item = await self.get_player(date=date, player_id=player_id)
     if item is None:
       return None
-    item.money_rub = int(money_rub)
+    item.money_kopecks = int(money_kopecks)
     await self.session.commit()
     await self.session.refresh(item)
     return item

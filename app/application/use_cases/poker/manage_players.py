@@ -78,7 +78,7 @@ class ManagePokerPlayersUseCase:
       await self.buyin_data_repository.session.commit()
     return updated
 
-  async def set_cashout_for_active_player(self, *, player_id: int, money_rub: int):
+  async def set_cashout_for_active_player(self, *, player_id: int, money_kopecks: int):
     active = await self.poker_repository.get_started()
     if active is None:
       return None
@@ -86,5 +86,5 @@ class ManagePokerPlayersUseCase:
     return await self.poker_data_repository.set_cashout(
       date=poker.date,
       player_id=player_id,
-      money_rub=money_rub,
+      money_kopecks=money_kopecks,
     )
