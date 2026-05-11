@@ -14,14 +14,12 @@ class PokerDataRepository:
     date,
     player_id: int,
     player_name: str,
-    notification_platform: str | None = None,
     is_prev_winner: bool = False,
   ) -> PokerData:
     item = PokerData(
       date=date,
       player_id=player_id,
       player_name=player_name,
-      notification_platform=notification_platform,
       is_prev_winner=is_prev_winner,
     )
     self.session.add(item)
