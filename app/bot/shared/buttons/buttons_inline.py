@@ -2,6 +2,8 @@ from enum import Enum
 
 
 class RegistrationInlineBtns(Enum):
+  YES = "Да"
+  NO = "Нет"
   NOT_IN_LIST = "Меня нет в списке"
   OPTIONAL_BANK = "🏦 Банк"
   OPTIONAL_PHONE = "☎️ Телефон"

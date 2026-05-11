@@ -167,6 +167,36 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLATFORM_PROMPT.value, keyboard=registration_platform_keyboard())
     return PlainTextResponse("ok")
 
+  if action in {"registration_played_before_yes", "registration_played_before_no"}:
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    if action == "registration_played_before_yes":
+      async with SessionFactory() as session:
+        repository = UserRepository(session)
+        candidates = await repository.list_approved_without_vk_id()
+      vk_user_states.pop(user_id, None)
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
+      )
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
+        keyboard=registration_candidates_keyboard(users=candidates),
+      )
+      return PlainTextResponse("ok")
+
+    vk_user_states[user_id] = WAITING_FOR_NEW_NAME
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=user_id,
+      peer_id=peer_id,
+      text=Text.user.REGISTRATION_NEW_NAME_PROMPT.value,
+    )
+    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
+    return PlainTextResponse("ok")
+
   if action == "registration_existing_page":
     page = callback_payload.get("page")
     if not isinstance(page, int):
@@ -345,12 +375,12 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       )
       return PlainTextResponse("ok")
     vk_user_states[user_id] = WAITING_FOR_PLAYED_BEFORE
-    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLAYED_BEFORE_Q.value, keyboard=played_before_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLAYED_BEFORE_Q.value, keyboard=played_before_keyboard())
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_PLAYED_BEFORE:
     normalized_text = text.lower()
-    if normalized_text == Buttons.registration_flow.YES.value.lower():
+    if normalized_text == Buttons.registration_inline.YES.value.lower():
       async with SessionFactory() as session:
         repository = UserRepository(session)
         candidates = await repository.list_approved_without_vk_id()
@@ -361,11 +391,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         keyboard=registration_candidates_keyboard(users=candidates),
       )
       return PlainTextResponse("ok")
-    if normalized_text == Buttons.registration_flow.NO.value.lower():
+    if normalized_text == Buttons.registration_inline.NO.value.lower():
       vk_user_states[user_id] = WAITING_FOR_NEW_NAME
       await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLAYED_BEFORE_Q.value, keyboard=played_before_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLAYED_BEFORE_Q.value, keyboard=played_before_keyboard())
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_NEW_NAME:

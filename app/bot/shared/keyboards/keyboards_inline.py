@@ -22,15 +22,42 @@ class InlineKbs:
   def played_before_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
-      text=Buttons.registration_flow.YES.value,
+      text=Buttons.registration_inline.YES.value,
       callback_data="registration_played_before:yes",
     )
     keyboard.button(
-      text=Buttons.registration_flow.NO.value,
+      text=Buttons.registration_inline.NO.value,
       callback_data="registration_played_before:no",
     )
     keyboard.adjust(1)
     return keyboard.as_markup()
+
+  @staticmethod
+  def played_before_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Buttons.registration_inline.YES.value,
+              "payload": {"action": "registration_played_before_yes"},
+            },
+            "color": "primary",
+          }
+        ],
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Buttons.registration_inline.NO.value,
+              "payload": {"action": "registration_played_before_no"},
+            },
+            "color": "primary",
+          }
+        ],
+      ]
+    )
 
   @staticmethod
   def registration_optional_details_tg() -> InlineKeyboardMarkup:

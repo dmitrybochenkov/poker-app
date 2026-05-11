@@ -91,18 +91,3 @@ class ReplyKbs:
       one_time=False,
       color="primary",
     )
-
-  @classmethod
-  def played_before_vk(cls) -> str:
-    return cls.make_vk(
-      _button_labels(
-        [
-          Buttons.registration_flow.YES,
-          Buttons.registration_flow.NO,
-        ]
-      ),
-      adjust=1,
-      one_time=False,
-      inline=True,
-      color="primary",
-    )
