@@ -20,6 +20,7 @@ from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   link_candidates_keyboard,
+  link_candidates_page_keyboard,
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
   poker_buyin_candidates_keyboard,
@@ -878,3 +879,24 @@ async def choose_link_target_callback(callback: CallbackQuery) -> None:
       f"VK ID: {user.vk_id}"
     )
   await callback.answer(Text.admin.LINK_SUCCESS.value)
+
+
+@router.callback_query(F.data.startswith("linkto_page:"))
+async def choose_link_target_page_callback(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
+    return
+  _, pending_row_id_text, page_text = callback.data.split(":", 2)
+  pending_row_id = int(pending_row_id_text)
+  page = int(page_text)
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    approved_users = await repository.list_approved()
+  await callback.message.edit_reply_markup(
+    reply_markup=link_candidates_page_keyboard(
+      pending_row_id=pending_row_id,
+      users=approved_users,
+      page=page,
+    )
+  )
+  await callback.answer()

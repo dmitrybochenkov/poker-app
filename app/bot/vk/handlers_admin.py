@@ -19,6 +19,7 @@ from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.vk.api import clear_vk_inline_keyboard, send_vk_message, send_vk_message_event_answer
 from app.bot.vk.keyboards import (
   link_candidates_keyboard,
+  link_candidates_page_keyboard,
   main_keyboard,
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
@@ -329,6 +330,32 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
+    return None
+
+  if action == "link_page":
+    pending_row_id = callback_payload.get("pending_row_id")
+    page = callback_payload.get("page")
+    if not isinstance(pending_row_id, int) or not isinstance(page, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      approved_users = await repository.list_approved()
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text=Text.admin.LINK_ACTION.value,
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=admin_user_id,
+      message=Text.admin.LINK_PROMPT.value,
+      keyboard=link_candidates_page_keyboard(
+        pending_row_id=pending_row_id,
+        users=approved_users,
+        page=page,
+      ),
+    )
     return None
 
   if action == "make_admin_select":

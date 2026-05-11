@@ -15,3 +15,5 @@ poker_remove_player_candidates_keyboard = InlineKbs.poker_remove_player_candidat
 poker_buyin_candidates_keyboard = InlineKbs.poker_buyin_candidates_vk
 poker_cashout_candidates_keyboard = InlineKbs.poker_cashout_candidates_vk
 registration_candidates_keyboard = InlineKbs.registration_candidates_vk
+registration_candidates_page_keyboard = InlineKbs.registration_candidates_vk_page
+link_candidates_page_keyboard = InlineKbs.link_candidates_vk_page

@@ -17,6 +17,7 @@ from app.bot.telegram.keyboards import (
   main_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
+  registration_candidates_page_keyboard,
   registration_link_review_keyboard,
   registration_optional_details_keyboard,
   registration_platform_keyboard,
@@ -318,6 +319,22 @@ async def finish_existing_row_id_registration(callback: CallbackQuery, state: FS
   await callback.message.answer(
     Text.user.REGISTRATION_PLATFORM_PROMPT.value,
     reply_markup=registration_platform_keyboard(),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("registration_existing_page:"))
+async def registration_existing_page(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  page = int(callback.data.split(":", 1)[1])
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    candidates = await repository.list_approved_without_telegram_id()
+  await callback.message.edit_text(
+    Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
+    reply_markup=registration_candidates_page_keyboard(users=candidates, page=page),
   )
   await callback.answer()
 

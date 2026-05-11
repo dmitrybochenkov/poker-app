@@ -8,6 +8,8 @@ from app.db.models.user import User
 
 
 class InlineKbs:
+  PAGE_SIZE = 5
+
   @staticmethod
   def _format_rub_from_kopecks(value_kopecks: int) -> str:
     rub = int(value_kopecks) // 100
@@ -27,7 +29,7 @@ class InlineKbs:
       text=Buttons.registration_flow.NO.value,
       callback_data="registration_played_before:no",
     )
-    keyboard.adjust(2)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
   @staticmethod
@@ -45,7 +47,7 @@ class InlineKbs:
       text=Buttons.registration_inline.OPTIONAL_SKIP.value,
       callback_data="registration_optional:skip",
     )
-    keyboard.adjust(2, 1)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
   @staticmethod
@@ -59,7 +61,7 @@ class InlineKbs:
       text=Buttons.registration_inline.PLATFORM_VK.value,
       callback_data="registration_platform:vk",
     )
-    keyboard.adjust(2)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
   @staticmethod
@@ -83,7 +85,7 @@ class InlineKbs:
         callback_data=f"link:{row_id}",
       ),
     )
-    keyboard.adjust(3, 1)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
   @staticmethod
@@ -103,7 +105,7 @@ class InlineKbs:
         callback_data=f"link:{row_id}",
       ),
     )
-    keyboard.adjust(2, 1)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
   @staticmethod
@@ -121,7 +123,9 @@ class InlineKbs:
               },
             },
             "color": "positive",
-          },
+          }
+        ],
+        [
           {
             "action": {
               "type": "callback",
@@ -132,7 +136,7 @@ class InlineKbs:
               },
             },
             "color": "negative",
-          },
+          }
         ],
         [
           {
@@ -145,7 +149,9 @@ class InlineKbs:
               },
             },
             "color": "secondary",
-          },
+          }
+        ],
+        [
           {
             "action": {
               "type": "callback",
@@ -176,7 +182,9 @@ class InlineKbs:
               },
             },
             "color": "positive",
-          },
+          }
+        ],
+        [
           {
             "action": {
               "type": "callback",
@@ -207,11 +215,28 @@ class InlineKbs:
 
   @staticmethod
   def link_candidates_tg(*, pending_row_id: int, users: list[User]) -> InlineKeyboardMarkup:
+    return InlineKbs.link_candidates_tg_page(pending_row_id=pending_row_id, users=users, page=0)
+
+  @staticmethod
+  def link_candidates_tg_page(*, pending_row_id: int, users: list[User], page: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
-    for user in users[:20]:
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    page_users = users[start:end]
+    for user in page_users:
       keyboard.button(
         text=f"{user.row_id} — {user.name}",
         callback_data=f"linkto:{pending_row_id}:{user.row_id}",
+      )
+    if page > 0:
+      keyboard.button(
+        text="⬅️",
+        callback_data=f"linkto_page:{pending_row_id}:{page - 1}",
+      )
+    if end < len(users):
+      keyboard.button(
+        text="➡️",
+        callback_data=f"linkto_page:{pending_row_id}:{page + 1}",
       )
     keyboard.adjust(1)
     return keyboard.as_markup()
@@ -298,11 +323,28 @@ class InlineKbs:
 
   @staticmethod
   def registration_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
+    return InlineKbs.registration_candidates_tg_page(users=users, page=0)
+
+  @staticmethod
+  def registration_candidates_tg_page(*, users: list[User], page: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
-    for user in users[:20]:
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    page_users = users[start:end]
+    for user in page_users:
       keyboard.button(
-        text=user.name,
+        text=user.name[:64],
         callback_data=f"registration_existing:{user.row_id}",
+      )
+    if page > 0:
+      keyboard.button(
+        text="⬅️",
+        callback_data=f"registration_existing_page:{page - 1}",
+      )
+    if end < len(users):
+      keyboard.button(
+        text="➡️",
+        callback_data=f"registration_existing_page:{page + 1}",
       )
     keyboard.button(
       text=Buttons.registration_inline.NOT_IN_LIST.value,
@@ -313,8 +355,15 @@ class InlineKbs:
 
   @staticmethod
   def registration_candidates_vk(*, users: list[User]) -> str:
+    return InlineKbs.registration_candidates_vk_page(users=users, page=0)
+
+  @staticmethod
+  def registration_candidates_vk_page(*, users: list[User], page: int) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
-    for user in users[:10]:
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    page_users = users[start:end]
+    for user in page_users:
       rows.append(
         [
           {
@@ -327,6 +376,38 @@ class InlineKbs:
               },
             },
             "color": "primary",
+          }
+        ]
+      )
+    if page > 0:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": "⬅️",
+              "payload": {
+                "action": "registration_existing_page",
+                "page": page - 1,
+              },
+            },
+            "color": "secondary",
+          }
+        ]
+      )
+    if end < len(users):
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": "➡️",
+              "payload": {
+                "action": "registration_existing_page",
+                "page": page + 1,
+              },
+            },
+            "color": "secondary",
           }
         ]
       )
@@ -358,7 +439,9 @@ class InlineKbs:
               "payload": {"action": "registration_optional_bank"},
             },
             "color": "primary",
-          },
+          }
+        ],
+        [
           {
             "action": {
               "type": "callback",
@@ -543,7 +626,9 @@ class InlineKbs:
               "payload": {"action": "registration_platform_tg"},
             },
             "color": "primary",
-          },
+          }
+        ],
+        [
           {
             "action": {
               "type": "callback",
@@ -558,8 +643,15 @@ class InlineKbs:
 
   @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
+    return InlineKbs.link_candidates_vk_page(pending_row_id=pending_row_id, users=users, page=0)
+
+  @staticmethod
+  def link_candidates_vk_page(*, pending_row_id: int, users: list[User], page: int) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
-    for user in users[:10]:
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    page_users = users[start:end]
+    for user in page_users:
       rows.append(
         [
           {
@@ -573,6 +665,40 @@ class InlineKbs:
               },
             },
             "color": "primary",
+          }
+        ]
+      )
+    if page > 0:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": "⬅️",
+              "payload": {
+                "action": "link_page",
+                "pending_row_id": pending_row_id,
+                "page": page - 1,
+              },
+            },
+            "color": "secondary",
+          }
+        ]
+      )
+    if end < len(users):
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": "➡️",
+              "payload": {
+                "action": "link_page",
+                "pending_row_id": pending_row_id,
+                "page": page + 1,
+              },
+            },
+            "color": "secondary",
           }
         ]
       )

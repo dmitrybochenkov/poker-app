@@ -101,7 +101,7 @@ class ReplyKbs:
           Buttons.registration_flow.NO,
         ]
       ),
-      adjust=2,
+      adjust=1,
       one_time=False,
       inline=True,
       color="primary",
