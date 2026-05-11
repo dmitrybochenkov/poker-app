@@ -685,6 +685,23 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
+  if text == Buttons.admin_room.FINISH_POKER.value or text.lower() in {"finish_poker", "/finish_poker"}:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      poker_repository = PokerRepository(session)
+      active = await poker_repository.get_started()
+      if active is None:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+        return PlainTextResponse("ok")
+      poker, _ = active
+      await poker_repository.finish(poker)
+    await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)
+    return PlainTextResponse("ok")
+
   if text == Buttons.admin_room.ADD_PLAYER.value or text.lower() in {"add_player", "/add_player"}:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)

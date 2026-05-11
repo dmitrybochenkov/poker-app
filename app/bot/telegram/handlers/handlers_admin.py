@@ -123,6 +123,28 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
   await callback.answer(Text.admin.POKER_START_SUCCESS.value)
 
 
+@router.message(Command("finish_poker"))
+@router.message(F.text == Buttons.admin_room.FINISH_POKER.value)
+async def finish_poker(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    poker_repository = PokerRepository(session)
+    active = await poker_repository.get_started()
+    if active is None:
+      await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+      return
+    poker, _ = active
+    await poker_repository.finish(poker)
+  await message.answer(Text.admin.POKER_FINISH_SUCCESS.value)
+
+
 @router.message(Command("set_cashier"))
 @router.message(F.text == Buttons.admin_room.SET_CASHIER.value)
 async def set_cashier_menu(message: Message) -> None:
