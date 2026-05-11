@@ -1,4 +1,4 @@
-from app.bot.shared.texts import Text
+from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import send_vk_message
 from app.db.models.user import User
 

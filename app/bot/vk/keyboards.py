@@ -1,4 +1,4 @@
-from app.bot.shared.kbs import InlineKbs, ReplyKbs
+from app.bot.shared.keyboards.keyboards import InlineKbs, ReplyKbs
 
 main_keyboard = ReplyKbs.new_user_vk()
 played_before_keyboard = ReplyKbs.played_before_vk()
@@ -7,4 +7,5 @@ registration_platform_keyboard = InlineKbs.registration_platform_vk
 registration_review_keyboard = InlineKbs.registration_review_vk
 registration_link_review_keyboard = InlineKbs.registration_link_review_vk
 link_candidates_keyboard = InlineKbs.link_candidates_vk
+make_admin_candidates_keyboard = InlineKbs.make_admin_candidates_vk
 registration_candidates_keyboard = InlineKbs.registration_candidates_vk

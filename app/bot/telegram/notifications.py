@@ -2,7 +2,7 @@ from html import escape
 
 from aiogram.types import InlineKeyboardMarkup
 
-from app.bot.shared.texts import Text
+from app.bot.shared.texts.texts import Text
 from app.db.models.user import User
 
 

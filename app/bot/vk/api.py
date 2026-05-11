@@ -51,3 +51,18 @@ async def send_vk_message_event_answer(
       ensure_ascii=False,
     ),
   )
+
+
+async def clear_vk_inline_keyboard(*, peer_id: int, conversation_message_id: int) -> None:
+  await vk_api_call(
+    "messages.edit",
+    peer_id=peer_id,
+    conversation_message_id=conversation_message_id,
+    keyboard=json.dumps(
+      {
+        "inline": True,
+        "buttons": [],
+      },
+      ensure_ascii=False,
+    ),
+  )

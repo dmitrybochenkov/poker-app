@@ -1,7 +1,7 @@
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from app.bot.telegram.handlers import router
+from app.bot.telegram.handlers.handlers import router
 from app.config.settings import settings
 
 telegram_dispatcher = Dispatcher(storage=MemoryStorage())
