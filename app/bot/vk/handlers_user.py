@@ -20,6 +20,7 @@ from app.bot.vk.keyboards import (
   main_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
+  registration_candidates_page_keyboard,
   registration_link_review_keyboard as vk_registration_link_review_keyboard,
   registration_optional_details_keyboard,
   registration_platform_keyboard,
@@ -164,6 +165,27 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_PLATFORM_PROMPT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLATFORM_PROMPT.value, keyboard=registration_platform_keyboard())
+    return PlainTextResponse("ok")
+
+  if action == "registration_existing_page":
+    page = callback_payload.get("page")
+    if not isinstance(page, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      candidates = await repository.list_approved_without_vk_id()
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=user_id,
+      peer_id=peer_id,
+      text=Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
+    )
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
+      keyboard=registration_candidates_page_keyboard(users=candidates, page=page),
+    )
     return PlainTextResponse("ok")
 
   if action == "registration_new_name":

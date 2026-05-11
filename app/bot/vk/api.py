@@ -67,3 +67,12 @@ async def clear_vk_inline_keyboard(*, peer_id: int, conversation_message_id: int
     conversation_message_id=conversation_message_id,
     keyboard=json.dumps({"inline": True, "buttons": []}, ensure_ascii=False),
   )
+
+
+async def delete_vk_message(*, peer_id: int, conversation_message_id: int) -> None:
+  await vk_api_call(
+    "messages.delete",
+    peer_id=peer_id,
+    cmids=str(conversation_message_id),
+    delete_for_all=1,
+  )
