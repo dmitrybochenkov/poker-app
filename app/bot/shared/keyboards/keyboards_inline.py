@@ -26,15 +26,15 @@ class InlineKbs:
   def registration_optional_details_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
-      text=Text.user.REGISTRATION_OPTIONAL_BANK.value,
+      text=Buttons.registration_inline.OPTIONAL_BANK.value,
       callback_data="registration_optional:bank",
     )
     keyboard.button(
-      text=Text.user.REGISTRATION_OPTIONAL_PHONE.value,
+      text=Buttons.registration_inline.OPTIONAL_PHONE.value,
       callback_data="registration_optional:phone",
     )
     keyboard.button(
-      text=Text.user.REGISTRATION_OPTIONAL_SKIP.value,
+      text=Buttons.registration_inline.OPTIONAL_SKIP.value,
       callback_data="registration_optional:skip",
     )
     keyboard.adjust(2, 1)
@@ -44,11 +44,11 @@ class InlineKbs:
   def registration_platform_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
-      text=Text.user.REGISTRATION_PLATFORM_TG.value,
+      text=Buttons.registration_inline.PLATFORM_TG.value,
       callback_data="registration_platform:tg",
     )
     keyboard.button(
-      text=Text.user.REGISTRATION_PLATFORM_VK.value,
+      text=Buttons.registration_inline.PLATFORM_VK.value,
       callback_data="registration_platform:vk",
     )
     keyboard.adjust(2)
@@ -343,7 +343,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": Text.user.REGISTRATION_OPTIONAL_BANK.value,
+              "label": Buttons.registration_inline.OPTIONAL_BANK.value,
               "payload": {"action": "registration_optional_bank"},
             },
             "color": "primary",
@@ -351,7 +351,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": Text.user.REGISTRATION_OPTIONAL_PHONE.value,
+              "label": Buttons.registration_inline.OPTIONAL_PHONE.value,
               "payload": {"action": "registration_optional_phone"},
             },
             "color": "primary",
@@ -361,7 +361,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": Text.user.REGISTRATION_OPTIONAL_SKIP.value,
+              "label": Buttons.registration_inline.OPTIONAL_SKIP.value,
               "payload": {"action": "registration_optional_skip"},
             },
             "color": "secondary",
@@ -525,7 +525,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": Text.user.REGISTRATION_PLATFORM_TG.value,
+              "label": Buttons.registration_inline.PLATFORM_TG.value,
               "payload": {"action": "registration_platform_tg"},
             },
             "color": "primary",
@@ -533,7 +533,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": Text.user.REGISTRATION_PLATFORM_VK.value,
+              "label": Buttons.registration_inline.PLATFORM_VK.value,
               "payload": {"action": "registration_platform_vk"},
             },
             "color": "primary",
