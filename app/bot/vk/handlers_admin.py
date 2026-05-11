@@ -203,7 +203,7 @@ async def _process_vk_link(
   )
 
 
-async def handle_message_event(event_object: dict) -> PlainTextResponse:
+async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
   admin_user_id = event_object.get("user_id")
   peer_id = event_object.get("peer_id")
   event_id = event_object.get("event_id")
@@ -212,7 +212,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
   action = callback_payload.get("action")
 
   if not admin_user_id or not peer_id or not event_id:
-    return PlainTextResponse("ok")
+    return None
 
   if action == "approve":
     row_id = callback_payload.get("row_id")
@@ -227,7 +227,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "reject":
     row_id = callback_payload.get("row_id")
@@ -242,7 +242,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "correct":
     row_id = callback_payload.get("row_id")
@@ -258,7 +258,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=Text.admin.CORRECT_PROMPT.value)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "link":
     row_id = callback_payload.get("row_id")
@@ -279,7 +279,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
       message=Text.admin.LINK_PROMPT.value,
       keyboard=link_candidates_keyboard(pending_row_id=row_id, users=approved_users),
     )
-    return PlainTextResponse("ok")
+    return None
 
   if action == "link_to":
     pending_row_id = callback_payload.get("pending_row_id")
@@ -299,7 +299,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "make_admin_select":
     row_id = callback_payload.get("row_id")
@@ -325,7 +325,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "poker_start_param":
     params_id = callback_payload.get("params_id")
@@ -363,7 +363,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
           await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_POKER.value)
       for user_id in vk_user_ids:
         await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "poker_add_player_select":
     row_id = callback_payload.get("row_id")
@@ -399,7 +399,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
-    return PlainTextResponse("ok")
+    return None
 
   if action == "poker_remove_player_select":
     player_id = callback_payload.get("player_id")
@@ -504,7 +504,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse:
     await send_vk_message(user_id=admin_user_id, message=result_text)
     return PlainTextResponse("ok")
 
-  return PlainTextResponse("ok")
+  return None
 
 
 async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextResponse | None:
