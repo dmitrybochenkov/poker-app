@@ -79,14 +79,52 @@ class ReplyKbs:
   @classmethod
   def new_user_tg(cls) -> ReplyKeyboardMarkup:
     return cls.make_tg(
-      _button_labels([Buttons.new_user.REGISTRATION]),
+      _button_labels(
+        [
+          Buttons.new_user.ABOUT,
+          Buttons.new_user.REGISTRATION,
+        ]
+      ),
       adjust=1,
     )
 
   @classmethod
   def new_user_vk(cls) -> str:
     return cls.make_vk(
-      _button_labels([Buttons.new_user.REGISTRATION]),
+      _button_labels(
+        [
+          Buttons.new_user.ABOUT,
+          Buttons.new_user.REGISTRATION,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def main_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.main.ROOM,
+          Buttons.main.POKER,
+          Buttons.main.BETTING,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def main_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.main.ROOM,
+          Buttons.main.POKER,
+          Buttons.main.BETTING,
+        ]
+      ),
       adjust=1,
       one_time=False,
       color="primary",
