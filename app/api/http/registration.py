@@ -8,10 +8,10 @@ from app.application.exceptions import (
   UserNotificationPlatformUnavailableError,
   UserRegistrationPendingError,
 )
-from app.application.use_cases.list_pending_registrations import (
+from app.application.use_cases.user.list_pending_registrations import (
   ListPendingRegistrationsUseCase,
 )
-from app.application.use_cases.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.user.request_registration import RequestRegistrationUseCase
 from app.db.dependencies import get_db_session
 from app.db.repositories.user_repository import UserRepository
 from app.schemas.registration import RegistrationRead, RegistrationRequest

@@ -9,11 +9,11 @@ from app.application.exceptions import (
   UserNameRequiredError,
   UserNotFoundError,
 )
-from app.application.use_cases.approve_user import ApproveUserUseCase
-from app.application.use_cases.correct_user import CorrectUserUseCase
-from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
-from app.application.use_cases.make_admin import MakeAdminUseCase
-from app.application.use_cases.reject_user import RejectUserUseCase
+from app.application.use_cases.user.approve_user import ApproveUserUseCase
+from app.application.use_cases.user.correct_user import CorrectUserUseCase
+from app.application.use_cases.user.link_pending_user import LinkPendingUserUseCase
+from app.application.use_cases.user.make_admin import MakeAdminUseCase
+from app.application.use_cases.user.reject_user import RejectUserUseCase
 from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons

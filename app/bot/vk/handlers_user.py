@@ -6,7 +6,7 @@ from app.application.exceptions import (
   UserNameRequiredError,
   UserRegistrationPendingError,
 )
-from app.application.use_cases.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.user.request_registration import RequestRegistrationUseCase
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text

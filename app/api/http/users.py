@@ -10,12 +10,12 @@ from app.application.exceptions import (
   UserNotificationPlatformUnavailableError,
   UserNotFoundError,
 )
-from app.application.use_cases.approve_user import ApproveUserUseCase
-from app.application.use_cases.correct_user import CorrectUserUseCase
-from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
-from app.application.use_cases.make_admin import MakeAdminUseCase
-from app.application.use_cases.register_user import RegisterUserUseCase
-from app.application.use_cases.reject_user import RejectUserUseCase
+from app.application.use_cases.user.approve_user import ApproveUserUseCase
+from app.application.use_cases.user.correct_user import CorrectUserUseCase
+from app.application.use_cases.user.link_pending_user import LinkPendingUserUseCase
+from app.application.use_cases.user.make_admin import MakeAdminUseCase
+from app.application.use_cases.user.register_user import RegisterUserUseCase
+from app.application.use_cases.user.reject_user import RejectUserUseCase
 from app.db.dependencies import get_db_session
 from app.db.repositories.user_repository import UserRepository
 from app.schemas.user import UserCorrectionRequest, UserCreate, UserRead
