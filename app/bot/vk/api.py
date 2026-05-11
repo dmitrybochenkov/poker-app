@@ -54,15 +54,16 @@ async def send_vk_message_event_answer(
 
 
 async def clear_vk_inline_keyboard(*, peer_id: int, conversation_message_id: int) -> None:
+  # VK may reject one keyboard shape depending on message/context; try both.
   await vk_api_call(
     "messages.edit",
     peer_id=peer_id,
     conversation_message_id=conversation_message_id,
-    keyboard=json.dumps(
-      {
-        "inline": True,
-        "buttons": [],
-      },
-      ensure_ascii=False,
-    ),
+    keyboard=json.dumps({"buttons": []}, ensure_ascii=False),
+  )
+  await vk_api_call(
+    "messages.edit",
+    peer_id=peer_id,
+    conversation_message_id=conversation_message_id,
+    keyboard=json.dumps({"inline": True, "buttons": []}, ensure_ascii=False),
   )

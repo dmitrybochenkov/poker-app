@@ -15,7 +15,7 @@ from app.bot.telegram.keyboards import (
   registration_review_keyboard as tg_registration_review_keyboard,
 )
 from app.bot.telegram.notifications import notify_admins_about_registration as notify_tg_admins_about_registration
-from app.bot.vk.api import send_vk_message, send_vk_message_event_answer
+from app.bot.vk.api import clear_vk_inline_keyboard, send_vk_message, send_vk_message_event_answer
 from app.bot.vk.keyboards import (
   main_keyboard,
   played_before_keyboard,
@@ -40,6 +40,18 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
+
+
+async def _clear_event_inline_keyboard_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
+  if peer_id is None or conversation_message_id is None:
+    return
+  try:
+    await clear_vk_inline_keyboard(
+      peer_id=peer_id,
+      conversation_message_id=conversation_message_id,
+    )
+  except Exception:
+    return
 
 
 async def _submit_registration_request(
@@ -124,6 +136,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
   user_id = event_object.get("user_id")
   peer_id = event_object.get("peer_id")
   event_id = event_object.get("event_id")
+  conversation_message_id = event_object.get("conversation_message_id")
   callback_payload = event_object.get("payload") or {}
   action = callback_payload.get("action")
   if not user_id or not peer_id or not event_id:
@@ -149,12 +162,14 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     context["linked_user_row_id"] = str(selected_user.row_id)
     context["linked_user_name"] = selected_user.name
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_PLATFORM_PROMPT.value)
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLATFORM_PROMPT.value, keyboard=registration_platform_keyboard())
     return PlainTextResponse("ok")
 
   if action == "registration_new_name":
     vk_user_states[user_id] = WAITING_FOR_NEW_NAME
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
     return PlainTextResponse("ok")
 
@@ -173,6 +188,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
         return PlainTextResponse("ok")
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_LINK_WAIT.value)
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await _submit_registration_request(
       user_id=user_id,
       name=selected_name,
@@ -188,6 +204,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       return PlainTextResponse("ok")
     vk_user_states[user_id] = WAITING_FOR_OPTIONAL_BANK
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_BANK_PROMPT.value)
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_BANK_PROMPT.value)
     return PlainTextResponse("ok")
 
@@ -197,6 +214,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       return PlainTextResponse("ok")
     vk_user_states[user_id] = WAITING_FOR_OPTIONAL_PHONE
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_PHONE_PROMPT.value)
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PHONE_PROMPT.value)
     return PlainTextResponse("ok")
 
@@ -207,6 +225,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_WAIT.value)
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await _submit_registration_request(
       user_id=user_id,
       name=registration_name,
