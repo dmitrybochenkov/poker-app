@@ -231,6 +231,28 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def poker_add_player_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for user in users[:20]:
+      keyboard.button(
+        text=user.name,
+        callback_data=f"pokeradd:{user.row_id}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_cashier_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for player in players[:20]:
+      keyboard.button(
+        text=player.player_name,
+        callback_data=f"pokercashier:{player.player_id}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for user in users[:20]:
@@ -349,6 +371,48 @@ class InlineKbs:
               "payload": {
                 "action": "poker_start_param",
                 "params_id": p.row_id,
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_add_player_candidates_vk(*, users: list[User]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for user in users[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": user.name[:40],
+              "payload": {
+                "action": "poker_add_player_select",
+                "row_id": user.row_id,
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_cashier_candidates_vk(*, players: list) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for player in players[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": player.player_name[:40],
+              "payload": {
+                "action": "poker_set_cashier_select",
+                "player_id": int(player.player_id),
               },
             },
             "color": "primary",

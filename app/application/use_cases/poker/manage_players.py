@@ -38,3 +38,10 @@ class ManagePokerPlayersUseCase:
       return []
     poker, _ = active
     return await self.poker_data_repository.list_players(date=poker.date)
+
+  async def set_cashier_for_active_poker(self, *, cashier_id: int):
+    active = await self.poker_repository.get_started()
+    if active is None:
+      return None
+    poker, _ = active
+    return await self.poker_repository.set_cashier(poker, cashier_id=cashier_id)

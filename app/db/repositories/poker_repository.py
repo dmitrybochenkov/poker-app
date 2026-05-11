@@ -32,3 +32,9 @@ class PokerRepository:
     await self.session.commit()
     await self.session.refresh(poker)
     return poker
+
+  async def set_cashier(self, poker: Poker, *, cashier_id: int) -> Poker:
+    poker.cashier_id = cashier_id
+    await self.session.commit()
+    await self.session.refresh(poker)
+    return poker

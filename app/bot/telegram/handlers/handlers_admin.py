@@ -15,14 +15,22 @@ from app.application.use_cases.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.make_admin import MakeAdminUseCase
 from app.application.use_cases.reject_user import RejectUserUseCase
 from app.application.use_cases.poker.start_poker import StartPokerUseCase
+from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
-from app.bot.telegram.keyboards import link_candidates_keyboard, make_admin_candidates_keyboard, poker_params_keyboard
+from app.bot.telegram.keyboards import (
+  link_candidates_keyboard,
+  make_admin_candidates_keyboard,
+  poker_add_player_candidates_keyboard,
+  poker_cashier_candidates_keyboard,
+  poker_params_keyboard,
+)
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.states import RegistrationState
 from app.bot.vk.api import send_vk_message
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -109,6 +117,123 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
   if callback.message is not None:
     await callback.message.edit_text(Text.admin.POKER_START_SUCCESS.value)
   await callback.answer(Text.admin.POKER_START_SUCCESS.value)
+
+
+@router.message(Command("set_cashier"))
+@router.message(F.text == Buttons.admin_room.SET_CASHIER.value)
+async def set_cashier_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    if not players:
+      await message.answer(Text.admin.POKER_PLAYERS_EMPTY.value)
+      return
+  await message.answer(
+    Text.admin.POKER_CASHIER_CHOOSE.value,
+    reply_markup=poker_cashier_candidates_keyboard(players=players),
+  )
+
+
+@router.callback_query(F.data.startswith("pokercashier:"))
+async def set_cashier_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  player_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    updated = await use_case.set_cashier_for_active_poker(cashier_id=player_id)
+    if updated is None:
+      await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
+      return
+  if callback.message is not None:
+    await callback.message.edit_text(Text.admin.POKER_CASHIER_SET.value)
+  await callback.answer(Text.admin.POKER_CASHIER_SET.value)
+
+
+@router.message(Command("add_player"))
+@router.message(F.text == Buttons.admin_room.ADD_PLAYER.value)
+async def add_player_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    players = await use_case.list_active_poker_players()
+    active_tg_ids = {int(player.player_id) for player in players}
+    approved_users = await user_repository.list_approved()
+    candidates = [
+      user for user in approved_users
+      if user.telegram_id is not None and int(user.telegram_id) not in active_tg_ids
+    ]
+    if not candidates:
+      await message.answer(Text.admin.POKER_ADD_PLAYER_EMPTY.value)
+      return
+  await message.answer(
+    Text.admin.POKER_ADD_PLAYER_CHOOSE.value,
+    reply_markup=poker_add_player_candidates_keyboard(users=candidates),
+  )
+
+
+@router.callback_query(F.data.startswith("pokeradd:"))
+async def add_player_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+    user = await user_repository.get_by_row_id(row_id)
+    if user is None or user.telegram_id is None:
+      await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    created = await use_case.add_player_to_active_poker(
+      player_id=int(user.telegram_id),
+      player_name=user.name,
+    )
+    if created is None:
+      await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
+      return
+  if callback.message is not None:
+    await callback.message.edit_text(f"{Text.admin.POKER_ADD_PLAYER_SUCCESS.value}\n\nИмя: {user.name}")
+  await callback.answer(Text.admin.POKER_ADD_PLAYER_SUCCESS.value)
 
 
 @router.message(Command("make_admin"))

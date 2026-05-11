@@ -9,4 +9,6 @@ registration_link_review_keyboard = InlineKbs.registration_link_review_tg
 link_candidates_keyboard = InlineKbs.link_candidates_tg
 make_admin_candidates_keyboard = InlineKbs.make_admin_candidates_tg
 poker_params_keyboard = InlineKbs.poker_params_tg
+poker_add_player_candidates_keyboard = InlineKbs.poker_add_player_candidates_tg
+poker_cashier_candidates_keyboard = InlineKbs.poker_cashier_candidates_tg
 registration_candidates_keyboard = InlineKbs.registration_candidates_tg
