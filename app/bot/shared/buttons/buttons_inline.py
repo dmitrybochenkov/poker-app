@@ -22,3 +22,5 @@ class AdminInlineBtns(Enum):
 class BettingInlineBtns(Enum):
   REGULAR_TOUR = "💰 Регулярный турнир"
   YEAR_TOUR = "🎄 Годовой турнир"
+  CONFIRM_YES = "✅ Подтвердить"
+  CONFIRM_NO = "❌ Отмена"

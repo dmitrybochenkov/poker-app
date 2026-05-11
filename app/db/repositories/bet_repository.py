@@ -12,6 +12,7 @@ class BetRepository:
     self,
     *,
     poker_id: int,
+    date=None,
     better_id: int,
     better_name: str,
     tournament_type: str,
@@ -19,9 +20,11 @@ class BetRepository:
     params_id: int | None = None,
     winner_name: str | None = None,
     loser_name: str | None = None,
+    is_paid: bool = False,
   ) -> Bet:
     bet = Bet(
       poker_id=poker_id,
+      date=date,
       better_id=better_id,
       better_name=better_name,
       tournament_type=tournament_type,
@@ -29,6 +32,7 @@ class BetRepository:
       amount_kopecks=amount_kopecks,
       winner_name=winner_name,
       loser_name=loser_name,
+      is_paid=is_paid,
     )
     self.session.add(bet)
     await self.session.flush()

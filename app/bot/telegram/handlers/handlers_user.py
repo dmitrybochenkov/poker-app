@@ -17,6 +17,10 @@ from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   main_keyboard,
   betting_keyboard,
+  betting_confirm_keyboard,
+  betting_player_keyboard,
+  betting_size_keyboard,
+  betting_stat_indicators_keyboard,
   betting_tournament_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
@@ -36,9 +40,11 @@ from app.bot.vk.notifications import notify_admins_about_registration as notify_
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
@@ -206,8 +212,10 @@ async def show_current_betting_tournaments(message: Message) -> None:
       user_repository=UserRepository(session),
       poker_repository=PokerRepository(session),
       bet_repository=BetRepository(session),
+      bet_param_repository=BetParamRepository(session),
       bet_tournament_repository=BetTournamentRepository(session),
       bet_tournament_param_repository=BetTournamentParamRepository(session),
+      poker_data_repository=PokerDataRepository(session),
     )
     tournaments = await use_case.list_current_tournaments_with_banks()
     bets = await use_case.list_user_bets_for_current_poker(better_id=message.from_user.id)
@@ -232,6 +240,52 @@ async def show_current_betting_tournaments(message: Message) -> None:
     await message.answer(Text.user.BETTING_USER_BETS_EMPTY.value)
 
 
+@router.message(F.text == Buttons.betting.BETTING_STAT.value)
+async def show_betting_stat_indicators(message: Message) -> None:
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+  if not indicators:
+    await message.answer(Text.user.BETTING_CURRENT_EMPTY.value)
+    return
+  await message.answer(
+    Text.user.BETTING_STAT_INDICATORS.value,
+    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=0),
+  )
+
+
+@router.callback_query(F.data.startswith("betstat_page:"))
+async def betting_stat_page(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  page = int(callback.data.split(":", 1)[1])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+  await callback.message.edit_text(
+    Text.user.BETTING_STAT_INDICATORS.value,
+    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=page),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("betstat_ind:"))
+async def betting_stat_indicator_selected(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  indicator_id = int(callback.data.split(":", 1)[1])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+  selected = next((item for item in indicators if int(item.row_id) == indicator_id), None)
+  if selected is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  await callback.answer()
+  await callback.message.answer(
+    Text.user.BETTING_STAT_SELECTED.value.format(indicator=f"{selected.pic} {selected.description}")
+  )
+
+
 @router.message(F.text == Buttons.betting.MAKE_BET.value)
 async def start_make_bet(message: Message, state: FSMContext) -> None:
   if message.from_user is None:
@@ -243,8 +297,10 @@ async def start_make_bet(message: Message, state: FSMContext) -> None:
       user_repository=UserRepository(session),
       poker_repository=PokerRepository(session),
       bet_repository=BetRepository(session),
+      bet_param_repository=BetParamRepository(session),
       bet_tournament_repository=BetTournamentRepository(session),
       bet_tournament_param_repository=BetTournamentParamRepository(session),
+      poker_data_repository=PokerDataRepository(session),
     )
     tournaments = await use_case.list_current_tournaments()
 
@@ -545,31 +601,141 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
   await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    use_case = BetUseCases(
+      user_repository=UserRepository(session),
+      poker_repository=PokerRepository(session),
+      bet_repository=BetRepository(session),
+      bet_param_repository=BetParamRepository(session),
+      bet_tournament_repository=BetTournamentRepository(session),
+      bet_tournament_param_repository=BetTournamentParamRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+    )
+    bet_params, players, status = await use_case.get_bet_draft_data(
+      better_id=callback.from_user.id,
+      tournament_type=tournament_type,
+    )
+  if status != "ok" or bet_params is None:
+    await state.clear()
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+    await callback.answer()
+    return
   await state.set_state(RegistrationState.waiting_for_bet_amount)
-  await state.update_data(bet_tournament_type=tournament_type)
-  await callback.message.answer(Text.user.BETTING_AMOUNT_PROMPT.value)
+  await state.update_data(
+    bet_tournament_type=tournament_type,
+    bet_players=[p.player_name for p in players],
+  )
+  await callback.message.answer(
+    Text.user.BETTING_SIZE_CHOOSE.value,
+    reply_markup=betting_size_keyboard(
+      small_size_kopecks=bet_params.small_size_kopecks,
+      big_size_kopecks=bet_params.big_size_kopecks,
+    ),
+  )
   await callback.answer()
 
 
-@router.message(RegistrationState.waiting_for_bet_amount)
-async def save_bet_amount(message: Message, state: FSMContext) -> None:
-  if message.from_user is None or not message.text:
-    await message.answer(Text.user.BETTING_AMOUNT_PROMPT.value)
+@router.callback_query(F.data.startswith("bet_size:"))
+async def choose_bet_size(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
-  amount_text = "".join(ch for ch in message.text if ch.isdigit())
-  if not amount_text:
-    await message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
+  data = await state.get_data()
+  players = data.get("bet_players")
+  if not isinstance(players, list) or not players:
+    await state.clear()
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
-  amount_rub = int(amount_text)
-  if amount_rub <= 0:
-    await message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
-    return
+  amount_kopecks = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  await state.update_data(bet_amount_kopecks=amount_kopecks)
+  await callback.message.answer(
+    Text.user.BETTING_WINNER_CHOOSE.value,
+    reply_markup=betting_player_keyboard(action="winner", players=players),
+  )
+  await callback.answer()
 
+
+@router.callback_query(F.data.startswith("bet_winner:"))
+async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  data = await state.get_data()
+  players = data.get("bet_players")
+  winner_name = callback.data.split(":", 1)[1]
+  if not isinstance(players, list) or winner_name not in players:
+    await state.clear()
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  loser_candidates = [player for player in players if player != winner_name]
+  await _clear_inline_keyboard(callback)
+  await state.update_data(bet_winner_name=winner_name)
+  await callback.message.answer(
+    Text.user.BETTING_LOSER_CHOOSE.value,
+    reply_markup=betting_player_keyboard(action="loser", players=loser_candidates),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("bet_loser:"))
+async def choose_bet_loser(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  loser_name = callback.data.split(":", 1)[1]
+  data = await state.get_data()
+  winner_name = data.get("bet_winner_name")
+  tournament_type = data.get("bet_tournament_type")
+  amount_kopecks = data.get("bet_amount_kopecks")
+  if (
+    not winner_name
+    or not tournament_type
+    or not isinstance(amount_kopecks, int)
+    or loser_name == winner_name
+  ):
+    await state.clear()
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  await _clear_inline_keyboard(callback)
+  await state.update_data(bet_loser_name=loser_name)
+  await callback.message.answer(
+    Text.user.BETTING_CONFIRM.value.format(
+      tournament=_format_tournament_name(tournament_type),
+      amount_rub=amount_kopecks // 100,
+      winner=winner_name,
+      loser=loser_name,
+    ),
+    reply_markup=betting_confirm_keyboard(),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("bet_confirm:"))
+async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None or callback.from_user is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  choice = callback.data.split(":", 1)[1]
+  await _clear_inline_keyboard(callback)
+  if choice != "yes":
+    await state.clear()
+    await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
+    await callback.answer()
+    return
   data = await state.get_data()
   tournament_type = data.get("bet_tournament_type")
-  if tournament_type not in {"regular", "year"}:
+  amount_kopecks = data.get("bet_amount_kopecks")
+  winner_name = data.get("bet_winner_name")
+  loser_name = data.get("bet_loser_name")
+  if (
+    tournament_type not in {"regular", "year"}
+    or not isinstance(amount_kopecks, int)
+    or not winner_name
+    or not loser_name
+  ):
     await state.clear()
-    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
 
   async with SessionFactory() as session:
@@ -577,35 +743,40 @@ async def save_bet_amount(message: Message, state: FSMContext) -> None:
       user_repository=UserRepository(session),
       poker_repository=PokerRepository(session),
       bet_repository=BetRepository(session),
+      bet_param_repository=BetParamRepository(session),
       bet_tournament_repository=BetTournamentRepository(session),
       bet_tournament_param_repository=BetTournamentParamRepository(session),
+      poker_data_repository=PokerDataRepository(session),
     )
     created, status = await use_case.create_bet(
-      better_id=message.from_user.id,
+      better_id=callback.from_user.id,
       tournament_type=tournament_type,
-      amount_kopecks=amount_rub * 100,
+      amount_kopecks=amount_kopecks,
+      winner_name=winner_name,
+      loser_name=loser_name,
     )
 
   if status == "already_bet":
-    await message.answer(Text.user.BETTING_ALREADY_EXISTS.value)
-    await state.clear()
-    return
-  if status in {"betting_closed", "user_not_approved", "invalid_tournament"}:
-    await message.answer(Text.user.BETTING_NOT_OPEN.value)
-    await state.clear()
-    return
-  if status == "invalid_amount" or created is None:
-    await message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
-    return
-
-  await message.answer(
-    Text.user.BETTING_CREATED.value.format(
-      tournament=_format_tournament_name(tournament_type),
-      amount_rub=amount_rub,
-    ),
-    reply_markup=betting_keyboard,
-  )
+    await callback.message.answer(Text.user.BETTING_ALREADY_EXISTS.value, reply_markup=betting_keyboard)
+  elif status in {"betting_closed", "user_not_approved", "invalid_tournament", "missing_params"}:
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+  elif status == "invalid_amount" or created is None:
+    await callback.message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
+  else:
+    await callback.message.answer(
+      Text.user.BETTING_CREATED.value.format(
+        tournament=_format_tournament_name(tournament_type),
+        amount_rub=amount_kopecks // 100,
+      ),
+      reply_markup=betting_keyboard,
+    )
   await state.clear()
+  await callback.answer()
+
+
+@router.message(RegistrationState.waiting_for_bet_amount)
+async def repeat_bet_inline_flow(message: Message) -> None:
+  await message.answer(Text.user.BETTING_SIZE_CHOOSE.value)
 
 
 @router.message(RegistrationState.waiting_for_bank_name)

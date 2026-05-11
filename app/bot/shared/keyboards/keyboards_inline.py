@@ -106,6 +106,36 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def betting_size_tg(*, small_size_kopecks: int, big_size_kopecks: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=f"🐤 {small_size_kopecks // 100} ₽",
+      callback_data=f"bet_size:{small_size_kopecks}",
+    )
+    keyboard.button(
+      text=f"🐔 {big_size_kopecks // 100} ₽",
+      callback_data=f"bet_size:{big_size_kopecks}",
+    )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def betting_player_tg(*, action: str, players: list[str]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for player in players:
+      keyboard.button(text=player, callback_data=f"bet_{action}:{player}")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def betting_confirm_tg() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text=Buttons.betting_inline.CONFIRM_YES.value, callback_data="bet_confirm:yes")
+    keyboard.button(text=Buttons.betting_inline.CONFIRM_NO.value, callback_data="bet_confirm:no")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def registration_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(
@@ -708,6 +738,90 @@ class InlineKbs:
         ],
       ]
     )
+
+  @staticmethod
+  def betting_size_vk(*, small_size_kopecks: int, big_size_kopecks: int) -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [{
+          "action": {"type": "callback", "label": f"🐤 {small_size_kopecks // 100} ₽", "payload": {"action": "bet_size", "amount_kopecks": small_size_kopecks}},
+          "color": "primary",
+        }],
+        [{
+          "action": {"type": "callback", "label": f"🐔 {big_size_kopecks // 100} ₽", "payload": {"action": "bet_size", "amount_kopecks": big_size_kopecks}},
+          "color": "primary",
+        }],
+      ]
+    )
+
+  @staticmethod
+  def betting_player_vk(*, action: str, players: list[str]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for player in players:
+      rows.append([{
+        "action": {"type": "callback", "label": player[:40], "payload": {"action": f"bet_{action}", "player_name": player}},
+        "color": "primary",
+      }])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def betting_confirm_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [{
+          "action": {"type": "callback", "label": Buttons.betting_inline.CONFIRM_YES.value, "payload": {"action": "bet_confirm_yes"}},
+          "color": "positive",
+        }],
+        [{
+          "action": {"type": "callback", "label": Buttons.betting_inline.CONFIRM_NO.value, "payload": {"action": "bet_confirm_no"}},
+          "color": "negative",
+        }],
+      ]
+    )
+
+  @staticmethod
+  def betting_stat_indicators_tg(*, indicators: list, page: int = 0) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = indicators[start:end]
+    for indicator in batch:
+      keyboard.button(text=f"{indicator.pic} {indicator.description}"[:64], callback_data=f"betstat_ind:{indicator.row_id}")
+    if page > 0:
+      keyboard.button(text="⬅️", callback_data=f"betstat_page:{page - 1}")
+    if end < len(indicators):
+      keyboard.button(text="➡️", callback_data=f"betstat_page:{page + 1}")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def betting_stat_indicators_vk(*, indicators: list, page: int = 0) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = indicators[start:end]
+    for indicator in batch:
+      rows.append([
+        {
+          "action": {
+            "type": "callback",
+            "label": f"{indicator.pic} {indicator.description}"[:40],
+            "payload": {"action": "betstat_ind", "indicator_id": int(indicator.row_id)},
+          },
+          "color": "primary",
+        }
+      ])
+    if page > 0:
+      rows.append([{
+        "action": {"type": "callback", "label": "⬅️", "payload": {"action": "betstat_page", "page": page - 1}},
+        "color": "secondary",
+      }])
+    if end < len(indicators):
+      rows.append([{
+        "action": {"type": "callback", "label": "➡️", "payload": {"action": "betstat_page", "page": page + 1}},
+        "color": "secondary",
+      }])
+    return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
