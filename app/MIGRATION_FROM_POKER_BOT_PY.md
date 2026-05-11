@@ -4,21 +4,13 @@ This file tracks what is already migrated and what is still pending.
 
 ## Already moved
 
-- Legacy texts:
-  - `app/bot/shared/texts/legacy_texts_user.py`
-  - `app/bot/shared/texts/legacy_texts_admin.py`
-  - `app/bot/shared/texts/legacy_texts.py`
-- Legacy buttons:
-  - `app/bot/shared/buttons/legacy_buttons.py`
-- Legacy reply keyboards:
-  - `app/bot/shared/keyboards/legacy_keyboards.py`
+- Legacy texts/buttons/keyboards were migrated and removed from runtime tree.
 - Use-case skeletons for old service areas:
   - `app/application/use_cases/poker/`
 
 ## Why this shape
 
 - Current registration flow stays stable.
-- Legacy content is available in one place and can be ported incrementally.
 - We can migrate service-by-service into use-cases without breaking runtime.
 
 ## Next steps

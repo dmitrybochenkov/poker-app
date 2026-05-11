@@ -6,11 +6,6 @@ class NewUserBtns(Enum):
   REGISTRATION = "💾 Зарегистрироваться"
 
 
-class RegistrationFlowBtns(Enum):
-  YES = "Да"
-  NO = "Нет"
-
-
 class MainBtns(Enum):
   ROOM = "♣️ Покер рум"
   POKER = "💍 Про покер"

@@ -9,14 +9,12 @@ from app.bot.shared.buttons.buttons_reply import (
   NewUserBtns,
   PokerBtns,
   PokerInfoBtns,
-  RegistrationFlowBtns,
   RoomBtns,
 )
 
 
 class Buttons:
   new_user = NewUserBtns
-  registration_flow = RegistrationFlowBtns
   registration_inline = RegistrationInlineBtns
   admin_inline = AdminInlineBtns
   main = MainBtns
