@@ -50,6 +50,28 @@ async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
     return
 
 
+async def _notify_players_about_finish(*, players: list) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    for player in players:
+      user = await user_repository.get_by_telegram_id(int(player.player_id))
+      if user is None:
+        user = await user_repository.get_by_vk_id(int(player.player_id))
+      if user is None or user.notification_platform is None:
+        continue
+
+      text = Text.user.FINISH_POKER.value.format(
+        buyins=player.buyins,
+        money_rub=player.money_rub,
+      )
+      if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+        await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+      elif user.notification_platform == "vk" and user.vk_id is not None:
+        await send_vk_message(user_id=user.vk_id, message=text)
+
+
 @router.message(Command("start_poker"))
 @router.message(F.text == Buttons.admin_main.START_POKER.value)
 async def start_poker_menu(message: Message) -> None:
@@ -141,8 +163,46 @@ async def finish_poker(message: Message) -> None:
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
     poker, _ = active
+    players = await PokerDataRepository(session).list_players(date=poker.date)
     await poker_repository.finish(poker)
+  await _notify_players_about_finish(players=players)
   await message.answer(Text.admin.POKER_FINISH_SUCCESS.value)
+
+
+@router.message(Command("start_betting"))
+@router.message(F.text == Buttons.admin_room.START_BETTING.value)
+async def start_betting(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    poker_repository = PokerRepository(session)
+    active = await poker_repository.get_started()
+    if active is None:
+      await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+      return
+    poker, _ = active
+    if poker.is_bettable:
+      await message.answer(Text.admin.BETTING_ALREADY_OPEN.value)
+      return
+    await poker_repository.start_betting(poker)
+    tg_user_ids = await user_repository.list_approved_tg_ids()
+    vk_user_ids = await user_repository.list_approved_vk_ids()
+
+  from app.bot.telegram.runtime import telegram_bot
+
+  if telegram_bot is not None:
+    for user_id in tg_user_ids:
+      await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_BETTING.value)
+  for user_id in vk_user_ids:
+    await send_vk_message(user_id=user_id, message=Text.user.START_BETTING.value)
+
+  await message.answer(Text.admin.BETTING_START_SUCCESS.value)
 
 
 @router.message(Command("set_cashier"))

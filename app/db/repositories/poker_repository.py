@@ -38,3 +38,9 @@ class PokerRepository:
     await self.session.commit()
     await self.session.refresh(poker)
     return poker
+
+  async def start_betting(self, poker: Poker) -> Poker:
+    poker.is_bettable = True
+    await self.session.commit()
+    await self.session.refresh(poker)
+    return poker

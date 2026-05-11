@@ -17,6 +17,8 @@ class AdminText(Enum):
   POKER_PARAMS_EMPTY = "Нет параметров покера. Сначала добавь параметры."
   POKER_PARAMS_CHOOSE = "Выбери параметры для старта покера:"
   POKER_START_SUCCESS = "Покер успешно запущен."
+  BETTING_START_SUCCESS = "Ставки открыты."
+  BETTING_ALREADY_OPEN = "Ставки уже открыты."
   POKER_FINISH_SUCCESS = "Покер завершен."
   POKER_ACTIVE_NOT_FOUND = "Активный покер не найден."
   POKER_PLAYERS_EMPTY = "В активном покере пока нет игроков."
