@@ -566,6 +566,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       report = await StatUseCases(
         bet_repository=BetRepository(session),
         achievement_repository=AchievementRepository(session),
+        bet_tournament_repository=BetTournamentRepository(session),
+        bet_tournament_param_repository=BetTournamentParamRepository(session),
+        poker_repository=PokerRepository(session),
       ).get_betting_stat(indicators=selected, mode=mode)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_STAT_REPORT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
@@ -641,6 +644,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         bet_repository=BetRepository(session),
         poker_data_repository=PokerDataRepository(session),
         achievement_repository=AchievementRepository(session),
+        bet_tournament_repository=BetTournamentRepository(session),
+        bet_tournament_param_repository=BetTournamentParamRepository(session),
+        poker_repository=PokerRepository(session),
       ).get_poker_stat(indicators=selected)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_STAT_REPORT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)

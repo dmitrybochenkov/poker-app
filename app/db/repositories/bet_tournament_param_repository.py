@@ -13,3 +13,9 @@ class BetTournamentParamRepository:
       select(BetTournamentParam).where(BetTournamentParam.tournament_type == tournament_type)
     )
     return result.scalars().first()
+
+  async def list_all(self) -> list[BetTournamentParam]:
+    result = await self.session.execute(
+      select(BetTournamentParam).order_by(BetTournamentParam.row_id.asc())
+    )
+    return list(result.scalars().all())

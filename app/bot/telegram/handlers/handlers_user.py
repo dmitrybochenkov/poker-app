@@ -402,6 +402,9 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
       bet_repository=BetRepository(session),
       poker_data_repository=PokerDataRepository(session),
       achievement_repository=AchievementRepository(session),
+      bet_tournament_repository=BetTournamentRepository(session),
+      bet_tournament_param_repository=BetTournamentParamRepository(session),
+      poker_repository=PokerRepository(session),
     ).get_poker_stat(indicators=selected)
   await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
   await callback.answer()
@@ -549,6 +552,9 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
     report = await StatUseCases(
       bet_repository=BetRepository(session),
       achievement_repository=AchievementRepository(session),
+      bet_tournament_repository=BetTournamentRepository(session),
+      bet_tournament_param_repository=BetTournamentParamRepository(session),
+      poker_repository=PokerRepository(session),
     ).get_betting_stat(indicators=selected, mode=mode)
   await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
   await callback.answer()

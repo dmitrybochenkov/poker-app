@@ -53,3 +53,9 @@ class PokerRepository:
     await self.session.commit()
     await self.session.refresh(poker)
     return poker
+
+  async def list_all(self) -> list[Poker]:
+    result = await self.session.execute(
+      select(Poker).order_by(Poker.row_id.asc())
+    )
+    return list(result.scalars().all())

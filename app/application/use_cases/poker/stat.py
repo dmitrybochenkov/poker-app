@@ -3,7 +3,10 @@ from app.db.models.poker_data import PokerData
 from app.db.models.stat_indicator import StatIndicator
 from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
+from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_repository import PokerRepository
 
 
 class StatUseCases:
@@ -13,10 +16,16 @@ class StatUseCases:
     bet_repository: BetRepository,
     poker_data_repository: PokerDataRepository | None = None,
     achievement_repository: AchievementRepository | None = None,
+    bet_tournament_repository: BetTournamentRepository | None = None,
+    bet_tournament_param_repository: BetTournamentParamRepository | None = None,
+    poker_repository: PokerRepository | None = None,
   ) -> None:
     self.bet_repository = bet_repository
     self.poker_data_repository = poker_data_repository
     self.achievement_repository = achievement_repository
+    self.bet_tournament_repository = bet_tournament_repository
+    self.bet_tournament_param_repository = bet_tournament_param_repository
+    self.poker_repository = poker_repository
 
   async def get_poker_stat(self, *, indicators: list[StatIndicator]) -> str:
     if self.poker_data_repository is None:
@@ -78,9 +87,30 @@ class StatUseCases:
     return self._to_markdown_table(rows=result_rows, headers=["👨"] + selected_pics)
 
   async def get_betting_stat(self, *, indicators: list[StatIndicator], mode: str = "all") -> str:
-    bets = await self.bet_repository.list_for_latest_poker()
-    if mode in {"regular", "year"}:
-      bets = [bet for bet in bets if bet.tournament_type == mode]
+    if self.bet_tournament_param_repository is not None:
+      params = await self.bet_tournament_param_repository.list_all()
+      self._tournament_percents_cache = {
+        str(item.tournament_type): (
+          int(item.percent_to_first),
+          int(item.percent_to_second),
+          int(item.percent_to_third),
+        )
+        for item in params
+      }
+    bets = await self.bet_repository.list_all()
+    tournaments = await self._load_finished_tournaments()
+    pokers_by_id = await self._load_pokers_by_id()
+
+    if mode == "all":
+      bets = [bet for bet in bets if self._bet_in_any_tournament(bet=bet, tournaments=tournaments)]
+    elif mode in {"regular", "year"}:
+      active_tournament = self._find_current_tournament_by_type(tournaments=tournaments, tournament_type=mode)
+      if active_tournament is None:
+        return "Нет данных по ставкам."
+      bets = [bet for bet in bets if self._bet_in_tournament(bet=bet, tournament=active_tournament)]
+    else:
+      bets = [bet for bet in bets if self._bet_in_any_tournament(bet=bet, tournaments=tournaments)]
+
     if not bets:
       return "Нет данных по ставкам."
 
@@ -98,7 +128,14 @@ class StatUseCases:
       user_bets = [bet for bet in bets if bet.better_name == user]
       row: dict[str, str | int | float] = {"👨": user}
       for pic in selected_pics:
-        row[pic] = self._calc_metric(pic=pic, user_bets=user_bets)
+        row[pic] = self._calc_metric(
+          pic=pic,
+          user=user,
+          user_bets=user_bets,
+          all_bets=bets,
+          pokers_by_id=pokers_by_id,
+          tournaments=tournaments,
+        )
       rows.append(row)
 
     sort_pic = selected_pics[0]
@@ -209,8 +246,52 @@ class StatUseCases:
       return self._count_win_pairs(user=user, winners_by_date=winners_by_date)
     return 0
 
+  async def _load_finished_tournaments(self):
+    if self.bet_tournament_repository is None:
+      return []
+    items = await self.bet_tournament_repository.list_active()
+    return [item for item in items if item.start_date is not None and item.end_date is not None]
+
+  async def _load_pokers_by_id(self) -> dict[int, tuple[set[str], set[str]]]:
+    if self.poker_repository is None:
+      return {}
+    data: dict[int, tuple[set[str], set[str]]] = {}
+    pokers = await self.poker_repository.list_all()
+    for poker in pokers:
+      winners = {item.strip() for item in str(poker.winners or "").split(",") if item.strip()}
+      losers = {item.strip() for item in str(poker.loosers or "").split(",") if item.strip()}
+      data[int(poker.row_id)] = (winners, losers)
+    return data
+
   @staticmethod
-  def _calc_metric(*, pic: str, user_bets: list[Bet]) -> int | float:
+  def _bet_in_tournament(*, bet: Bet, tournament) -> bool:
+    return bool(
+      bet.date is not None
+      and tournament.start_date is not None
+      and tournament.end_date is not None
+      and tournament.start_date <= bet.date <= tournament.end_date
+    )
+
+  def _bet_in_any_tournament(self, *, bet: Bet, tournaments: list) -> bool:
+    return any(self._bet_in_tournament(bet=bet, tournament=tournament) for tournament in tournaments)
+
+  @staticmethod
+  def _find_current_tournament_by_type(*, tournaments: list, tournament_type: str):
+    filtered = [item for item in tournaments if item.tournament_type == tournament_type]
+    if not filtered:
+      return None
+    return sorted(filtered, key=lambda item: item.row_id, reverse=True)[0]
+
+  def _calc_metric(
+    self,
+    *,
+    pic: str,
+    user: str,
+    user_bets: list[Bet],
+    all_bets: list[Bet],
+    pokers_by_id: dict[int, tuple[set[str], set[str]]],
+    tournaments: list,
+  ) -> int | float:
     if pic == "💯":
       return int(sum(int(bet.score or 0) for bet in user_bets))
     if pic == "🐔🐤":
@@ -228,8 +309,111 @@ class StatUseCases:
       return len([bet for bet in user_bets if bet.loser_name == bet.better_name])
     if pic == "-💲":
       return int(sum(int(bet.amount_kopecks or 0) for bet in user_bets) // 100)
+    if pic == "+💲":
+      return self._calc_money_prizes(user=user, tournaments=tournaments)
+    if pic == "+💲/-💲":
+      spent = int(sum(int(bet.amount_kopecks or 0) for bet in user_bets) // 100)
+      if spent == 0:
+        return 0.0
+      won = self._calc_money_prizes(user=user, tournaments=tournaments)
+      return round(won / spent, 2)
+    if pic == "👎/💍":
+      return len([
+        bet for bet in all_bets
+        if bet.loser_name == user
+        and bet.poker_id is not None
+        and user in pokers_by_id.get(int(bet.poker_id), (set(), set()))[0]
+      ])
+    if pic == "👍/❌":
+      return len([
+        bet for bet in all_bets
+        if bet.winner_name == user
+        and bet.better_name != user
+        and bet.poker_id is not None
+        and user in pokers_by_id.get(int(bet.poker_id), (set(), set()))[1]
+      ])
+    if pic == "❌➡️💲":
+      return self._calc_money_from_role(user=user, all_bets=all_bets, tournaments=tournaments, role="loser")
+    if pic == "💍➡️💲":
+      return self._calc_money_from_role(user=user, all_bets=all_bets, tournaments=tournaments, role="winner")
+    if pic == "🏆":
+      return self._count_tournament_titles(user=user, tournaments=tournaments, tournament_type="regular")
+    if pic == "🎄🏆":
+      return self._count_tournament_titles(user=user, tournaments=tournaments, tournament_type="year")
     if pic == "🚨":
       return len([bet for bet in user_bets if not bool(bet.is_paid)])
     if pic == "🍆✊💦":
       return len([bet for bet in user_bets if bet.winner_name == bet.better_name])
     return 0
+
+  @staticmethod
+  def _split_names(value: str | None) -> list[str]:
+    if not value:
+      return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+  def _calc_money_prizes(self, *, user: str, tournaments: list) -> int:
+    result = 0.0
+    for tournament in tournaments:
+      bank_rub = int(int(tournament.current_bank_kopecks or 0) // 100)
+      if bank_rub <= 0:
+        continue
+      perc_first, perc_second, perc_third = self._get_tournament_percents(tournament_type=tournament.tournament_type)
+      first = self._split_names(tournament.first_place_name)
+      second = self._split_names(tournament.second_place_name)
+      third = self._split_names(tournament.third_place_name)
+      if user in first and first:
+        result += (bank_rub * perc_first / 100) / len(first)
+      if user in second and second:
+        result += (bank_rub * perc_second / 100) / len(second)
+      if user in third and third:
+        result += (bank_rub * perc_third / 100) / len(third)
+    return int(round(result))
+
+  def _get_tournament_percents(self, *, tournament_type: str | None) -> tuple[int, int, int]:
+    default = (50, 30, 20)
+    if self.bet_tournament_param_repository is None or not tournament_type:
+      return default
+    # lightweight cache on instance
+    cache = getattr(self, "_tournament_percents_cache", None)
+    if cache is None:
+      cache = {}
+      setattr(self, "_tournament_percents_cache", cache)
+    if tournament_type in cache:
+      return cache[tournament_type]
+    return default
+
+  def _count_tournament_titles(self, *, user: str, tournaments: list, tournament_type: str) -> int:
+    count = 0
+    for tournament in tournaments:
+      if tournament.tournament_type != tournament_type:
+        continue
+      if user in self._split_names(tournament.first_place_name):
+        count += 1
+    return count
+
+  def _calc_money_from_role(self, *, user: str, all_bets: list[Bet], tournaments: list, role: str) -> float:
+    total = 0.0
+    for tournament in tournaments:
+      relevant_bets = [bet for bet in all_bets if self._bet_in_tournament(bet=bet, tournament=tournament)]
+      if not relevant_bets:
+        continue
+      by_better: dict[str, list[Bet]] = {}
+      for bet in relevant_bets:
+        by_better.setdefault(bet.better_name, []).append(bet)
+      for better_name, better_bets in by_better.items():
+        better_prize = float(self._calc_money_prizes(user=better_name, tournaments=[tournament]))
+        better_score = float(sum(int(item.score or 0) for item in better_bets))
+        if better_prize <= 0 or better_score <= 0:
+          continue
+        rel_score = 0.0
+        for bet in better_bets:
+          target = bet.loser_name if role == "loser" else bet.winner_name
+          if target != user:
+            continue
+          if int(bet.score or 0) <= 0:
+            continue
+          rel_score += float(int(bet.score or 0))
+        if rel_score > 0:
+          total += better_prize * (rel_score / better_score)
+    return round(total, 1)

@@ -79,3 +79,9 @@ class BetRepository:
     if latest_id is None:
       return []
     return await self.list_for_poker(poker_id=int(latest_id))
+
+  async def list_all(self) -> list[Bet]:
+    result = await self.session.execute(
+      select(Bet).order_by(desc(Bet.created_at), desc(Bet.row_id))
+    )
+    return list(result.scalars().all())
