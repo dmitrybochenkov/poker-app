@@ -77,8 +77,10 @@ class StatUseCases:
     )
     return self._to_markdown_table(rows=result_rows, headers=["👨"] + selected_pics)
 
-  async def get_betting_stat(self, *, indicators: list[StatIndicator]) -> str:
+  async def get_betting_stat(self, *, indicators: list[StatIndicator], mode: str = "all") -> str:
     bets = await self.bet_repository.list_for_latest_poker()
+    if mode in {"regular", "year"}:
+      bets = [bet for bet in bets if bet.tournament_type == mode]
     if not bets:
       return "Нет данных по ставкам."
 

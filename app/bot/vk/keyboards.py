@@ -12,6 +12,7 @@ betting_size_keyboard = InlineKbs.betting_size_vk
 betting_player_keyboard = InlineKbs.betting_player_vk
 betting_confirm_keyboard = InlineKbs.betting_confirm_vk
 betting_stat_indicators_keyboard = InlineKbs.betting_stat_indicators_vk
+betting_stat_mode_keyboard = InlineKbs.betting_stat_mode_vk
 poker_stat_indicators_keyboard = InlineKbs.poker_stat_indicators_vk
 registration_optional_details_keyboard = InlineKbs.registration_optional_details_vk
 registration_platform_keyboard = InlineKbs.registration_platform_vk

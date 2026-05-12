@@ -833,6 +833,34 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
+  def betting_stat_mode_tg() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="📚 Все ставки", callback_data="betstatmode:all")
+    keyboard.button(text="💰 Текущий regular", callback_data="betstatmode:regular")
+    keyboard.button(text="🎄 Текущий year", callback_data="betstatmode:year")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def betting_stat_mode_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [{
+          "action": {"type": "callback", "label": "📚 Все ставки", "payload": {"action": "betstat_mode", "mode": "all"}},
+          "color": "primary",
+        }],
+        [{
+          "action": {"type": "callback", "label": "💰 Текущий regular", "payload": {"action": "betstat_mode", "mode": "regular"}},
+          "color": "primary",
+        }],
+        [{
+          "action": {"type": "callback", "label": "🎄 Текущий year", "payload": {"action": "betstat_mode", "mode": "year"}},
+          "color": "primary",
+        }],
+      ]
+    )
+
+  @staticmethod
   def poker_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])

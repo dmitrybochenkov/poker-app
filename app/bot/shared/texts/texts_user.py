@@ -56,6 +56,7 @@ class UserText(Enum):
   BETTING_USER_BETS_EMPTY = "У тебя пока нет ставок в текущей игре."
   BETTING_USER_BETS = "Твои текущие ставки:\n{bets}"
   BETTING_STAT_INDICATORS = "Показатели статистики ставок:"
+  BETTING_STAT_MODE = "Выбери режим статистики ставок:"
   BETTING_STAT_SELECTED = "Выбран показатель: {indicator}"
   BETTING_STAT_REPORT = "Статистика ставок:\n\n{report}"
   POKER_MENU = "Раздел покера."
