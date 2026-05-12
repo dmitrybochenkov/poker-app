@@ -17,6 +17,7 @@ from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   main_keyboard,
+  new_user_keyboard,
   betting_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
@@ -86,10 +87,21 @@ def _format_tournament_name(tournament_type: str) -> str:
 
 @router.message(CommandStart())
 async def start_command(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+
   await state.clear()
+  reply_markup = new_user_keyboard
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    existing_user = await repository.get_by_telegram_id(message.from_user.id)
+    if existing_user is not None and existing_user.is_approved:
+      reply_markup = main_keyboard
+
   await message.answer(
     Text.user.BOT_INFO.value,
-    reply_markup=main_keyboard,
+    reply_markup=reply_markup,
   )
 
 

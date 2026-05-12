@@ -6,9 +6,11 @@ from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import send_vk_message
 from app.bot.vk.handlers_admin import handle_admin_text_commands, handle_message_event
 from app.bot.vk.handlers_user import handle_user_message_event, handle_user_message_new
-from app.bot.vk.keyboards import main_keyboard
+from app.bot.vk.keyboards import main_keyboard, new_user_keyboard
 from app.bot.vk.state import vk_user_contexts, vk_user_states
 from app.config.settings import settings
+from app.db.repositories.user_repository import UserRepository
+from app.db.session import SessionFactory
 
 router = APIRouter(prefix="/webhooks/vk", tags=["vk"])
 
@@ -50,10 +52,16 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
   if text.lower() in {"начать", "start", "/start"}:
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
+    keyboard = new_user_keyboard
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      existing_user = await repository.get_by_vk_id(user_id)
+      if existing_user is not None and existing_user.is_approved:
+        keyboard = main_keyboard
     await send_vk_message(
       user_id=user_id,
       message=Text.user.BOT_INFO.value,
-      keyboard=main_keyboard,
+      keyboard=keyboard,
     )
     return PlainTextResponse("ok")
 
