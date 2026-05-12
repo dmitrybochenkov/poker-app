@@ -23,14 +23,12 @@ class UserText(Enum):
   REGISTRATION_CHOOSE_FROM_LIST = "Не нашел такую запись в списке. Выбери игрока из списка."
   REGISTRATION_READ_ERROR = "Не удалось прочитать данные. Попробуй ещё раз."
   REGISTRATION_ID_ERROR = "Не удалось определить Telegram ID."
-  REGISTRATION_OPTIONAL_DETAILS_PROMPT = (
-    "Если хочешь, укажи свои банк и номер телефона. "
-    "В случае твоей победы по этим данным тебе быстрее переведут деньги."
-  )
+  REGISTRATION_OPTIONAL_DETAILS_PROMPT = "Если хочешь, укажи свои банк и номер телефона. В случае твоей победы по этим данным тебе быстрее переведут деньги."
   REGISTRATION_PLATFORM_PROMPT = "Выбери платформу для уведомлений:"
-  REGISTRATION_BANK_PROMPT = "Введи название банка."
-  REGISTRATION_PHONE_PROMPT = "Введи номер телефона, начиная с 7."
+  REGISTRATION_BANK_PROMPT = "Введи название банка:"
+  REGISTRATION_PHONE_PROMPT = "Введи номер телефона, начиная с 7:"
   REGISTRATION_PHONE_INVALID = "Номер должен начинаться с 7 и содержать 11 цифр."
+
   START_POKER = "Начало покера. Желающим принять участие в игре пора заходить в покер рум!"
   START_BETTING = "Ставки открыты. Можно делать ставки на текущую игру."
   FINISH_POKER = "Покер завершен.\n\nИтог:\n🏦 Закупы: {buyins}\n💸 Кешаут: {cashout_rub} ₽"
