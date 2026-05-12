@@ -27,7 +27,7 @@ class RoomBtns(Enum):
 
 class AdminRoomBtns(Enum):
   SET_CASHIER = "🏦 Назначить кассира"
-  CASHOUT = "💸 Кешаут"
+  CASHOUT = "🧮 Ввод фишек"
   START_BETTING = "🍀 Старт ставок"
   FINISH_POKER = "🏁 Финиш покера"
   CALCULATE_POKER = "🤖 Рассчитать покер"

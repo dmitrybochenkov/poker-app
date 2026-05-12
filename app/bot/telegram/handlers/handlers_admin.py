@@ -187,9 +187,14 @@ async def finish_poker(message: Message) -> None:
       poker_id=poker.row_id,
       poker_date=poker.date,
     )
-    await poker_repository.finish(poker)
+  await poker_repository.finish(poker)
   await _notify_players_about_finish(players=players)
   await message.answer(Text.admin.POKER_FINISH_SUCCESS.value)
+  if players:
+    await message.answer(
+      Text.admin.POKER_CASHOUT_CHOOSE.value,
+      reply_markup=poker_cashout_candidates_keyboard(players=players),
+    )
 
 
 @router.message(Command("start_betting"))
@@ -500,7 +505,7 @@ async def cashout_menu(message: Message) -> None:
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
     )
-    players = await use_case.list_active_poker_players()
+    players = await use_case.list_players_for_chips_entry()
     if not players:
       await message.answer(Text.admin.POKER_CASHOUT_EMPTY.value)
       return
@@ -538,8 +543,7 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
   if not message.text.isdigit() or int(message.text) < 0:
     await message.answer(Text.admin.POKER_CASHOUT_INVALID.value)
     return
-  money_rub = int(message.text)
-  money_kopecks = money_rub * 100
+  chips = int(message.text)
   data = await state.get_data()
   player_id = data.get("cashout_player_id")
   if player_id is None:
@@ -557,7 +561,7 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
     )
-    updated = await use_case.set_cashout_for_active_player(player_id=int(player_id), money_kopecks=money_kopecks)
+    updated = await use_case.set_chips_for_ready_poker_player(player_id=int(player_id), chips=chips)
     if updated is None:
       await state.clear()
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
@@ -565,7 +569,7 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
   await state.clear()
   await message.answer(
     f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n"
-    f"{updated.player_name}: {_format_rub_from_kopecks(updated.money_kopecks)} ₽"
+    f"{updated.player_name}: {updated.chips} фишек"
   )
 
 

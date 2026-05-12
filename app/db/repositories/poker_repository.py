@@ -28,10 +28,19 @@ class PokerRepository:
   async def finish(self, poker: Poker) -> Poker:
     poker.is_going = False
     poker.is_bettable = False
-    poker.is_ready_for_chips_entering = False
+    poker.is_ready_for_chips_entering = True
     await self.session.commit()
     await self.session.refresh(poker)
     return poker
+
+  async def get_latest_ready_for_chips(self) -> Poker | None:
+    result = await self.session.execute(
+      select(Poker)
+      .where(Poker.is_going.is_(False))
+      .where(Poker.is_ready_for_chips_entering.is_(True))
+      .order_by(Poker.row_id.desc())
+    )
+    return result.scalar_one_or_none()
 
   async def set_cashier(self, poker: Poker, *, cashier_id: int) -> Poker:
     poker.cashier_id = cashier_id

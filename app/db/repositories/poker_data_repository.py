@@ -68,3 +68,12 @@ class PokerDataRepository:
     await self.session.commit()
     await self.session.refresh(item)
     return item
+
+  async def set_chips(self, *, date, player_id: int, chips: int) -> PokerData | None:
+    item = await self.get_player(date=date, player_id=player_id)
+    if item is None:
+      return None
+    item.chips = int(chips)
+    await self.session.commit()
+    await self.session.refresh(item)
+    return item

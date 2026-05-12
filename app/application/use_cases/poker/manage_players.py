@@ -88,3 +88,19 @@ class ManagePokerPlayersUseCase:
       player_id=player_id,
       money_kopecks=money_kopecks,
     )
+
+  async def list_players_for_chips_entry(self):
+    poker = await self.poker_repository.get_latest_ready_for_chips()
+    if poker is None:
+      return []
+    return await self.poker_data_repository.list_players(date=poker.date)
+
+  async def set_chips_for_ready_poker_player(self, *, player_id: int, chips: int):
+    poker = await self.poker_repository.get_latest_ready_for_chips()
+    if poker is None:
+      return None
+    return await self.poker_data_repository.set_chips(
+      date=poker.date,
+      player_id=player_id,
+      chips=chips,
+    )

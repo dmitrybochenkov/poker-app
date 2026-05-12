@@ -626,8 +626,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     if not text.isdigit() or int(text) < 0:
       await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_INVALID.value)
       return PlainTextResponse("ok")
-    money_rub = int(text)
-    money_kopecks = money_rub * 100
+    chips = int(text)
     player_id = vk_user_contexts.get(user_id, {}).get("cashout_player_id")
     if player_id is None:
       vk_user_states.pop(user_id, None)
@@ -646,7 +645,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         poker_repository=PokerRepository(session),
         poker_data_repository=PokerDataRepository(session),
       )
-      updated = await use_case.set_cashout_for_active_player(player_id=int(player_id), money_kopecks=money_kopecks)
+      updated = await use_case.set_chips_for_ready_poker_player(player_id=int(player_id), chips=chips)
       if updated is None:
         vk_user_states.pop(user_id, None)
         vk_user_contexts.pop(user_id, None)
@@ -658,7 +657,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       user_id=user_id,
       message=(
         f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n"
-        f"{updated.player_name}: {_format_rub_from_kopecks(updated.money_kopecks)} ₽"
+        f"{updated.player_name}: {updated.chips} фишек"
       ),
     )
     return PlainTextResponse("ok")
@@ -780,6 +779,12 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       await poker_repository.finish(poker)
     await _notify_players_about_finish(players=players)
     await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)
+    if players:
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.admin.POKER_CASHOUT_CHOOSE.value,
+        keyboard=poker_cashout_candidates_keyboard(players=players),
+      )
     return PlainTextResponse("ok")
 
   if text == Buttons.admin_room.START_BETTING.value or text.lower() in {"start_betting", "/start_betting"}:
@@ -918,7 +923,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         poker_repository=PokerRepository(session),
         poker_data_repository=PokerDataRepository(session),
       )
-      players = await use_case.list_active_poker_players()
+      players = await use_case.list_players_for_chips_entry()
       if not players:
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_EMPTY.value)
         return PlainTextResponse("ok")
