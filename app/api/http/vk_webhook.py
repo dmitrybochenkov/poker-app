@@ -74,10 +74,16 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
     return user_response
 
   if text == Buttons.new_user.ABOUT.value:
+    keyboard = new_user_keyboard
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      existing_user = await repository.get_by_vk_id(user_id)
+      if existing_user is not None and existing_user.is_approved:
+        keyboard = main_keyboard
     await send_vk_message(
       user_id=user_id,
       message=Text.user.BOT_INFO.value,
-      keyboard=main_keyboard,
+      keyboard=keyboard,
     )
     return PlainTextResponse("ok")
 

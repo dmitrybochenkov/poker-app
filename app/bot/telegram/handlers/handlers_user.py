@@ -53,6 +53,40 @@ from app.db.session import SessionFactory
 router = Router()
 
 
+async def _get_telegram_user(telegram_id: int) -> User | None:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    return await repository.get_by_telegram_id(telegram_id)
+
+
+async def _ensure_approved_telegram_user(message: Message) -> bool:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return False
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return False
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return False
+  return True
+
+
+async def _ensure_approved_telegram_callback_user(callback: CallbackQuery) -> bool:
+  if callback.from_user is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return False
+  user = await _get_telegram_user(callback.from_user.id)
+  if user is None:
+    await callback.answer(Text.user.STATUS_NEED_REGISTRATION.value, show_alert=True)
+    return False
+  if not user.is_approved:
+    await callback.answer(Text.user.STATUS_PENDING.value, show_alert=True)
+    return False
+  return True
+
+
 async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
   if callback.message is None:
     return
@@ -125,7 +159,7 @@ async def start_registration(message: Message, state: FSMContext) -> None:
     if existing_user.is_approved:
       await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=main_keyboard)
       return
-    await message.answer(Text.user.REGISTRATION_PENDING.value, reply_markup=main_keyboard)
+    await message.answer(Text.user.REGISTRATION_PENDING.value, reply_markup=new_user_keyboard)
     return
 
   await state.set_state(RegistrationState.waiting_for_played_before_answer)
@@ -207,18 +241,21 @@ async def join_poker_room(message: Message) -> None:
 
 @router.message(F.text == Buttons.main.BETTING.value)
 async def open_betting_menu(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
   await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
 
 
 @router.message(F.text == Buttons.betting.TO_MAIN.value)
 async def back_to_main_from_betting(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
   await message.answer(Text.user.BETTING_MENU.value, reply_markup=main_keyboard)
 
 
 @router.message(F.text == Buttons.betting.CURRENT_TOURS.value)
 async def show_current_betting_tournaments(message: Message) -> None:
-  if message.from_user is None:
-    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+  if not await _ensure_approved_telegram_user(message):
     return
   async with SessionFactory() as session:
     use_case = BetUseCases(
@@ -255,6 +292,8 @@ async def show_current_betting_tournaments(message: Message) -> None:
 
 @router.message(F.text == Buttons.betting.BETTING_STAT.value)
 async def show_betting_stat_indicators(message: Message, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
   await state.update_data(betstat_selected_ids=[])
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
@@ -269,6 +308,8 @@ async def show_betting_stat_indicators(message: Message, state: FSMContext) -> N
 async def betting_stat_page(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
     return
   page = int(callback.data.split(":", 1)[1])
   data = await state.get_data()
@@ -286,6 +327,8 @@ async def betting_stat_page(callback: CallbackQuery, state: FSMContext) -> None:
 async def betting_stat_indicator_selected(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
     return
   _, indicator_id_raw, page_raw = callback.data.split(":")
   indicator_id = int(indicator_id_raw)
@@ -311,6 +354,8 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
   data = await state.get_data()
   selected_ids: list[int] = data.get("betstat_selected_ids", [])
   async with SessionFactory() as session:
@@ -323,8 +368,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(F.text == Buttons.betting.MAKE_BET.value)
 async def start_make_bet(message: Message, state: FSMContext) -> None:
-  if message.from_user is None:
-    await message.answer(Text.user.REGISTRATION_READ_ERROR.value)
+  if not await _ensure_approved_telegram_user(message):
     return
 
   async with SessionFactory() as session:
@@ -394,7 +438,7 @@ async def _submit_registration_request(
     except UserRegistrationPendingError:
       await message.answer(
         Text.user.REGISTRATION_PENDING.value,
-        reply_markup=main_keyboard,
+        reply_markup=new_user_keyboard,
       )
       await state.clear()
       return
@@ -431,7 +475,7 @@ async def _submit_registration_request(
   await state.clear()
   await message.answer(
     success_text,
-    reply_markup=main_keyboard,
+    reply_markup=new_user_keyboard,
   )
 
 
@@ -631,6 +675,8 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
   tournament_type = callback.data.split(":", 1)[1]
   if tournament_type not in {"regular", "year"}:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
@@ -675,6 +721,8 @@ async def choose_bet_size(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
   data = await state.get_data()
   players = data.get("bet_players")
   if not isinstance(players, list) or not players:
@@ -695,6 +743,8 @@ async def choose_bet_size(callback: CallbackQuery, state: FSMContext) -> None:
 async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
     return
   data = await state.get_data()
   players = data.get("bet_players")
@@ -717,6 +767,8 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
 async def choose_bet_loser(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
     return
   loser_name = callback.data.split(":", 1)[1]
   data = await state.get_data()
@@ -750,6 +802,8 @@ async def choose_bet_loser(callback: CallbackQuery, state: FSMContext) -> None:
 async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None or callback.from_user is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
     return
   choice = callback.data.split(":", 1)[1]
   await _clear_inline_keyboard(callback)

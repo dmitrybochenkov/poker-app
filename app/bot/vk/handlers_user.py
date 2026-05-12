@@ -26,6 +26,7 @@ from app.bot.vk.keyboards import (
   betting_stat_indicators_keyboard,
   betting_tournament_keyboard,
   main_keyboard,
+  new_user_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_candidates_page_keyboard,
@@ -55,6 +56,17 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
+
+
+async def _get_vk_user(user_id: int) -> User | None:
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    return await repository.get_by_vk_id(user_id)
+
+
+async def _is_vk_user_approved(user_id: int) -> bool:
+  user = await _get_vk_user(user_id)
+  return bool(user and user.is_approved)
 
 
 async def _delete_event_message_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
@@ -108,7 +120,7 @@ async def _submit_registration_request(
     except UserRegistrationPendingError:
       vk_user_states.pop(user_id, None)
       vk_user_contexts.pop(user_id, None)
-      await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PENDING.value, keyboard=main_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PENDING.value, keyboard=new_user_keyboard)
       return
 
     admin_ids = await repository.list_admin_vk_ids()
@@ -306,6 +318,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action in {"bet_tournament_regular", "bet_tournament_year"}:
+    if not await _is_vk_user_approved(user_id):
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_PENDING.value)
+      return PlainTextResponse("ok")
     tournament_type = "regular" if action.endswith("regular") else "year"
     async with SessionFactory() as session:
       use_case = BetUseCases(
@@ -353,6 +368,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action == "bet_size":
+    if not await _is_vk_user_approved(user_id):
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_PENDING.value)
+      return PlainTextResponse("ok")
     amount_kopecks = callback_payload.get("amount_kopecks")
     if not isinstance(amount_kopecks, int):
       return PlainTextResponse("ok")
@@ -373,6 +391,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action == "bet_winner":
+    if not await _is_vk_user_approved(user_id):
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_PENDING.value)
+      return PlainTextResponse("ok")
     winner_name = callback_payload.get("player_name")
     if not isinstance(winner_name, str):
       return PlainTextResponse("ok")
@@ -393,6 +414,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action == "bet_loser":
+    if not await _is_vk_user_approved(user_id):
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_PENDING.value)
+      return PlainTextResponse("ok")
     loser_name = callback_payload.get("player_name")
     if not isinstance(loser_name, str):
       return PlainTextResponse("ok")
@@ -419,6 +443,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action in {"bet_confirm_yes", "bet_confirm_no"}:
+    if not await _is_vk_user_approved(user_id):
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_PENDING.value)
+      return PlainTextResponse("ok")
     if action.endswith("_no"):
       vk_user_states.pop(user_id, None)
       vk_user_contexts.pop(user_id, None)
@@ -524,6 +551,23 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
 
 
 async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextResponse | None:
+  if text in {
+    Buttons.main.BETTING.value,
+    Buttons.betting.TO_MAIN.value,
+    Buttons.betting.CURRENT_TOURS.value,
+    Buttons.betting.BETTING_STAT.value,
+    Buttons.betting.MAKE_BET.value,
+    Buttons.main.ROOM.value,
+    Buttons.room.STATUS.value,
+  }:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+
   if text == Buttons.main.BETTING.value:
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
     return PlainTextResponse("ok")
@@ -681,7 +725,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       await send_vk_message(
         user_id=user_id,
         message=Text.user.REGISTRATION_EXIST.value if existing_user.is_approved else Text.user.REGISTRATION_PENDING.value,
-        keyboard=main_keyboard,
+        keyboard=main_keyboard if existing_user.is_approved else new_user_keyboard,
       )
       return PlainTextResponse("ok")
     vk_user_states[user_id] = WAITING_FOR_PLAYED_BEFORE
