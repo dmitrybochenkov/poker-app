@@ -21,6 +21,7 @@ from app.bot.telegram.keyboards import (
   admin_main_keyboard,
   new_user_keyboard,
   betting_keyboard,
+  poker_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
   betting_size_keyboard,
@@ -252,6 +253,13 @@ async def open_betting_menu(message: Message) -> None:
   await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
 
 
+@router.message(F.text == Buttons.main.POKER.value)
+async def open_poker_menu(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await message.answer(Text.user.BOT_INFO.value, reply_markup=poker_keyboard)
+
+
 @router.message(F.text == Buttons.main.ADMIN.value)
 async def open_admin_panel(message: Message) -> None:
   if message.from_user is None:
@@ -287,6 +295,17 @@ async def back_from_admin_to_main(message: Message) -> None:
 
 @router.message(F.text == Buttons.betting.TO_MAIN.value)
 async def back_to_main_from_betting(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
+
+
+@router.message(F.text == Buttons.poker.TO_MAIN.value)
+async def back_to_main_from_poker(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
   user = await _get_telegram_user(message.from_user.id)

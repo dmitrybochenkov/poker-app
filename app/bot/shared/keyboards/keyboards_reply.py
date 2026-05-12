@@ -215,3 +215,31 @@ class ReplyKbs:
       one_time=False,
       color="primary",
     )
+
+  @classmethod
+  def poker_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.poker.POKER_STAT,
+          Buttons.poker.POKER_INFO,
+          Buttons.poker.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def poker_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.poker.POKER_STAT,
+          Buttons.poker.POKER_INFO,
+          Buttons.poker.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )

@@ -21,6 +21,7 @@ from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_e
 from app.bot.vk.keyboards import (
   admin_main_keyboard,
   betting_keyboard,
+  poker_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
   betting_size_keyboard,
@@ -569,6 +570,8 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.room.STATUS.value,
     Buttons.main.ADMIN.value,
     Buttons.admin_main.TO_MAIN.value,
+    Buttons.main.POKER.value,
+    Buttons.poker.TO_MAIN.value,
   }:
     user = await _get_vk_user(user_id)
     if user is None:
@@ -604,8 +607,20 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
     return PlainTextResponse("ok")
 
+  if text == Buttons.main.POKER.value:
+    await send_vk_message(user_id=user_id, message=Text.user.BOT_INFO.value, keyboard=poker_keyboard)
+    return PlainTextResponse("ok")
+
   if text == Buttons.betting.TO_MAIN.value:
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=main_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.poker.TO_MAIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=_approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.CURRENT_TOURS.value:

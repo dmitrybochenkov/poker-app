@@ -5,6 +5,7 @@ main_admin_entry_keyboard = ReplyKbs.admin_main_entry_vk()
 admin_main_keyboard = ReplyKbs.admin_main_vk()
 new_user_keyboard = ReplyKbs.new_user_vk()
 betting_keyboard = ReplyKbs.betting_vk()
+poker_keyboard = ReplyKbs.poker_vk()
 played_before_keyboard = InlineKbs.played_before_vk
 betting_tournament_keyboard = InlineKbs.betting_tournament_vk
 betting_size_keyboard = InlineKbs.betting_size_vk
