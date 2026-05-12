@@ -110,6 +110,21 @@ class ReplyKbs:
           Buttons.main.ROOM,
           Buttons.main.POKER,
           Buttons.main.BETTING,
+          Buttons.main.ADMIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def admin_main_entry_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.main.ROOM,
+          Buttons.main.POKER,
+          Buttons.main.BETTING,
+          Buttons.main.ADMIN,
         ]
       ),
       adjust=1,
@@ -123,6 +138,49 @@ class ReplyKbs:
           Buttons.main.ROOM,
           Buttons.main.POKER,
           Buttons.main.BETTING,
+          Buttons.main.ADMIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def admin_main_entry_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.main.ROOM,
+          Buttons.main.POKER,
+          Buttons.main.BETTING,
+          Buttons.main.ADMIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def admin_main_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.admin_main.START_POKER,
+          Buttons.admin_main.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def admin_main_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.admin_main.START_POKER,
+          Buttons.admin_main.TO_MAIN,
         ]
       ),
       adjust=1,
