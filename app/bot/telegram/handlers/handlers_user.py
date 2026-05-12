@@ -17,6 +17,8 @@ from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   main_keyboard,
+  main_admin_entry_keyboard,
+  admin_main_keyboard,
   new_user_keyboard,
   betting_keyboard,
   betting_confirm_keyboard,
@@ -71,6 +73,10 @@ async def _ensure_approved_telegram_user(message: Message) -> bool:
     await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
     return False
   return True
+
+
+def _approved_tg_keyboard(user: User):
+  return main_admin_entry_keyboard if user.is_admin else main_keyboard
 
 
 async def _ensure_approved_telegram_callback_user(callback: CallbackQuery) -> bool:
@@ -131,7 +137,7 @@ async def start_command(message: Message, state: FSMContext) -> None:
     repository = UserRepository(session)
     existing_user = await repository.get_by_telegram_id(message.from_user.id)
     if existing_user is not None and existing_user.is_approved:
-      reply_markup = main_keyboard
+      reply_markup = _approved_tg_keyboard(existing_user)
 
   await message.answer(
     Text.user.BOT_INFO.value,
@@ -157,7 +163,7 @@ async def start_registration(message: Message, state: FSMContext) -> None:
   if existing_user is not None:
     await state.clear()
     if existing_user.is_approved:
-      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=main_keyboard)
+      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=_approved_tg_keyboard(existing_user))
       return
     await message.answer(Text.user.REGISTRATION_PENDING.value, reply_markup=new_user_keyboard)
     return
@@ -246,11 +252,48 @@ async def open_betting_menu(message: Message) -> None:
   await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
 
 
+@router.message(F.text == Buttons.main.ADMIN.value)
+async def open_admin_panel(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_admin:
+    await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=main_keyboard)
+    return
+  await message.answer(Text.admin.POKER_PARAMS_CHOOSE.value, reply_markup=admin_main_keyboard)
+
+
+@router.message(F.text == Buttons.admin_main.TO_MAIN.value)
+async def back_from_admin_to_main(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
+
+
 @router.message(F.text == Buttons.betting.TO_MAIN.value)
 async def back_to_main_from_betting(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=main_keyboard)
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.betting.CURRENT_TOURS.value)
@@ -432,7 +475,9 @@ async def _submit_registration_request(
       await message.answer(Text.user.REGISTRATION_EMPTY_NAME.value)
       return
     except UserAlreadyRegisteredError:
-      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=main_keyboard)
+      existing_user = await repository.get_by_telegram_id(telegram_id)
+      reply_markup = _approved_tg_keyboard(existing_user) if existing_user and existing_user.is_approved else new_user_keyboard
+      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=reply_markup)
       await state.clear()
       return
     except UserRegistrationPendingError:
@@ -487,20 +532,20 @@ async def choose_registration_branch(callback: CallbackQuery, state: FSMContext)
 
   choice = callback.data.split(":", 1)[1]
   if choice == "yes":
-    await _clear_inline_keyboard(callback)
+    await _delete_message_if_possible(callback)
     async with SessionFactory() as session:
       repository = UserRepository(session)
       candidates = await repository.list_approved_without_telegram_id()
 
     await state.clear()
-    await callback.message.edit_text(
+    await callback.message.answer(
       Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
       reply_markup=registration_candidates_keyboard(users=candidates),
     )
   else:
-    await _clear_inline_keyboard(callback)
+    await _delete_message_if_possible(callback)
     await state.set_state(RegistrationState.waiting_for_new_name)
-    await callback.message.edit_text(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
+    await callback.message.answer(Text.user.REGISTRATION_NEW_NAME_PROMPT.value)
   await callback.answer()
 
 
@@ -561,7 +606,8 @@ async def registration_existing_page(callback: CallbackQuery) -> None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
     candidates = await repository.list_approved_without_telegram_id()
-  await callback.message.edit_text(
+  await _delete_message_if_possible(callback)
+  await callback.message.answer(
     Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
     reply_markup=registration_candidates_page_keyboard(users=candidates, page=page),
   )
@@ -640,7 +686,7 @@ async def choose_optional_registration_data(callback: CallbackQuery, state: FSMC
     return
 
   action = callback.data.split(":", 1)[1]
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   if action == "bank":
     await state.set_state(RegistrationState.waiting_for_bank_name)
     await callback.message.answer(Text.user.REGISTRATION_BANK_PROMPT.value)

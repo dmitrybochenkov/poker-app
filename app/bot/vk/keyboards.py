@@ -1,6 +1,8 @@
 from app.bot.shared.keyboards.keyboards import InlineKbs, ReplyKbs
 
 main_keyboard = ReplyKbs.main_vk()
+main_admin_entry_keyboard = ReplyKbs.admin_main_entry_vk()
+admin_main_keyboard = ReplyKbs.admin_main_vk()
 new_user_keyboard = ReplyKbs.new_user_vk()
 betting_keyboard = ReplyKbs.betting_vk()
 played_before_keyboard = InlineKbs.played_before_vk

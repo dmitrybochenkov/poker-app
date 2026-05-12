@@ -1,6 +1,8 @@
 from app.bot.shared.keyboards.keyboards import InlineKbs, ReplyKbs
 
 main_keyboard = ReplyKbs.main_tg()
+main_admin_entry_keyboard = ReplyKbs.admin_main_entry_tg()
+admin_main_keyboard = ReplyKbs.admin_main_tg()
 new_user_keyboard = ReplyKbs.new_user_tg()
 betting_keyboard = ReplyKbs.betting_tg()
 played_before_keyboard = InlineKbs.played_before_tg

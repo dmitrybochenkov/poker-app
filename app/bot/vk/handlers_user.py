@@ -19,6 +19,7 @@ from app.bot.telegram.keyboards import (
 from app.bot.telegram.notifications import notify_admins_about_registration as notify_tg_admins_about_registration
 from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_event_answer
 from app.bot.vk.keyboards import (
+  admin_main_keyboard,
   betting_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
@@ -26,6 +27,7 @@ from app.bot.vk.keyboards import (
   betting_stat_indicators_keyboard,
   betting_tournament_keyboard,
   main_keyboard,
+  main_admin_entry_keyboard,
   new_user_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
@@ -67,6 +69,10 @@ async def _get_vk_user(user_id: int) -> User | None:
 async def _is_vk_user_approved(user_id: int) -> bool:
   user = await _get_vk_user(user_id)
   return bool(user and user.is_approved)
+
+
+def _approved_vk_keyboard(user: User) -> str:
+  return main_admin_entry_keyboard if user.is_admin else main_keyboard
 
 
 async def _delete_event_message_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
@@ -115,7 +121,9 @@ async def _submit_registration_request(
     except UserAlreadyRegisteredError:
       vk_user_states.pop(user_id, None)
       vk_user_contexts.pop(user_id, None)
-      await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_EXIST.value, keyboard=main_keyboard)
+      existing_user = await repository.get_by_vk_id(user_id)
+      keyboard = _approved_vk_keyboard(existing_user) if existing_user and existing_user.is_approved else new_user_keyboard
+      await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_EXIST.value, keyboard=keyboard)
       return
     except UserRegistrationPendingError:
       vk_user_states.pop(user_id, None)
@@ -559,6 +567,8 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.betting.MAKE_BET.value,
     Buttons.main.ROOM.value,
     Buttons.room.STATUS.value,
+    Buttons.main.ADMIN.value,
+    Buttons.admin_main.TO_MAIN.value,
   }:
     user = await _get_vk_user(user_id)
     if user is None:
@@ -567,6 +577,28 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if not user.is_approved:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
+
+  if text == Buttons.main.ADMIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None or not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_admin:
+      await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value, keyboard=main_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.admin.POKER_PARAMS_CHOOSE.value, keyboard=admin_main_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_main.TO_MAIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=_approved_vk_keyboard(user))
+    return PlainTextResponse("ok")
 
   if text == Buttons.main.BETTING.value:
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
@@ -725,7 +757,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       await send_vk_message(
         user_id=user_id,
         message=Text.user.REGISTRATION_EXIST.value if existing_user.is_approved else Text.user.REGISTRATION_PENDING.value,
-        keyboard=main_keyboard if existing_user.is_approved else new_user_keyboard,
+        keyboard=_approved_vk_keyboard(existing_user) if existing_user.is_approved else new_user_keyboard,
       )
       return PlainTextResponse("ok")
     vk_user_states[user_id] = WAITING_FOR_PLAYED_BEFORE
