@@ -688,11 +688,15 @@ async def choose_registration_branch(callback: CallbackQuery, state: FSMContext)
       repository = UserRepository(session)
       candidates = await repository.list_approved_without_telegram_id()
 
-    await state.clear()
-    await callback.message.answer(
-      Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
-      reply_markup=registration_candidates_keyboard(users=candidates),
-    )
+    if not candidates:
+      await state.set_state(RegistrationState.waiting_for_new_name)
+      await callback.message.answer(Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value)
+    else:
+      await state.clear()
+      await callback.message.answer(
+        Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
+        reply_markup=registration_candidates_keyboard(users=candidates),
+      )
   else:
     await _delete_message_if_possible(callback)
     await state.set_state(RegistrationState.waiting_for_new_name)
@@ -758,6 +762,10 @@ async def registration_existing_page(callback: CallbackQuery) -> None:
     repository = UserRepository(session)
     candidates = await repository.list_approved_without_telegram_id()
   await _delete_message_if_possible(callback)
+  if not candidates:
+    await callback.message.answer(Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value)
+    await callback.answer()
+    return
   await callback.message.answer(
     Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,
     reply_markup=registration_candidates_page_keyboard(users=candidates, page=page),

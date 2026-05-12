@@ -216,6 +216,19 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         repository = UserRepository(session)
         candidates = await repository.list_approved_without_vk_id()
       vk_user_states.pop(user_id, None)
+      if not candidates:
+        vk_user_states[user_id] = WAITING_FOR_NEW_NAME
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=user_id,
+          peer_id=peer_id,
+          text=Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value,
+        )
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value,
+        )
+        return PlainTextResponse("ok")
       await send_vk_message_event_answer(
         event_id=event_id,
         user_id=user_id,
@@ -246,6 +259,19 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     async with SessionFactory() as session:
       repository = UserRepository(session)
       candidates = await repository.list_approved_without_vk_id()
+    if not candidates:
+      await send_vk_message_event_answer(
+        event_id=event_id,
+        user_id=user_id,
+        peer_id=peer_id,
+        text=Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value,
+      )
+      await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value,
+      )
+      return PlainTextResponse("ok")
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=user_id,
@@ -900,6 +926,13 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         repository = UserRepository(session)
         candidates = await repository.list_approved_without_vk_id()
       vk_user_states.pop(user_id, None)
+      if not candidates:
+        vk_user_states[user_id] = WAITING_FOR_NEW_NAME
+        await send_vk_message(
+          user_id=user_id,
+          message=Text.user.REGISTRATION_PLAYED_BEFORE_EMPTY.value,
+        )
+        return PlainTextResponse("ok")
       await send_vk_message(
         user_id=user_id,
         message=Text.user.REGISTRATION_PLAYED_BEFORE_Y.value,

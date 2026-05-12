@@ -309,7 +309,11 @@ class InlineKbs:
         text="➡️",
         callback_data=f"linkto_page:{pending_row_id}:{page + 1}",
       )
-    keyboard.adjust(1)
+    sizes = [1] * len(page_users)
+    nav_count = int(page > 0) + int(end < len(users))
+    if nav_count:
+      sizes.append(nav_count)
+    keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
   @staticmethod
@@ -421,7 +425,12 @@ class InlineKbs:
       text=Buttons.registration_inline.NOT_IN_LIST.value,
       callback_data="registration_existing:new",
     )
-    keyboard.adjust(1)
+    sizes = [1] * len(page_users)
+    nav_count = int(page > 0) + int(end < len(users))
+    if nav_count:
+      sizes.append(nav_count)
+    sizes.append(1)
+    keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
   @staticmethod
@@ -450,38 +459,37 @@ class InlineKbs:
           }
         ]
       )
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
-      rows.append(
-        [
-          {
-            "action": {
-              "type": "callback",
-              "label": "⬅️",
-              "payload": {
-                "action": "registration_existing_page",
-                "page": page - 1,
-              },
+      nav_row.append(
+        {
+          "action": {
+            "type": "callback",
+            "label": "⬅️",
+            "payload": {
+              "action": "registration_existing_page",
+              "page": page - 1,
             },
-            "color": "secondary",
-          }
-        ]
+          },
+          "color": "secondary",
+        }
       )
     if end < len(users):
-      rows.append(
-        [
-          {
-            "action": {
-              "type": "callback",
-              "label": "➡️",
-              "payload": {
-                "action": "registration_existing_page",
-                "page": page + 1,
-              },
+      nav_row.append(
+        {
+          "action": {
+            "type": "callback",
+            "label": "➡️",
+            "payload": {
+              "action": "registration_existing_page",
+              "page": page + 1,
             },
-            "color": "secondary",
-          }
-        ]
+          },
+          "color": "secondary",
+        }
       )
+    if nav_row:
+      rows.append(nav_row)
     rows.append(
       [
         {
@@ -794,7 +802,12 @@ class InlineKbs:
     if end < len(indicators):
       keyboard.button(text="➡️", callback_data=f"betstat_page:{page + 1}")
     keyboard.button(text="✅ Готово", callback_data="betstat_done")
-    keyboard.adjust(1)
+    sizes = [1] * len(batch)
+    nav_count = int(page > 0) + int(end < len(indicators))
+    if nav_count:
+      sizes.append(nav_count)
+    sizes.append(1)
+    keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
   @staticmethod
@@ -816,16 +829,19 @@ class InlineKbs:
           "color": "primary",
         }
       ])
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
-      rows.append([{
+      nav_row.append({
         "action": {"type": "callback", "label": "⬅️", "payload": {"action": "betstat_page", "page": page - 1}},
         "color": "secondary",
-      }])
+      })
     if end < len(indicators):
-      rows.append([{
+      nav_row.append({
         "action": {"type": "callback", "label": "➡️", "payload": {"action": "betstat_page", "page": page + 1}},
         "color": "secondary",
-      }])
+      })
+    if nav_row:
+      rows.append(nav_row)
     rows.append([{
       "action": {"type": "callback", "label": "✅ Готово", "payload": {"action": "betstat_done"}},
       "color": "positive",
@@ -875,7 +891,12 @@ class InlineKbs:
     if end < len(indicators):
       keyboard.button(text="➡️", callback_data=f"pokerstat_page:{page + 1}")
     keyboard.button(text="✅ Готово", callback_data="pokerstat_done")
-    keyboard.adjust(1)
+    sizes = [1] * len(batch)
+    nav_count = int(page > 0) + int(end < len(indicators))
+    if nav_count:
+      sizes.append(nav_count)
+    sizes.append(1)
+    keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
   @staticmethod
@@ -897,16 +918,19 @@ class InlineKbs:
           "color": "primary",
         }
       ])
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
-      rows.append([{
+      nav_row.append({
         "action": {"type": "callback", "label": "⬅️", "payload": {"action": "pokerstat_page", "page": page - 1}},
         "color": "secondary",
-      }])
+      })
     if end < len(indicators):
-      rows.append([{
+      nav_row.append({
         "action": {"type": "callback", "label": "➡️", "payload": {"action": "pokerstat_page", "page": page + 1}},
         "color": "secondary",
-      }])
+      })
+    if nav_row:
+      rows.append(nav_row)
     rows.append([{
       "action": {"type": "callback", "label": "✅ Готово", "payload": {"action": "pokerstat_done"}},
       "color": "positive",
@@ -940,38 +964,37 @@ class InlineKbs:
           }
         ]
       )
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
-      rows.append(
-        [
-          {
-            "action": {
-              "type": "callback",
-              "label": "⬅️",
-              "payload": {
-                "action": "link_page",
-                "pending_row_id": pending_row_id,
-                "page": page - 1,
-              },
+      nav_row.append(
+        {
+          "action": {
+            "type": "callback",
+            "label": "⬅️",
+            "payload": {
+              "action": "link_page",
+              "pending_row_id": pending_row_id,
+              "page": page - 1,
             },
-            "color": "secondary",
-          }
-        ]
+          },
+          "color": "secondary",
+        }
       )
     if end < len(users):
-      rows.append(
-        [
-          {
-            "action": {
-              "type": "callback",
-              "label": "➡️",
-              "payload": {
-                "action": "link_page",
-                "pending_row_id": pending_row_id,
-                "page": page + 1,
-              },
+      nav_row.append(
+        {
+          "action": {
+            "type": "callback",
+            "label": "➡️",
+            "payload": {
+              "action": "link_page",
+              "pending_row_id": pending_row_id,
+              "page": page + 1,
             },
-            "color": "secondary",
-          }
-        ]
+          },
+          "color": "secondary",
+        }
       )
+    if nav_row:
+      rows.append(nav_row)
     return ReplyKbs.make_vk_callback(rows)

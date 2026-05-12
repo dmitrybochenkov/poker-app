@@ -11,6 +11,7 @@ class UserText(Enum):
 
   REGISTRATION_PLAYED_BEFORE_Q = "Ты раньше играл с нами?"
   REGISTRATION_PLAYED_BEFORE_Y = "Найди себя в списке. Если тебя нет - жми Меня нет в списке."
+  REGISTRATION_PLAYED_BEFORE_EMPTY = "Не найдено ранее игравших пользователей - введи свое имя"
   REGISTRATION_NEW_NAME_PROMPT = "Введи свои имя и фамилию русскими буквами через пробел. Пожалуйста, вводи настоящие!"
   REGISTRATION_EXIST = "Ты уже зарегистрирован."
   REGISTRATION_WAIT = "Заявка отправлена. После её рассмотрения тебе придёт сообщение."
