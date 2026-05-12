@@ -57,3 +57,4 @@ class UserText(Enum):
   BETTING_USER_BETS = "Твои текущие ставки:\n{bets}"
   BETTING_STAT_INDICATORS = "Показатели статистики ставок:"
   BETTING_STAT_SELECTED = "Выбран показатель: {indicator}"
+  BETTING_STAT_REPORT = "Статистика ставок:\n\n{report}"

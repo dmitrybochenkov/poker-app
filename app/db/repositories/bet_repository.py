@@ -72,3 +72,10 @@ class BetRepository:
     bet.score = int(score)
     await self.session.flush()
     return bet
+
+  async def list_for_latest_poker(self) -> list[Bet]:
+    latest_id_result = await self.session.execute(select(Bet.poker_id).where(Bet.poker_id.is_not(None)).order_by(Bet.poker_id.desc()))
+    latest_id = latest_id_result.scalars().first()
+    if latest_id is None:
+      return []
+    return await self.list_for_poker(poker_id=int(latest_id))

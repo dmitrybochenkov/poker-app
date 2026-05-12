@@ -12,6 +12,7 @@ from app.application.exceptions import (
 from app.application.use_cases.user.request_registration import RequestRegistrationUseCase
 from app.application.use_cases.poker.bet import BetUseCases
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -241,7 +242,8 @@ async def show_current_betting_tournaments(message: Message) -> None:
 
 
 @router.message(F.text == Buttons.betting.BETTING_STAT.value)
-async def show_betting_stat_indicators(message: Message) -> None:
+async def show_betting_stat_indicators(message: Message, state: FSMContext) -> None:
+  await state.update_data(betstat_selected_ids=[])
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
   if not indicators:
@@ -249,41 +251,62 @@ async def show_betting_stat_indicators(message: Message) -> None:
     return
   await message.answer(
     Text.user.BETTING_STAT_INDICATORS.value,
-    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=0),
+    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
   )
-
-
 @router.callback_query(F.data.startswith("betstat_page:"))
-async def betting_stat_page(callback: CallbackQuery) -> None:
+async def betting_stat_page(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
   page = int(callback.data.split(":", 1)[1])
+  data = await state.get_data()
+  selected_ids: list[int] = data.get("betstat_selected_ids", [])
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
   await callback.message.edit_text(
     Text.user.BETTING_STAT_INDICATORS.value,
-    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=page),
+    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=page, selected_ids=selected_ids),
   )
   await callback.answer()
 
 
-@router.callback_query(F.data.startswith("betstat_ind:"))
-async def betting_stat_indicator_selected(callback: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("betstat_toggle:"))
+async def betting_stat_indicator_selected(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
-  indicator_id = int(callback.data.split(":", 1)[1])
+  _, indicator_id_raw, page_raw = callback.data.split(":")
+  indicator_id = int(indicator_id_raw)
+  page = int(page_raw)
+  data = await state.get_data()
+  selected = set(data.get("betstat_selected_ids", []))
+  if indicator_id in selected:
+    selected.remove(indicator_id)
+  else:
+    selected.add(indicator_id)
+  await state.update_data(betstat_selected_ids=list(selected))
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-  selected = next((item for item in indicators if int(item.row_id) == indicator_id), None)
-  if selected is None:
+  await callback.message.edit_text(
+    Text.user.BETTING_STAT_INDICATORS.value,
+    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=page, selected_ids=list(selected)),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data == "betstat_done")
+async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
+  data = await state.get_data()
+  selected_ids: list[int] = data.get("betstat_selected_ids", [])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+    selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
+    report = await StatUseCases(bet_repository=BetRepository(session)).get_betting_stat(indicators=selected)
+  await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
   await callback.answer()
-  await callback.message.answer(
-    Text.user.BETTING_STAT_SELECTED.value.format(indicator=f"{selected.pic} {selected.description}")
-  )
 
 
 @router.message(F.text == Buttons.betting.MAKE_BET.value)
