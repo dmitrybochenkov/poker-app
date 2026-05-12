@@ -43,6 +43,13 @@ class PokerDataRepository:
     )
     return list(result.scalars().all())
 
+  async def list_all(self) -> list[PokerData]:
+    result = await self.session.execute(
+      select(PokerData)
+      .order_by(PokerData.date.asc(), PokerData.row_id.asc())
+    )
+    return list(result.scalars().all())
+
   async def add_buyins(self, *, date, player_id: int, buyins_count: int) -> PokerData | None:
     item = await self.get_player(date=date, player_id=player_id)
     if item is None:

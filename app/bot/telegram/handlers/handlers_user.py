@@ -26,6 +26,7 @@ from app.bot.telegram.keyboards import (
   betting_player_keyboard,
   betting_size_keyboard,
   betting_stat_indicators_keyboard,
+  poker_stat_indicators_keyboard,
   betting_tournament_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
@@ -45,6 +46,7 @@ from app.bot.vk.notifications import notify_admins_about_registration as notify_
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
@@ -257,7 +259,7 @@ async def open_betting_menu(message: Message) -> None:
 async def open_poker_menu(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.BOT_INFO.value, reply_markup=poker_keyboard)
+  await message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
 
 
 @router.message(F.text == Buttons.main.ADMIN.value)
@@ -313,6 +315,95 @@ async def back_to_main_from_poker(message: Message) -> None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
     return
   await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
+
+
+@router.message(F.text == Buttons.poker.POKER_INFO.value)
+async def show_poker_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await message.answer(Text.user.POKER_INFO.value, reply_markup=poker_keyboard)
+
+
+@router.message(F.text == Buttons.poker.POKER_STAT.value)
+async def show_poker_stat_indicators(message: Message, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await state.update_data(pokerstat_selected_ids=[])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+  if not indicators:
+    await message.answer(Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру."))
+    return
+  await message.answer(
+    Text.user.POKER_STAT_INDICATORS.value,
+    reply_markup=poker_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
+  )
+
+
+@router.callback_query(F.data.startswith("pokerstat_page:"))
+async def poker_stat_page(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  page = int(callback.data.split(":", 1)[1])
+  data = await state.get_data()
+  selected_ids: list[int] = data.get("pokerstat_selected_ids", [])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+  await callback.message.edit_text(
+    Text.user.POKER_STAT_INDICATORS.value,
+    reply_markup=poker_stat_indicators_keyboard(indicators=indicators, page=page, selected_ids=selected_ids),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pokerstat_toggle:"))
+async def poker_stat_indicator_selected(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  _, indicator_id_raw, page_raw = callback.data.split(":")
+  indicator_id = int(indicator_id_raw)
+  page = int(page_raw)
+  data = await state.get_data()
+  selected = set(data.get("pokerstat_selected_ids", []))
+  if indicator_id in selected:
+    selected.remove(indicator_id)
+  else:
+    selected.add(indicator_id)
+  await state.update_data(pokerstat_selected_ids=list(selected))
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+  await callback.message.edit_text(
+    Text.user.POKER_STAT_INDICATORS.value,
+    reply_markup=poker_stat_indicators_keyboard(indicators=indicators, page=page, selected_ids=list(selected)),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data == "pokerstat_done")
+async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  data = await state.get_data()
+  selected_ids: list[int] = data.get("pokerstat_selected_ids", [])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+    selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
+    report = await StatUseCases(
+      bet_repository=BetRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+      achievement_repository=AchievementRepository(session),
+    ).get_poker_stat(indicators=selected)
+  await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
+  await callback.answer()
 
 
 @router.message(F.text == Buttons.betting.CURRENT_TOURS.value)
@@ -423,7 +514,10 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
-    report = await StatUseCases(bet_repository=BetRepository(session)).get_betting_stat(indicators=selected)
+    report = await StatUseCases(
+      bet_repository=BetRepository(session),
+      achievement_repository=AchievementRepository(session),
+    ).get_betting_stat(indicators=selected)
   await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
   await callback.answer()
 

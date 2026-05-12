@@ -833,6 +833,59 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
+  def poker_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    selected = set(selected_ids or [])
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = indicators[start:end]
+    for indicator in batch:
+      mark = "✅ " if int(indicator.row_id) in selected else ""
+      keyboard.button(text=f"{mark}{indicator.pic} {indicator.description}"[:64], callback_data=f"pokerstat_toggle:{indicator.row_id}:{page}")
+    if page > 0:
+      keyboard.button(text="⬅️", callback_data=f"pokerstat_page:{page - 1}")
+    if end < len(indicators):
+      keyboard.button(text="➡️", callback_data=f"pokerstat_page:{page + 1}")
+    keyboard.button(text="✅ Готово", callback_data="pokerstat_done")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_stat_indicators_vk(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    selected = set(selected_ids or [])
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = indicators[start:end]
+    for indicator in batch:
+      mark = "✅ " if int(indicator.row_id) in selected else ""
+      rows.append([
+        {
+          "action": {
+            "type": "callback",
+            "label": f"{mark}{indicator.pic} {indicator.description}"[:40],
+            "payload": {"action": "pokerstat_toggle", "indicator_id": int(indicator.row_id), "page": page},
+          },
+          "color": "primary",
+        }
+      ])
+    if page > 0:
+      rows.append([{
+        "action": {"type": "callback", "label": "⬅️", "payload": {"action": "pokerstat_page", "page": page - 1}},
+        "color": "secondary",
+      }])
+    if end < len(indicators):
+      rows.append([{
+        "action": {"type": "callback", "label": "➡️", "payload": {"action": "pokerstat_page", "page": page + 1}},
+        "color": "secondary",
+      }])
+    rows.append([{
+      "action": {"type": "callback", "label": "✅ Готово", "payload": {"action": "pokerstat_done"}},
+      "color": "positive",
+    }])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
     return InlineKbs.link_candidates_vk_page(pending_row_id=pending_row_id, users=users, page=0)
 

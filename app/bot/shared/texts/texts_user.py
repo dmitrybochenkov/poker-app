@@ -58,3 +58,7 @@ class UserText(Enum):
   BETTING_STAT_INDICATORS = "Показатели статистики ставок:"
   BETTING_STAT_SELECTED = "Выбран показатель: {indicator}"
   BETTING_STAT_REPORT = "Статистика ставок:\n\n{report}"
+  POKER_MENU = "Раздел покера."
+  POKER_INFO = "Информация о покере."
+  POKER_STAT_INDICATORS = "Показатели статистики покера:"
+  POKER_STAT_REPORT = "Статистика покера:\n\n{report}"
