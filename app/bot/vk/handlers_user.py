@@ -535,6 +535,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     page = callback_payload.get("page", 0)
     if not isinstance(indicator_id, int):
       return PlainTextResponse("ok")
+    mode = vk_user_contexts.get(user_id, {}).get("betstat_mode", "all")
     selected = {int(x) for x in vk_user_contexts.get(user_id, {}).get("betstat_selected_ids", "").split(",") if x}
     if indicator_id in selected:
       selected.remove(indicator_id)

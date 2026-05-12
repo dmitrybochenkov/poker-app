@@ -6,6 +6,10 @@ import aiohttp
 from app.config.settings import settings
 
 
+class VkApiError(RuntimeError):
+  pass
+
+
 async def vk_api_call(method: str, **params) -> dict:
   async with aiohttp.ClientSession() as session:
     async with session.post(
@@ -16,19 +20,38 @@ async def vk_api_call(method: str, **params) -> dict:
         "v": settings.vk_api_version,
       },
     ) as response:
-      return await response.json()
+      data = await response.json()
+      error = data.get("error")
+      if error:
+        code = error.get("error_code")
+        msg = error.get("error_msg", "VK API error")
+        raise VkApiError(f"VK API error {code} in {method}: {msg}")
+      return data
 
 
 async def send_vk_message(*, user_id: int, message: str, keyboard: str | None = None) -> None:
-  params = {
-    "user_id": user_id,
-    "random_id": secrets.randbelow(2**31 - 1),
-    "message": message,
-  }
-  if keyboard is not None:
-    params["keyboard"] = keyboard
+  chunks = [message]
+  if len(message) > 3500 and keyboard is None:
+    chunks = []
+    current = ""
+    for line in message.splitlines(keepends=True):
+      if len(current) + len(line) > 3500 and current:
+        chunks.append(current)
+        current = line
+      else:
+        current += line
+    if current:
+      chunks.append(current)
 
-  await vk_api_call("messages.send", **params)
+  for index, chunk in enumerate(chunks):
+    params = {
+      "user_id": user_id,
+      "random_id": secrets.randbelow(2**31 - 1),
+      "message": chunk,
+    }
+    if keyboard is not None and index == len(chunks) - 1:
+      params["keyboard"] = keyboard
+    await vk_api_call("messages.send", **params)
 
 
 async def send_vk_message_event_answer(
