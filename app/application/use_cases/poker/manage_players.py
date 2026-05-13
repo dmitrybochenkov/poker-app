@@ -109,7 +109,14 @@ class ManagePokerPlayersUseCase:
       player_id=player_id,
     )
 
-  async def add_buyin_to_active_player(self, *, player_id: int, buyins_count: int):
+  async def add_buyin_to_active_player(
+    self,
+    *,
+    player_id: int,
+    buyins_count: int,
+    big_buyin_count: int = 0,
+    super_buyin_count: int = 0,
+  ):
     active = await self.poker_repository.get_started()
     if active is None:
       return None
@@ -118,6 +125,8 @@ class ManagePokerPlayersUseCase:
       date=poker.date,
       player_id=player_id,
       buyins_count=buyins_count,
+      big_buyin_count=big_buyin_count,
+      super_buyin_count=super_buyin_count,
     )
     if updated is None:
       return None

@@ -50,11 +50,21 @@ class PokerDataRepository:
     )
     return list(result.scalars().all())
 
-  async def add_buyins(self, *, date, player_id: int, buyins_count: int) -> PokerData | None:
+  async def add_buyins(
+    self,
+    *,
+    date,
+    player_id: int,
+    buyins_count: int,
+    big_buyin_count: int = 0,
+    super_buyin_count: int = 0,
+  ) -> PokerData | None:
     item = await self.get_player(date=date, player_id=player_id)
     if item is None:
       return None
     item.buyins = int(item.buyins) + int(buyins_count)
+    item.big_buyin_count = int(item.big_buyin_count) + int(big_buyin_count)
+    item.super_buyin_count = int(item.super_buyin_count) + int(super_buyin_count)
     await self.session.commit()
     await self.session.refresh(item)
     return item

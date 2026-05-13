@@ -13,5 +13,4 @@ class RegistrationState(StatesGroup):
 
 
 class AdminPokerState(StatesGroup):
-  waiting_for_buyin_count = State()
   waiting_for_cashout_amount = State()

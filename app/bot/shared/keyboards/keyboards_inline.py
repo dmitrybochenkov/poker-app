@@ -397,6 +397,40 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def poker_buyin_count_tg(
+    *,
+    player_id: int,
+    max_buyins: int,
+    big_buyin_pic: str | None,
+    king_buyin_pic: str | None,
+    super_buyin_pic: str | None,
+  ) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    safe_max = max(1, int(max_buyins))
+    for count in range(1, safe_max + 1):
+      keyboard.button(
+        text=f"{count}",
+        callback_data=f"pokerbuyincount:{player_id}:{count}",
+      )
+    if safe_max == 2:
+      special_icons = [
+        str(big_buyin_pic or "🟠"),
+        str(king_buyin_pic or "👑"),
+        str(super_buyin_pic or "⭐"),
+      ]
+      for index, icon in enumerate(special_icons, start=3):
+        keyboard.button(
+          text=f"{icon} {index}",
+          callback_data=f"pokerbuyincount:{player_id}:{index}",
+        )
+    keyboard.button(
+      text=Buttons.betting_inline.CONFIRM_NO.value,
+      callback_data=f"pokerbuyincancel:{player_id}",
+    )
+    keyboard.adjust(*([1] * (safe_max + (3 if safe_max == 2 else 0) + 1)))
+    return keyboard.as_markup()
+
+  @staticmethod
   def poker_cashout_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -702,6 +736,74 @@ class InlineKbs:
           }
         ]
       )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_buyin_count_vk(
+    *,
+    player_id: int,
+    max_buyins: int,
+    big_buyin_pic: str | None,
+    king_buyin_pic: str | None,
+    super_buyin_pic: str | None,
+  ) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    safe_max = max(1, int(max_buyins))
+    for count in range(1, safe_max + 1):
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": str(count),
+              "payload": {
+                "action": "poker_buyin_count_select",
+                "player_id": int(player_id),
+                "count": count,
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    if safe_max == 2:
+      special_icons = [
+        str(big_buyin_pic or "🟠"),
+        str(king_buyin_pic or "👑"),
+        str(super_buyin_pic or "⭐"),
+      ]
+      for index, icon in enumerate(special_icons, start=3):
+        rows.append(
+          [
+            {
+              "action": {
+                "type": "callback",
+                "label": f"{icon} {index}"[:40],
+                "payload": {
+                  "action": "poker_buyin_count_select",
+                  "player_id": int(player_id),
+                  "count": index,
+                },
+              },
+              "color": "primary",
+            }
+          ]
+        )
+    rows.append(
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": Buttons.betting_inline.CONFIRM_NO.value[:40],
+            "payload": {
+              "action": "poker_buyin_cancel",
+              "player_id": int(player_id),
+            },
+          },
+          "color": "negative",
+        }
+      ]
+    )
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
