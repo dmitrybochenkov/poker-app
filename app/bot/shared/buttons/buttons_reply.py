@@ -20,7 +20,7 @@ class RoomBtns(Enum):
   STATUS = "ℹ️ Статус"
   BUYIN = "🏦 Закуп"
   TO_MAIN = "🏠 На главную"
-  POKER_ADMIN = "🎲 Покер админ панель"
+  POKER_ADMIN = "🔑 Покер админ панель"
 
 class AdminRoomBtns(Enum):
   SET_CASHIER = "🏦 Назначить кассира"
