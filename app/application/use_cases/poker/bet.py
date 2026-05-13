@@ -71,8 +71,6 @@ class BetUseCases:
     winner_name: str | None = None,
     loser_name: str | None = None,
   ) -> tuple[Bet | None, str]:
-    if tournament_type not in self.TOURNAMENT_TYPES:
-      return None, "invalid_tournament"
     if amount_kopecks <= 0:
       return None, "invalid_amount"
 
@@ -85,7 +83,7 @@ class BetUseCases:
       return None, "user_not_approved"
 
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
-      poker_id=poker.row_id,
+      date=poker.date,
       better_id=better_id,
       tournament_type=tournament_type,
     )
@@ -93,9 +91,9 @@ class BetUseCases:
       return None, "already_bet"
 
     tournament_params = await self.bet_tournament_param_repository.get_by_tournament_type(
-      tournament_type=tournament_type
+      tournament_type=self.TOURNAMENT_REGULAR
     )
-    params_id = tournament_params.bet_param_id if tournament_params is not None else None
+    params_id = tournament_params.bet_param_id if tournament_params is not None else 1
     if params_id is None:
       return None, "missing_params"
 
@@ -111,16 +109,12 @@ class BetUseCases:
       loser_name=loser_name,
       is_paid=False,
     )
-    await self.bet_tournament_repository.add_to_bank(
-      tournament_type=tournament_type,
-      amount_kopecks=amount_kopecks,
-    )
+    await self.bet_tournament_repository.add_to_bank(tournament_type=self.TOURNAMENT_REGULAR, amount_kopecks=amount_kopecks)
+    await self.bet_tournament_repository.add_to_bank(tournament_type=self.TOURNAMENT_YEAR, amount_kopecks=amount_kopecks)
     await self.bet_repository.session.commit()
     return created, "ok"
 
   async def get_bet_draft_data(self, *, better_id: int, tournament_type: str) -> tuple[BetParam | None, list[PokerData], str]:
-    if tournament_type not in self.TOURNAMENT_TYPES:
-      return None, [], "invalid_tournament"
     poker = await self.get_active_bettable_poker()
     if poker is None:
       return None, [], "betting_closed"
@@ -128,14 +122,14 @@ class BetUseCases:
     if user is None:
       return None, [], "user_not_approved"
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
-      poker_id=poker.row_id,
+      date=poker.date,
       better_id=better_id,
       tournament_type=tournament_type,
     )
     if existing is not None:
       return None, [], "already_bet"
     tournament_params = await self.bet_tournament_param_repository.get_by_tournament_type(
-      tournament_type=tournament_type
+      tournament_type=self.TOURNAMENT_REGULAR
     )
     if tournament_params is None:
       return None, [], "missing_params"
@@ -152,7 +146,7 @@ class BetUseCases:
     if poker is None:
       return []
     return await self.bet_repository.list_for_user_in_poker(
-      poker_id=poker.row_id,
+      date=poker.date,
       better_id=better_id,
     )
 

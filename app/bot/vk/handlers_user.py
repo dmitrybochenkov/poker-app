@@ -125,7 +125,7 @@ async def _delete_event_message_if_possible(*, peer_id: int | None, conversation
 
 
 def _format_tournament_name(tournament_type: str) -> str:
-  return "Регулярный турнир" if tournament_type == "regular" else "Годовой турнир"
+  return "Турнир"
 
 
 async def _submit_registration_request(
@@ -833,7 +833,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       message=Text.user.BETTING_CURRENT_LIST.value.format(tournaments="\n".join(tournament_lines)),
     )
     if bets:
-      bet_lines = [f"• {_format_tournament_name(b.tournament_type)} — {b.amount_kopecks // 100} ₽" for b in bets]
+      bet_lines = [f"• {_format_tournament_name('single')} — {b.amount_kopecks // 100} ₽" for b in bets]
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_USER_BETS.value.format(bets="\n".join(bet_lines)))
     else:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_USER_BETS_EMPTY.value)
@@ -973,7 +973,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         bet_name_by_id: dict[int, str] = {}
         if active is not None:
           poker, _ = active
-          bets = await BetRepository(session).list_for_poker(poker_id=poker.row_id)
+          bets = await BetRepository(session).list_for_poker(date=poker.date)
           for bet in bets:
             bet_ids.add(int(bet.better_id))
             bet_name_by_id[int(bet.better_id)] = bet.better_name

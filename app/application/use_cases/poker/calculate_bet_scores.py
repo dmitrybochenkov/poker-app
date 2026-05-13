@@ -20,7 +20,7 @@ class CalculateBetScoresUseCase:
     self.poker_data_repository = poker_data_repository
 
   async def execute(self, *, poker_id: int, poker_date) -> int:
-    bets = await self.bet_repository.list_for_poker(poker_id=poker_id)
+    bets = await self.bet_repository.list_for_poker(date=poker_date)
     if not bets:
       return 0
 
@@ -69,7 +69,7 @@ class CalculateBetScoresUseCase:
       if direct is not None:
         return direct
     tournament_params = await self.bet_tournament_param_repository.get_by_tournament_type(
-      tournament_type=bet.tournament_type
+      tournament_type="regular"
     )
     if tournament_params is None:
       return None

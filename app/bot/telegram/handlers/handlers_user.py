@@ -160,7 +160,7 @@ REGISTRATION_USER_STATES = {
 
 
 def _format_tournament_name(tournament_type: str) -> str:
-  return "Регулярный турнир" if tournament_type == "regular" else "Годовой турнир"
+  return "Турнир"
 
 
 @router.message(CommandStart())
@@ -275,21 +275,21 @@ async def show_user_status(message: Message) -> None:
       bet_name_by_id: dict[int, str] = {}
       if active is not None:
         poker, _ = active
-        bets = await BetRepository(session).list_for_poker(poker_id=poker.row_id)
+        bets = await BetRepository(session).list_for_poker(date=poker.date)
         for bet in bets:
           bet_ids.add(int(bet.better_id))
           bet_name_by_id[int(bet.better_id)] = bet.better_name
-        player_ids = {int(p.player_id) for p in players}
-        for p in players:
-          if int(p.player_id) in bet_ids:
-            lines.append(f"{p.player_name}: 🍀 {p.buyins}")
-          else:
-            lines.append(f"{p.player_name}: {p.buyins}")
-        outsider_ids = [better_id for better_id in bet_ids if better_id not in player_ids]
-        outsider_ids.sort()
-        for better_id in outsider_ids:
-          better_name = bet_name_by_id.get(better_id, f"ID {better_id}")
-          lines.append(f"{better_name}: 🍀")
+      player_ids = {int(p.player_id) for p in players}
+      for p in players:
+        if int(p.player_id) in bet_ids:
+          lines.append(f"{p.player_name}: 🍀 {p.buyins}")
+        else:
+          lines.append(f"{p.player_name}: {p.buyins}")
+      outsider_ids = [better_id for better_id in bet_ids if better_id not in player_ids]
+      outsider_ids.sort()
+      for better_id in outsider_ids:
+        better_name = bet_name_by_id.get(better_id, f"ID {better_id}")
+        lines.append(f"{better_name}: 🍀")
     else:
       for p in players:
         lines.append(f"{p.player_name}: {p.buyins}")
@@ -568,10 +568,7 @@ async def show_current_betting_tournaments(message: Message) -> None:
   await message.answer(Text.user.BETTING_CURRENT_LIST.value.format(tournaments="\n".join(tournament_lines)))
 
   if bets:
-    bet_lines = [
-      f"• {_format_tournament_name(bet.tournament_type)} — {bet.amount_kopecks // 100} ₽"
-      for bet in bets
-    ]
+    bet_lines = [f"• {_format_tournament_name('single')} — {bet.amount_kopecks // 100} ₽" for bet in bets]
     await message.answer(Text.user.BETTING_USER_BETS.value.format(bets="\n".join(bet_lines)))
   else:
     await message.answer(Text.user.BETTING_USER_BETS_EMPTY.value)
