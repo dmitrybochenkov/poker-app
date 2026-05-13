@@ -268,7 +268,7 @@ async def show_user_status(message: Message) -> None:
       await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
       return
 
-    lines: list[str] = []
+    lines: list[str] = ["🏦 Закупы"]
     if user.is_admin:
       active = await PokerRepository(session).get_started()
       bet_ids: set[int] = set()

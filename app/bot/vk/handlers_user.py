@@ -966,7 +966,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
         return PlainTextResponse("ok")
 
-      lines: list[str] = []
+      lines: list[str] = ["🏦 Закупы"]
       if user.is_admin:
         active = await PokerRepository(session).get_started()
         bet_ids: set[int] = set()
