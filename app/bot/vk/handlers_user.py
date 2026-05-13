@@ -541,23 +541,30 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     if not tournament_type or not winner_name or not loser_name or amount_kopecks <= 0:
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
-    async with SessionFactory() as session:
-      use_case = BetUseCases(
-        user_repository=UserRepository(session),
-        poker_repository=PokerRepository(session),
-        bet_repository=BetRepository(session),
-        bet_param_repository=BetParamRepository(session),
-        bet_tournament_repository=BetTournamentRepository(session),
-        bet_tournament_param_repository=BetTournamentParamRepository(session),
-        poker_data_repository=PokerDataRepository(session),
-      )
-      created, status = await use_case.create_bet(
-        better_id=user_id,
-        tournament_type=tournament_type,
-        amount_kopecks=amount_kopecks,
-        winner_name=winner_name,
-        loser_name=loser_name,
-      )
+    try:
+      async with SessionFactory() as session:
+        use_case = BetUseCases(
+          user_repository=UserRepository(session),
+          poker_repository=PokerRepository(session),
+          bet_repository=BetRepository(session),
+          bet_param_repository=BetParamRepository(session),
+          bet_tournament_repository=BetTournamentRepository(session),
+          bet_tournament_param_repository=BetTournamentParamRepository(session),
+          poker_data_repository=PokerDataRepository(session),
+        )
+        created, status = await use_case.create_bet(
+          better_id=user_id,
+          tournament_type=tournament_type,
+          amount_kopecks=amount_kopecks,
+          winner_name=winner_name,
+          loser_name=loser_name,
+        )
+    except Exception:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
+      return PlainTextResponse("ok")
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)

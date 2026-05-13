@@ -1037,7 +1037,7 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
   if not await _ensure_approved_telegram_callback_user(callback):
     return
   tournament_type = "single"
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   async with SessionFactory() as session:
     user_repository = UserRepository(session)
     user = await user_repository.get_by_telegram_id(callback.from_user.id)
@@ -1094,7 +1094,7 @@ async def choose_bet_size(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
   amount_kopecks = int(callback.data.split(":", 1)[1])
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   await state.update_data(bet_amount_kopecks=amount_kopecks)
   await callback.message.answer(
     Text.user.BETTING_WINNER_CHOOSE.value,
@@ -1123,7 +1123,7 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await callback.answer(Text.user.BETTING_AMOUNT_INVALID.value, show_alert=True)
     return
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   await state.update_data(bet_winner_name=winner_name)
   await callback.message.answer(
     Text.user.BETTING_LOSER_CHOOSE.value,
@@ -1153,7 +1153,7 @@ async def choose_bet_loser(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   await state.update_data(bet_loser_name=loser_name)
   await callback.message.answer(
     Text.user.BETTING_CONFIRM.value.format(
@@ -1175,7 +1175,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_callback_user(callback):
     return
   choice = callback.data.split(":", 1)[1]
-  await _clear_inline_keyboard(callback)
+  await _delete_message_if_possible(callback)
   if choice != "yes":
     await state.clear()
     await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
@@ -1191,23 +1191,29 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
 
-  async with SessionFactory() as session:
-    use_case = BetUseCases(
-      user_repository=UserRepository(session),
-      poker_repository=PokerRepository(session),
-      bet_repository=BetRepository(session),
-      bet_param_repository=BetParamRepository(session),
-      bet_tournament_repository=BetTournamentRepository(session),
-      bet_tournament_param_repository=BetTournamentParamRepository(session),
-      poker_data_repository=PokerDataRepository(session),
-    )
-    created, status = await use_case.create_bet(
-      better_id=callback.from_user.id,
-      tournament_type=tournament_type,
-      amount_kopecks=amount_kopecks,
-      winner_name=winner_name,
-      loser_name=loser_name,
-    )
+  try:
+    async with SessionFactory() as session:
+      use_case = BetUseCases(
+        user_repository=UserRepository(session),
+        poker_repository=PokerRepository(session),
+        bet_repository=BetRepository(session),
+        bet_param_repository=BetParamRepository(session),
+        bet_tournament_repository=BetTournamentRepository(session),
+        bet_tournament_param_repository=BetTournamentParamRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+      )
+      created, status = await use_case.create_bet(
+        better_id=callback.from_user.id,
+        tournament_type=tournament_type,
+        amount_kopecks=amount_kopecks,
+        winner_name=winner_name,
+        loser_name=loser_name,
+      )
+  except Exception:
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+    await state.clear()
+    await callback.answer()
+    return
 
   if status == "already_bet":
     await callback.message.answer(Text.user.BETTING_ALREADY_EXISTS.value, reply_markup=betting_keyboard)
