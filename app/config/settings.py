@@ -5,7 +5,7 @@ class Settings(BaseSettings):
   app_name: str = "Poker App"
   app_host: str = "127.0.0.1"
   app_port: int = 8000
-  debug: bool = True
+  debug: bool = False
   public_base_url: str = ""
 
   telegram_bot_token: str = ""

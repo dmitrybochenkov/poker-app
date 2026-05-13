@@ -482,7 +482,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     better_name = context.get("bet_better_name")
     losers = [p for p in players if p != winner_name and p != better_name]
     if not losers:
-      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_AMOUNT_INVALID.value)
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_LOSER_CHOOSE.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)

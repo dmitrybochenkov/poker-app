@@ -1121,7 +1121,7 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
   loser_candidates = [player for player in players if player != winner_name and player != better_name]
   if not loser_candidates:
     await state.clear()
-    await callback.answer(Text.user.BETTING_AMOUNT_INVALID.value, show_alert=True)
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
   await _delete_message_if_possible(callback)
   await state.update_data(bet_winner_name=winner_name)
