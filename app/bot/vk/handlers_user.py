@@ -21,7 +21,9 @@ from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_e
 from app.bot.vk.keyboards import (
   admin_main_keyboard,
   betting_keyboard,
+  betting_info_keyboard,
   poker_keyboard,
+  poker_info_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
   betting_size_keyboard,
@@ -125,6 +127,40 @@ async def _delete_event_message_if_possible(*, peer_id: int | None, conversation
 
 def _format_tournament_name(tournament_type: str) -> str:
   return "Турнир"
+
+
+def _format_stat_info_report(indicators) -> str:
+  if not indicators:
+    return "Справка пока пустая."
+  lines: list[str] = []
+  for item in indicators:
+    lines.append(f"{item.pic} {item.description}")
+    lines.append(f"{item.description_full}")
+    lines.append("")
+  return "\n".join(lines).strip()
+
+
+def _format_achievement_description(raw: str) -> tuple[str, str | None]:
+  if "_" not in raw:
+    return raw, None
+  title, detail = raw.split("_", 1)
+  return title.strip(), detail.strip() if detail else None
+
+
+def _format_achievement_info_report(achievements, indicators_by_id: dict[int, str]) -> str:
+  if not achievements:
+    return "Справка пока пустая."
+  lines: list[str] = []
+  for item in achievements:
+    title, detail = _format_achievement_description(item.description)
+    lines.append(f"{item.pic} {title}")
+    if detail:
+      lines.append(detail)
+    indicator_name = indicators_by_id.get(int(item.stat_id))
+    if indicator_name:
+      lines.append(f"Показатель: {indicator_name}")
+    lines.append("")
+  return "\n".join(lines).strip()
 
 
 async def _submit_registration_request(
@@ -738,6 +774,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.betting.TO_MAIN.value,
     Buttons.betting.CURRENT_TOURS.value,
     Buttons.betting.BETTING_STAT.value,
+    Buttons.betting.BETTING_INFO.value,
+    Buttons.bettingInfo.BETTING_RULES.value,
+    Buttons.bettingInfo.BETTING_ACH_INFO.value,
+    Buttons.bettingInfo.BETTING_STAT_INFO.value,
     Buttons.betting.MAKE_BET.value,
     Buttons.main.ROOM.value,
     Buttons.room.STATUS.value,
@@ -746,6 +786,8 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.main.POKER.value,
     Buttons.poker.TO_MAIN.value,
     Buttons.poker.POKER_INFO.value,
+    Buttons.pokerInfo.POKER_ACH_INFO.value,
+    Buttons.pokerInfo.POKER_STAT_INFO.value,
     Buttons.poker.POKER_STAT.value,
   }:
     user = await _get_vk_user(user_id)
@@ -810,7 +852,59 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.POKER_INFO.value:
-    await send_vk_message(user_id=user_id, message=Text.user.POKER_INFO.value, keyboard=poker_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.POKER_INFO.value, keyboard=poker_info_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.betting.BETTING_INFO.value:
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_info_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.bettingInfo.BETTING_RULES.value:
+    await send_vk_message(user_id=user_id, message=Text.user.BET_RULES.value, keyboard=betting_info_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.bettingInfo.BETTING_STAT_INFO.value:
+    async with SessionFactory() as session:
+      indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+    await send_vk_message(
+      user_id=user_id,
+      message=_format_stat_info_report(indicators),
+      keyboard=betting_info_keyboard,
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.bettingInfo.BETTING_ACH_INFO.value:
+    async with SessionFactory() as session:
+      achievements = await AchievementRepository(session).list_by_type(achievement_type="betting")
+      indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+    indicators_by_id = {int(item.row_id): item.description for item in indicators}
+    await send_vk_message(
+      user_id=user_id,
+      message=_format_achievement_info_report(achievements, indicators_by_id),
+      keyboard=betting_info_keyboard,
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.pokerInfo.POKER_STAT_INFO.value:
+    async with SessionFactory() as session:
+      indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+    await send_vk_message(
+      user_id=user_id,
+      message=_format_stat_info_report(indicators),
+      keyboard=poker_info_keyboard,
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.pokerInfo.POKER_ACH_INFO.value:
+    async with SessionFactory() as session:
+      achievements = await AchievementRepository(session).list_by_type(achievement_type="poker")
+      indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+    indicators_by_id = {int(item.row_id): item.description for item in indicators}
+    await send_vk_message(
+      user_id=user_id,
+      message=_format_achievement_info_report(achievements, indicators_by_id),
+      keyboard=poker_info_keyboard,
+    )
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.POKER_STAT.value:

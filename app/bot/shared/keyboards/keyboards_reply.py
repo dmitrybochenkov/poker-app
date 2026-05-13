@@ -197,6 +197,7 @@ class ReplyKbs:
         [
           Buttons.betting.MAKE_BET,
           Buttons.betting.CURRENT_TOURS,
+          Buttons.betting.BETTING_INFO,
           Buttons.betting.TO_MAIN,
         ]
       ),
@@ -210,6 +211,7 @@ class ReplyKbs:
         [
           Buttons.betting.MAKE_BET,
           Buttons.betting.CURRENT_TOURS,
+          Buttons.betting.BETTING_INFO,
           Buttons.betting.TO_MAIN,
         ]
       ),
@@ -239,6 +241,64 @@ class ReplyKbs:
           Buttons.poker.POKER_STAT,
           Buttons.poker.POKER_INFO,
           Buttons.poker.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def betting_info_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.bettingInfo.BETTING_RULES,
+          Buttons.bettingInfo.BETTING_ACH_INFO,
+          Buttons.bettingInfo.BETTING_STAT_INFO,
+          Buttons.bettingInfo.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def betting_info_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.bettingInfo.BETTING_RULES,
+          Buttons.bettingInfo.BETTING_ACH_INFO,
+          Buttons.bettingInfo.BETTING_STAT_INFO,
+          Buttons.bettingInfo.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def poker_info_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.pokerInfo.POKER_ACH_INFO,
+          Buttons.pokerInfo.POKER_STAT_INFO,
+          Buttons.pokerInfo.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def poker_info_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.pokerInfo.POKER_ACH_INFO,
+          Buttons.pokerInfo.POKER_STAT_INFO,
+          Buttons.pokerInfo.TO_MAIN,
         ]
       ),
       adjust=1,

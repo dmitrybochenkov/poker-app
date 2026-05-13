@@ -22,7 +22,9 @@ from app.bot.telegram.keyboards import (
   admin_main_keyboard,
   new_user_keyboard,
   betting_keyboard,
+  betting_info_keyboard,
   poker_keyboard,
+  poker_info_keyboard,
   room_admin_keyboard,
   room_keyboard,
   betting_confirm_keyboard,
@@ -160,6 +162,40 @@ REGISTRATION_USER_STATES = {
 
 def _format_tournament_name(tournament_type: str) -> str:
   return "Турнир"
+
+
+def _format_stat_info_report(indicators) -> str:
+  if not indicators:
+    return "Справка пока пустая."
+  lines: list[str] = []
+  for item in indicators:
+    lines.append(f"{item.pic} <b>{item.description}</b>")
+    lines.append(f"{item.description_full}")
+    lines.append("")
+  return "\n".join(lines).strip()
+
+
+def _format_achievement_description(raw: str) -> tuple[str, str | None]:
+  if "_" not in raw:
+    return raw, None
+  title, detail = raw.split("_", 1)
+  return title.strip(), detail.strip() if detail else None
+
+
+def _format_achievement_info_report(achievements, indicators_by_id: dict[int, str]) -> str:
+  if not achievements:
+    return "Справка пока пустая."
+  lines: list[str] = []
+  for item in achievements:
+    title, detail = _format_achievement_description(item.description)
+    lines.append(f"{item.pic} <b>{title}</b>")
+    if detail:
+      lines.append(detail)
+    indicator_name = indicators_by_id.get(int(item.stat_id))
+    if indicator_name:
+      lines.append(f"Показатель: {indicator_name}")
+    lines.append("")
+  return "\n".join(lines).strip()
 
 
 @router.message(CommandStart())
@@ -463,7 +499,71 @@ async def back_to_main_from_room(message: Message) -> None:
 async def show_poker_info(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.POKER_INFO.value, reply_markup=poker_keyboard)
+  await message.answer(Text.user.POKER_INFO.value, reply_markup=poker_info_keyboard)
+
+
+@router.message(F.text == Buttons.betting.BETTING_INFO.value)
+async def show_betting_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_info_keyboard)
+
+
+@router.message(F.text == Buttons.bettingInfo.BETTING_RULES.value)
+async def show_betting_rules(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await message.answer(Text.user.BET_RULES.value, reply_markup=betting_info_keyboard)
+
+
+@router.message(F.text == Buttons.bettingInfo.BETTING_STAT_INFO.value)
+async def show_betting_stat_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+  await message.answer(_format_stat_info_report(indicators), reply_markup=betting_info_keyboard)
+
+
+@router.message(F.text == Buttons.bettingInfo.BETTING_ACH_INFO.value)
+async def show_betting_achievement_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  async with SessionFactory() as session:
+    achievement_repository = AchievementRepository(session)
+    indicator_repository = StatIndicatorRepository(session)
+    achievements = await achievement_repository.list_by_type(achievement_type="betting")
+    indicators = await indicator_repository.list_by_type(indicator_type="betting")
+  indicators_by_id = {int(item.row_id): item.description for item in indicators}
+  await message.answer(
+    _format_achievement_info_report(achievements, indicators_by_id),
+    reply_markup=betting_info_keyboard,
+  )
+
+
+@router.message(F.text == Buttons.pokerInfo.POKER_STAT_INFO.value)
+async def show_poker_stat_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+  await message.answer(_format_stat_info_report(indicators), reply_markup=poker_info_keyboard)
+
+
+@router.message(F.text == Buttons.pokerInfo.POKER_ACH_INFO.value)
+async def show_poker_achievement_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  async with SessionFactory() as session:
+    achievement_repository = AchievementRepository(session)
+    indicator_repository = StatIndicatorRepository(session)
+    achievements = await achievement_repository.list_by_type(achievement_type="poker")
+    indicators = await indicator_repository.list_by_type(indicator_type="poker")
+  indicators_by_id = {int(item.row_id): item.description for item in indicators}
+  await message.answer(
+    _format_achievement_info_report(achievements, indicators_by_id),
+    reply_markup=poker_info_keyboard,
+  )
 
 
 @router.message(F.text == Buttons.poker.POKER_STAT.value)
