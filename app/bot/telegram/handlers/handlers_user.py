@@ -179,6 +179,26 @@ async def start_registration(message: Message, state: FSMContext) -> None:
   )
 
 
+@router.message(F.text == Buttons.new_user.ABOUT.value)
+async def show_bot_info(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+
+  await state.clear()
+  reply_markup = new_user_keyboard
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    existing_user = await repository.get_by_telegram_id(message.from_user.id)
+    if existing_user is not None and existing_user.is_approved:
+      reply_markup = _approved_tg_keyboard(existing_user)
+
+  await message.answer(
+    Text.user.BOT_INFO.value,
+    reply_markup=reply_markup,
+  )
+
+
 @router.message(F.text == Buttons.room.STATUS.value)
 async def show_user_status(message: Message) -> None:
   if message.from_user is None:

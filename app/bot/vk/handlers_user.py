@@ -919,6 +919,17 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_PLAYED_BEFORE_Q.value, keyboard=played_before_keyboard())
     return PlainTextResponse("ok")
 
+  if text == Buttons.new_user.ABOUT.value:
+    async with SessionFactory() as session:
+      repository = UserRepository(session)
+      existing_user = await repository.get_by_vk_id(user_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.BOT_INFO.value,
+      keyboard=_approved_vk_keyboard(existing_user) if existing_user and existing_user.is_approved else new_user_keyboard,
+    )
+    return PlainTextResponse("ok")
+
   if vk_user_states.get(user_id) == WAITING_FOR_PLAYED_BEFORE:
     normalized_text = text.lower()
     if normalized_text == Buttons.registration_inline.YES.value.lower():
