@@ -10,7 +10,9 @@ class BetTournamentRepository:
 
   async def get_by_type(self, *, tournament_type: str) -> BetTournament | None:
     result = await self.session.execute(
-      select(BetTournament).where(BetTournament.tournament_type == tournament_type)
+      select(BetTournament)
+      .where(BetTournament.tournament_type == tournament_type)
+      .order_by(BetTournament.row_id.desc())
     )
     return result.scalars().first()
 

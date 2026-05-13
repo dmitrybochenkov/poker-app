@@ -77,53 +77,48 @@ def main() -> None:
   data = {sheet_name: _sheet_rows(wb[sheet_name])[1] for sheet_name in wb.sheetnames}
 
   pokers_rows = data["pokers"]
-  bet_tournament_param_rows: dict[str, dict[str, object]] = {}
+  bet_tournament_param_final: list[dict[str, object]] = []
   for r in data["bet_tournament_params"]:
-    tournament_type = str(r.get("type") or "").strip()
-    if not tournament_type:
+    row_id = _to_int(r.get("row_id"))
+    ttype = str(r.get("type") or "").strip()
+    if row_id is None or not ttype:
       continue
-    bet_tournament_param_rows[tournament_type] = {
-      "row_id": _to_int(r.get("row_id")),
-      "tournament_type": tournament_type,
-      "bet_param_id": _to_int(r.get("bet_params_id")) or 1,
-      "percent_to_first": _to_int(r.get("percent_to_first")) or 50,
-      "percent_to_second": _to_int(r.get("percent_to_second")) or 30,
-      "percent_to_third": _to_int(r.get("percent_to_third")) or 20,
-      "duration_months": _to_int(r.get("duration_months")) or 12,
-    }
-
-  # Historical file has "regular/holiday". Current app expects "regular/year".
-  if "holiday" in bet_tournament_param_rows and "year" not in bet_tournament_param_rows:
-    holiday = dict(bet_tournament_param_rows["holiday"])
-    holiday["tournament_type"] = "year"
-    bet_tournament_param_rows["year"] = holiday
-
-  # Keep only the tournament types supported by current app.
-  bet_tournament_param_final = [r for key, r in bet_tournament_param_rows.items() if key in {"regular", "year"}]
-  bet_tournament_param_final.sort(key=lambda x: x["row_id"] or 0)
-  for i, row in enumerate(bet_tournament_param_final, 1):
-    row["row_id"] = i
-  bet_tournament_param_id_by_type = {
-    str(row["tournament_type"]): int(row["row_id"]) for row in bet_tournament_param_final
+    if ttype == "holiday":
+      ttype = "year"
+    bet_tournament_param_final.append(
+      {
+        "row_id": row_id,
+        "tournament_type": ttype,
+        "bet_param_id": _to_int(r.get("bet_params_id")) or 1,
+        "percent_to_first": _to_int(r.get("percent_to_first")) or 50,
+        "percent_to_second": _to_int(r.get("percent_to_second")) or 30,
+        "percent_to_third": _to_int(r.get("percent_to_third")) or 20,
+        "duration_months": _to_int(r.get("duration_months")) or 12,
+      }
+    )
+  bet_tournament_param_final.sort(key=lambda x: int(x["row_id"]))
+  tournament_type_by_param_row_id = {
+    int(row["row_id"]): str(row["tournament_type"]) for row in bet_tournament_param_final
   }
 
   bet_tournament_rows: list[dict[str, object]] = []
-  # Seed minimal active banks expected by app.
-  for idx, ttype in enumerate(("regular", "year"), 1):
-    # Try to reuse bank values from historical rows by params_id relation.
-    bank = 0
-    if ttype == "regular":
-      candidate = next((r for r in data["bet_tournaments"] if _to_int(r.get("params_id")) == 1), None)
-    else:
-      candidate = next((r for r in data["bet_tournaments"] if _to_int(r.get("params_id")) == 2), None)
-    if candidate is not None:
-      bank = _to_int(candidate.get("current_bank_size_kopecks")) or 0
+  for r in data["bet_tournaments"]:
+    row_id = _to_int(r.get("row_id"))
+    params_id = _to_int(r.get("params_id"))
+    if row_id is None or params_id is None:
+      continue
     bet_tournament_rows.append(
       {
-        "row_id": idx,
-        "tournament_type": ttype,
-        "current_bank_kopecks": bank,
-        "params_id": bet_tournament_param_id_by_type.get(ttype, 1),
+        "row_id": row_id,
+        "params_id": params_id,
+        "start_date": _to_date(r.get("start_date")),
+        "end_date": _to_date(r.get("end_date")),
+        "current_bank_size_kopecks": _to_int(r.get("current_bank_size_kopecks")) or 0,
+        "first_place_name": r.get("first_place_name"),
+        "second_place_name": r.get("second_place_name"),
+        "third_place_name": r.get("third_place_name"),
+        "is_paid": _to_bool_int(r.get("is_paid")),
+        "tournament_type": tournament_type_by_param_row_id.get(params_id),
       }
     )
 
@@ -400,7 +395,18 @@ def main() -> None:
 
   sql_lines += _insert_sql(
     "bet_tournaments",
-    ["row_id", "tournament_type", "current_bank_kopecks", "params_id"],
+    [
+      "row_id",
+      "params_id",
+      "start_date",
+      "end_date",
+      "current_bank_size_kopecks",
+      "first_place_name",
+      "second_place_name",
+      "third_place_name",
+      "is_paid",
+      "tournament_type",
+    ],
     bet_tournament_rows,
   )
   sql_lines.append("")

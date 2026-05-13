@@ -315,11 +315,16 @@ INSERT INTO poker_data (row_id, date, player_name, player_id, is_prev_winner, bu
 
 INSERT INTO bet_params (row_id, small_pic, small_size_kopecks, small_score, small_score_combo, big_pic, big_size_kopecks, big_score, big_score_combo, percent_to_regular_bank_if_it_is_going) VALUES (1, '🐤', 20000, 1, 3, '🐔', 40000, 2, 5, 80);
 
-INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (1, 'regular', 1, 50, 33, 17, 4);
-INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (2, 'year', 1, 50, 33, 17, 12);
+INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (1, 'regular', 1, 50, 33, 17, 5);
+INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (2, 'year', 1, 50, 33, 17, 9);
+INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (3, 'regular', 1, 50, 33, 17, 4);
+INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (4, 'year', 1, 50, 33, 17, 12);
 
-INSERT INTO bet_tournaments (row_id, tournament_type, current_bank_kopecks, params_id) VALUES (1, 'regular', 832000, 1);
-INSERT INTO bet_tournaments (row_id, tournament_type, current_bank_kopecks, params_id) VALUES (2, 'year', 1008000, 2);
+INSERT INTO bet_tournaments (row_id, params_id, start_date, end_date, current_bank_size_kopecks, first_place_name, second_place_name, third_place_name, is_paid, tournament_type) VALUES (1, 1, '2025-04-01', '2025-08-31', 832000, 'Игорь Пышкин,Саня Илларионов', 'Игорь Пышкин,Саня Илларионов', 'Дима Боченков', 1, 'regular');
+INSERT INTO bet_tournaments (row_id, params_id, start_date, end_date, current_bank_size_kopecks, first_place_name, second_place_name, third_place_name, is_paid, tournament_type) VALUES (2, 2, '2025-04-01', '2025-12-31', 1008000, 'Саня Илларионов', 'Игорь Пышкин', 'Дима Боченков', 1, 'year');
+INSERT INTO bet_tournaments (row_id, params_id, start_date, end_date, current_bank_size_kopecks, first_place_name, second_place_name, third_place_name, is_paid, tournament_type) VALUES (3, 3, '2026-01-01', '2026-04-30', 784000, 'Серега Кузьмин,Серега Маякин,Саня Волков', 'Серега Кузьмин,Серега Маякин,Саня Волков', 'Серега Кузьмин,Серега Маякин,Саня Волков', 0, 'regular');
+INSERT INTO bet_tournaments (row_id, params_id, start_date, end_date, current_bank_size_kopecks, first_place_name, second_place_name, third_place_name, is_paid, tournament_type) VALUES (4, 4, '2026-01-01', '2026-12-31', 196000, '', '', '', 0, 'year');
+INSERT INTO bet_tournaments (row_id, params_id, start_date, end_date, current_bank_size_kopecks, first_place_name, second_place_name, third_place_name, is_paid, tournament_type) VALUES (5, 3, '2026-05-01', '2026-08-31', 0, NULL, NULL, NULL, 0, 'regular');
 
 INSERT INTO bets (row_id, params_id, date, better_name, better_id, size_kopecks, winner, looser, score, is_paid) VALUES (1, 1, '2025-04-20', 'Серега Маякин', 4, 20000, 'Серега Кузьмин', 'Игорь Пышкин', 3, 1);
 INSERT INTO bets (row_id, params_id, date, better_name, better_id, size_kopecks, winner, looser, score, is_paid) VALUES (2, 1, '2025-04-20', 'Дима Боченков', 1, 40000, 'Саня Илларионов', 'Игорь Пышкин', 2, 1);
