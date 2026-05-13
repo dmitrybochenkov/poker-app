@@ -84,6 +84,37 @@ async def _notify_players_about_finish(*, players: list) -> None:
         await send_vk_message(user_id=user.vk_id, message=text)
 
 
+async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: int) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  user_repository = UserRepository(session)
+  recipients: dict[int, object] = {}
+
+  if poker.cashier_id is not None:
+    cashier = await user_repository.get_by_telegram_id(int(poker.cashier_id))
+    if cashier is None:
+      cashier = await user_repository.get_by_vk_id(int(poker.cashier_id))
+    if cashier is not None:
+      recipients[int(cashier.row_id)] = cashier
+
+  users = await user_repository.list_approved()
+  for user in users:
+    if user.is_admin:
+      recipients[int(user.row_id)] = user
+
+  text = (
+    "🏦 Новый закуп\n"
+    f"Игрок: {updated_player.player_name}\n"
+    f"Количество: +{buyins_count}\n"
+    f"Итого закупов: {updated_player.buyins}"
+  )
+  for user in recipients.values():
+    if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+    elif user.notification_platform == "vk" and user.vk_id is not None:
+      await send_vk_message(user_id=user.vk_id, message=text)
+
+
 async def _clear_event_inline_keyboard_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
   if peer_id is None or conversation_message_id is None:
     return
@@ -576,14 +607,32 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
           result_keyboard = None
         else:
-          _, params = active
+          poker, params = active
+          if poker.cashier_id is None:
+            result_text = Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value
+            result_keyboard = None
+            await send_vk_message_event_answer(
+              event_id=event_id,
+              user_id=admin_user_id,
+              peer_id=peer_id,
+              text=result_text,
+            )
+            await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+            await send_vk_message(user_id=admin_user_id, message=result_text)
+            return PlainTextResponse("ok")
+          player = await PokerDataRepository(session).get_player(date=poker.date, player_id=int(player_id))
+          include_king_buyin = bool(player is not None and player.is_prev_winner)
           result_text = Text.admin.POKER_BUYIN_PROMPT.value
           result_keyboard = poker_buyin_count_keyboard(
             player_id=int(player_id),
             max_buyins=int(params.max_buyins),
+            big_buyin=params.big_buyin,
+            king_buyin=params.king_buyin,
+            super_buyin=params.super_buyin,
             big_buyin_pic=params.big_buyin_pic,
             king_buyin_pic=params.king_buyin_pic,
             super_buyin_pic=params.super_buyin_pic,
+            include_king_buyin=include_king_buyin,
           )
     await send_vk_message_event_answer(
       event_id=event_id,
@@ -612,19 +661,38 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
         else:
           poker, params = active
+          if poker.cashier_id is None:
+            result_text = Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value
+            await send_vk_message_event_answer(
+              event_id=event_id,
+              user_id=admin_user_id,
+              peer_id=peer_id,
+              text=result_text,
+            )
+            await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+            await send_vk_message(user_id=admin_user_id, message=result_text)
+            return PlainTextResponse("ok")
           poker_data_repository = PokerDataRepository(session)
           prev_player = await poker_data_repository.get_player(date=poker.date, player_id=int(player_id))
-          prev_buyins = int(prev_player.buyins) if prev_player is not None else 0
-          new_buyins_total = prev_buyins + int(buyins_count)
           is_special_mode = int(params.max_buyins) == 2
+          include_king_buyin = bool(prev_player is not None and prev_player.is_prev_winner)
+          big_threshold = int(params.big_buyin or 5)
+          super_threshold = int(params.super_buyin or 10)
+          king_threshold = int(params.king_buyin or 15)
+          current_big_count = int(prev_player.big_buyin_count) if prev_player is not None else 0
           big_count = 0
           super_count = 0
           if is_special_mode:
-            for buyin_no in range(prev_buyins + 1, new_buyins_total + 1):
-              if buyin_no == 3:
-                big_count += 1
-              elif buyin_no >= 5:
+            if include_king_buyin and int(buyins_count) >= king_threshold:
+              big_count += 1
+              super_count += 1
+            elif int(buyins_count) >= super_threshold:
+              if include_king_buyin or current_big_count == 0:
                 super_count += 1
+              elif int(buyins_count) >= big_threshold:
+                big_count += 1
+            elif int(buyins_count) >= big_threshold:
+              big_count += 1
           use_case = ManagePokerPlayersUseCase(
             poker_repository=poker_repository,
             poker_data_repository=poker_data_repository,
@@ -640,6 +708,12 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
           else:
             result_text = f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}"
+            await _notify_about_buyin(
+              session=session,
+              poker=poker,
+              updated_player=updated,
+              buyins_count=int(buyins_count),
+            )
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -1017,8 +1091,17 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       if user_id not in admin_ids:
         await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
         return PlainTextResponse("ok")
+      poker_repository = PokerRepository(session)
+      active = await poker_repository.get_started()
+      if active is None:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+        return PlainTextResponse("ok")
+      poker, _ = active
+      if poker.cashier_id is None:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
+        return PlainTextResponse("ok")
       use_case = ManagePokerPlayersUseCase(
-        poker_repository=PokerRepository(session),
+        poker_repository=poker_repository,
         poker_data_repository=PokerDataRepository(session),
       )
       players = await use_case.list_active_poker_players()

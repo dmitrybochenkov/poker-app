@@ -401,9 +401,13 @@ class InlineKbs:
     *,
     player_id: int,
     max_buyins: int,
+    big_buyin: int | None,
+    king_buyin: int | None,
+    super_buyin: int | None,
     big_buyin_pic: str | None,
     king_buyin_pic: str | None,
     super_buyin_pic: str | None,
+    include_king_buyin: bool,
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     safe_max = max(1, int(max_buyins))
@@ -413,21 +417,31 @@ class InlineKbs:
         callback_data=f"pokerbuyincount:{player_id}:{count}",
       )
     if safe_max == 2:
-      special_icons = [
-        str(big_buyin_pic or "🟠"),
-        str(king_buyin_pic or "👑"),
-        str(super_buyin_pic or "⭐"),
-      ]
-      for index, icon in enumerate(special_icons, start=3):
+      special_values: list[tuple[int, str]] = []
+      if big_buyin is not None and int(big_buyin) > safe_max:
+        special_values.append((int(big_buyin), str(big_buyin_pic or "🟠")))
+      if super_buyin is not None and int(super_buyin) > safe_max:
+        special_values.append((int(super_buyin), str(super_buyin_pic or "⭐")))
+      if include_king_buyin and king_buyin is not None and int(king_buyin) > safe_max:
+        special_values.append((int(king_buyin), str(king_buyin_pic or "👑")))
+      # Keep distinct values and stable visual order by amount.
+      unique_special_values: list[tuple[int, str]] = []
+      seen: set[int] = set()
+      for amount, icon in sorted(special_values, key=lambda x: x[0]):
+        if amount in seen:
+          continue
+        seen.add(amount)
+        unique_special_values.append((amount, icon))
+      for amount, icon in unique_special_values:
         keyboard.button(
-          text=f"{icon} {index}",
-          callback_data=f"pokerbuyincount:{player_id}:{index}",
+          text=f"{icon} {amount}",
+          callback_data=f"pokerbuyincount:{player_id}:{amount}",
         )
     keyboard.button(
       text=Buttons.betting_inline.CONFIRM_NO.value,
       callback_data=f"pokerbuyincancel:{player_id}",
     )
-    keyboard.adjust(*([1] * (safe_max + (3 if safe_max == 2 else 0) + 1)))
+    keyboard.adjust(*([1] * (safe_max + (len(unique_special_values) if safe_max == 2 else 0) + 1)))
     return keyboard.as_markup()
 
   @staticmethod
@@ -743,9 +757,13 @@ class InlineKbs:
     *,
     player_id: int,
     max_buyins: int,
+    big_buyin: int | None,
+    king_buyin: int | None,
+    super_buyin: int | None,
     big_buyin_pic: str | None,
     king_buyin_pic: str | None,
     super_buyin_pic: str | None,
+    include_king_buyin: bool,
   ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     safe_max = max(1, int(max_buyins))
@@ -767,22 +785,31 @@ class InlineKbs:
         ]
       )
     if safe_max == 2:
-      special_icons = [
-        str(big_buyin_pic or "🟠"),
-        str(king_buyin_pic or "👑"),
-        str(super_buyin_pic or "⭐"),
-      ]
-      for index, icon in enumerate(special_icons, start=3):
+      special_values: list[tuple[int, str]] = []
+      if big_buyin is not None and int(big_buyin) > safe_max:
+        special_values.append((int(big_buyin), str(big_buyin_pic or "🟠")))
+      if super_buyin is not None and int(super_buyin) > safe_max:
+        special_values.append((int(super_buyin), str(super_buyin_pic or "⭐")))
+      if include_king_buyin and king_buyin is not None and int(king_buyin) > safe_max:
+        special_values.append((int(king_buyin), str(king_buyin_pic or "👑")))
+      unique_special_values: list[tuple[int, str]] = []
+      seen: set[int] = set()
+      for amount, icon in sorted(special_values, key=lambda x: x[0]):
+        if amount in seen:
+          continue
+        seen.add(amount)
+        unique_special_values.append((amount, icon))
+      for amount, icon in unique_special_values:
         rows.append(
           [
             {
               "action": {
                 "type": "callback",
-                "label": f"{icon} {index}"[:40],
+                "label": f"{icon} {amount}"[:40],
                 "payload": {
                   "action": "poker_buyin_count_select",
                   "player_id": int(player_id),
-                  "count": index,
+                  "count": amount,
                 },
               },
               "color": "primary",
