@@ -10,7 +10,7 @@ class PokerData(Base):
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
   date: Mapped[Date] = mapped_column(Date, nullable=False, index=True)
   player_name: Mapped[str] = mapped_column(String(255), nullable=False)
-  player_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+  player_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
   is_prev_winner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   buyins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

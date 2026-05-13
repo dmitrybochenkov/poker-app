@@ -7,7 +7,11 @@ from app.config.settings import settings
 
 
 class VkApiError(RuntimeError):
-  pass
+  def __init__(self, *, code: int | None, method: str, message: str) -> None:
+    self.code = code
+    self.method = method
+    self.message = message
+    super().__init__(f"VK API error {code} in {method}: {message}")
 
 
 async def vk_api_call(method: str, **params) -> dict:
@@ -25,7 +29,7 @@ async def vk_api_call(method: str, **params) -> dict:
       if error:
         code = error.get("error_code")
         msg = error.get("error_msg", "VK API error")
-        raise VkApiError(f"VK API error {code} in {method}: {msg}")
+        raise VkApiError(code=code, method=method, message=msg)
       return data
 
 
@@ -61,19 +65,26 @@ async def send_vk_message_event_answer(
   peer_id: int,
   text: str,
 ) -> None:
-  await vk_api_call(
-    "messages.sendMessageEventAnswer",
-    event_id=event_id,
-    user_id=user_id,
-    peer_id=peer_id,
-    event_data=json.dumps(
-      {
-        "type": "show_snackbar",
-        "text": text,
-      },
-      ensure_ascii=False,
-    ),
-  )
+  try:
+    await vk_api_call(
+      "messages.sendMessageEventAnswer",
+      event_id=event_id,
+      user_id=user_id,
+      peer_id=peer_id,
+      event_data=json.dumps(
+        {
+          "type": "show_snackbar",
+          "text": text,
+        },
+        ensure_ascii=False,
+      ),
+    )
+  except VkApiError as exc:
+    # VK can return "invalid event_id" when callback answer is late/stale.
+    # This should not break webhook processing.
+    if exc.code == 100 and "invalid event_id" in exc.message.lower():
+      return
+    raise
 
 
 async def clear_vk_inline_keyboard(*, peer_id: int, conversation_message_id: int) -> None:

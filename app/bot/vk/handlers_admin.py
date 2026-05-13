@@ -21,7 +21,7 @@ from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import betting_keyboard as tg_betting_keyboard
 from app.bot.telegram.keyboards import main_keyboard as tg_main_keyboard
 from app.bot.telegram.notifications import notify_user_about_approval
-from app.bot.vk.api import clear_vk_inline_keyboard, send_vk_message, send_vk_message_event_answer
+from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_event_answer
 from app.bot.vk.keyboards import (
   betting_keyboard,
   link_candidates_keyboard,
@@ -70,9 +70,7 @@ async def _notify_players_about_finish(*, players: list) -> None:
   async with SessionFactory() as session:
     user_repository = UserRepository(session)
     for player in players:
-      user = await user_repository.get_by_telegram_id(int(player.player_id))
-      if user is None:
-        user = await user_repository.get_by_vk_id(int(player.player_id))
+      user = await user_repository.get_by_row_id(int(player.player_id))
       if user is None or user.notification_platform is None:
         continue
 
@@ -137,7 +135,7 @@ async def _clear_event_inline_keyboard_if_possible(*, peer_id: int | None, conve
   if peer_id is None or conversation_message_id is None:
     return
   try:
-    await clear_vk_inline_keyboard(
+    await delete_vk_message(
       peer_id=peer_id,
       conversation_message_id=conversation_message_id,
     )
@@ -502,7 +500,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             poker_data_repository=PokerDataRepository(session),
           )
           created = await use_case.add_player_to_active_poker(
-            player_id=int(user.vk_id),
+            player_id=int(user.row_id),
             player_name=user.name,
           )
           if created is None:
@@ -534,9 +532,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           user_repository=user_repository,
           poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
-        removed_user = await user_repository.get_by_telegram_id(int(player_id))
-        if removed_user is None:
-          removed_user = await user_repository.get_by_vk_id(int(player_id))
+        removed_user = await user_repository.get_by_row_id(int(player_id))
         removed = await use_case.remove_player_from_active_poker(player_id=int(player_id))
         if removed is None:
           result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
@@ -675,7 +671,9 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       return PlainTextResponse("ok")
     async with SessionFactory() as session:
       is_admin = await is_vk_admin(session=session, vk_id=admin_user_id)
-      if not is_admin and int(player_id) != int(admin_user_id):
+      requester = await UserRepository(session).get_by_vk_id(admin_user_id)
+      requester_row_id = int(requester.row_id) if requester is not None else -1
+      if not is_admin and int(player_id) != requester_row_id:
         result_text = Text.admin.NO_RIGHTS.value
       else:
         poker_repository = PokerRepository(session)
@@ -1091,9 +1089,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         return PlainTextResponse("ok")
       players: list[SimpleNamespace] = []
       for player in active_players:
-        user = await user_repository.get_by_telegram_id(int(player.player_id))
-        if user is None:
-          user = await user_repository.get_by_vk_id(int(player.player_id))
+        user = await user_repository.get_by_row_id(int(player.player_id))
         if user is None:
           continue
         players.append(SimpleNamespace(player_id=int(user.row_id), player_name=player.player_name))
@@ -1138,7 +1134,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         return PlainTextResponse("ok")
 
       poker, params = active
-      self_player = await poker_data_repository.get_player(date=poker.date, player_id=int(user_id))
+      self_player = await poker_data_repository.get_player(date=poker.date, player_id=int(user.row_id))
       if self_player is None:
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
         return PlainTextResponse("ok")
@@ -1147,7 +1143,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         user_id=user_id,
         message=Text.admin.POKER_BUYIN_PROMPT.value,
         keyboard=poker_buyin_count_keyboard(
-          player_id=int(user_id),
+          player_id=int(user.row_id),
           max_buyins=int(params.max_buyins),
           big_buyin=params.big_buyin,
           king_buyin=params.king_buyin,

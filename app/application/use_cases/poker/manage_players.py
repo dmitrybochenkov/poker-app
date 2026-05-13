@@ -64,13 +64,10 @@ class ManagePokerPlayersUseCase:
     if removed and self.poker_room_denied_repository is not None:
       is_admin = False
       if self.user_repository is not None:
-        tg_user = await self.user_repository.get_by_telegram_id(int(player_id))
-        vk_user = await self.user_repository.get_by_vk_id(int(player_id))
-        is_admin = bool((tg_user and tg_user.is_admin) or (vk_user and vk_user.is_admin))
+        user = await self.user_repository.get_by_row_id(int(player_id))
+        is_admin = bool(user and user.is_admin)
       if not is_admin and self.user_repository is not None:
-        user = await self.user_repository.get_by_telegram_id(int(player_id))
-        if user is None:
-          user = await self.user_repository.get_by_vk_id(int(player_id))
+        user = await self.user_repository.get_by_row_id(int(player_id))
         if user is not None:
           await self.poker_room_denied_repository.add(
             user_row_id=int(user.row_id),

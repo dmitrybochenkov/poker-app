@@ -78,9 +78,7 @@ async def _notify_players_about_finish(*, players: list) -> None:
   async with SessionFactory() as session:
     user_repository = UserRepository(session)
     for player in players:
-      user = await user_repository.get_by_telegram_id(int(player.player_id))
-      if user is None:
-        user = await user_repository.get_by_vk_id(int(player.player_id))
+      user = await user_repository.get_by_row_id(int(player.player_id))
       if user is None or user.notification_platform is None:
         continue
 
@@ -322,9 +320,7 @@ async def set_cashier_menu(message: Message) -> None:
       return
     players: list[SimpleNamespace] = []
     for player in active_players:
-      user = await user_repository.get_by_telegram_id(int(player.player_id))
-      if user is None:
-        user = await user_repository.get_by_vk_id(int(player.player_id))
+      user = await user_repository.get_by_row_id(int(player.player_id))
       if user is None:
         continue
       players.append(SimpleNamespace(player_id=int(user.row_id), player_name=player.player_name))
@@ -416,7 +412,7 @@ async def add_player_callback(callback: CallbackQuery) -> None:
       poker_data_repository=PokerDataRepository(session),
     )
     created = await use_case.add_player_to_active_poker(
-      player_id=int(user.telegram_id),
+      player_id=int(user.row_id),
       player_name=user.name,
     )
     if created is None:
@@ -469,9 +465,7 @@ async def remove_player_callback(callback: CallbackQuery) -> None:
       poker_room_denied_repository=PokerRoomDeniedRepository(session),
       user_repository=user_repository,
     )
-    removed_user = await user_repository.get_by_telegram_id(player_id)
-    if removed_user is None:
-      removed_user = await user_repository.get_by_vk_id(player_id)
+    removed_user = await user_repository.get_by_row_id(player_id)
     removed = await use_case.remove_player_from_active_poker(player_id=player_id)
     if removed is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
@@ -583,7 +577,7 @@ async def buyin_menu(message: Message) -> None:
       )
       return
 
-    self_player = await poker_data_repository.get_player(date=poker.date, player_id=int(message.from_user.id))
+    self_player = await poker_data_repository.get_player(date=poker.date, player_id=int(user.row_id))
     if self_player is None:
       await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
       return
@@ -591,7 +585,7 @@ async def buyin_menu(message: Message) -> None:
     await message.answer(
       Text.admin.POKER_BUYIN_PROMPT.value,
       reply_markup=poker_buyin_count_keyboard(
-        player_id=int(message.from_user.id),
+        player_id=int(user.row_id),
         max_buyins=int(params.max_buyins),
         big_buyin=params.big_buyin,
         king_buyin=params.king_buyin,
@@ -668,7 +662,9 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
     is_admin = await is_tg_admin(session=session, telegram_id=callback.from_user.id)
-    if not is_admin and int(player_id) != int(callback.from_user.id):
+    requester = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
+    requester_row_id = int(requester.row_id) if requester is not None else -1
+    if not is_admin and int(player_id) != requester_row_id:
       await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
       return
     poker_repository = PokerRepository(session)

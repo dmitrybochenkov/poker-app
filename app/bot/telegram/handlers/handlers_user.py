@@ -263,7 +263,7 @@ async def show_user_status(message: Message) -> None:
       await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
       return
 
-    current_player = next((item for item in players if int(item.player_id) == int(message.from_user.id)), None)
+    current_player = next((item for item in players if int(item.player_id) == int(user.row_id)), None)
     if current_player is None:
       await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
       return
@@ -271,21 +271,33 @@ async def show_user_status(message: Message) -> None:
     lines: list[str] = ["🏦 Закупы"]
     if user.is_admin:
       active = await PokerRepository(session).get_started()
-      bet_ids: set[int] = set()
+      bet_row_ids: set[int] = set()
       bet_name_by_id: dict[int, str] = {}
+      better_row_by_id: dict[int, int] = {}
       if active is not None:
         poker, _ = active
         bets = await BetRepository(session).list_for_poker(date=poker.date)
         for bet in bets:
-          bet_ids.add(int(bet.better_id))
-          bet_name_by_id[int(bet.better_id)] = bet.better_name
+          better_id = int(bet.better_id)
+          better_user = await user_repository.get_by_telegram_id(better_id)
+          if better_user is None:
+            better_user = await user_repository.get_by_vk_id(better_id)
+          if better_user is not None:
+            better_row_id = int(better_user.row_id)
+            bet_row_ids.add(better_row_id)
+            better_row_by_id[better_id] = better_row_id
+          bet_name_by_id[better_id] = bet.better_name
       player_ids = {int(p.player_id) for p in players}
       for p in players:
-        if int(p.player_id) in bet_ids:
+        if int(p.player_id) in bet_row_ids:
           lines.append(f"{p.player_name}: 🍀 {p.buyins}")
         else:
           lines.append(f"{p.player_name}: {p.buyins}")
-      outsider_ids = [better_id for better_id in bet_ids if better_id not in player_ids]
+      outsider_ids = [
+        better_id
+        for better_id in bet_name_by_id.keys()
+        if better_row_by_id.get(better_id) not in player_ids
+      ]
       outsider_ids.sort()
       for better_id in outsider_ids:
         better_name = bet_name_by_id.get(better_id, f"ID {better_id}")
@@ -324,7 +336,7 @@ async def join_poker_room(message: Message) -> None:
       return
     players = await use_case.list_active_poker_players()
     if players:
-      already_in_room = any(int(item.player_id) == int(message.from_user.id) for item in players)
+      already_in_room = any(int(item.player_id) == int(user.row_id) for item in players)
       if already_in_room:
         await message.answer(
           Text.user.ROOM_JOINED.value,
@@ -332,7 +344,7 @@ async def join_poker_room(message: Message) -> None:
         )
         return
     created = await use_case.add_player_to_active_poker(
-      player_id=int(message.from_user.id),
+      player_id=int(user.row_id),
       player_name=user.name,
     )
     if created is None:
