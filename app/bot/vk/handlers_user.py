@@ -961,12 +961,38 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
         return PlainTextResponse("ok")
 
-      player = next((item for item in players if int(item.player_id) == int(user_id)), None)
-      if player is None:
+      current_player = next((item for item in players if int(item.player_id) == int(user_id)), None)
+      if current_player is None:
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
         return PlainTextResponse("ok")
 
-    await send_vk_message(user_id=user_id, message=Text.user.STATUS_BUYINS.value.format(buyins=player.buyins))
+      lines: list[str] = []
+      if user.is_admin:
+        active = await PokerRepository(session).get_started()
+        bet_ids: set[int] = set()
+        bet_name_by_id: dict[int, str] = {}
+        if active is not None:
+          poker, _ = active
+          bets = await BetRepository(session).list_for_poker(poker_id=poker.row_id)
+          for bet in bets:
+            bet_ids.add(int(bet.better_id))
+            bet_name_by_id[int(bet.better_id)] = bet.better_name
+        player_ids = {int(p.player_id) for p in players}
+        for p in players:
+          if int(p.player_id) in bet_ids:
+            lines.append(f"{p.player_name}: 🍀 {p.buyins}")
+          else:
+            lines.append(f"{p.player_name}: {p.buyins}")
+        outsider_ids = [better_id for better_id in bet_ids if better_id not in player_ids]
+        outsider_ids.sort()
+        for better_id in outsider_ids:
+          better_name = bet_name_by_id.get(better_id, f"ID {better_id}")
+          lines.append(f"{better_name}: 🍀")
+      else:
+        for p in players:
+          lines.append(f"{p.player_name}: {p.buyins}")
+
+    await send_vk_message(user_id=user_id, message="\n".join(lines))
     return PlainTextResponse("ok")
 
   if text == Buttons.new_user.REGISTRATION.value:
