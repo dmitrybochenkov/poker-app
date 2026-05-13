@@ -16,9 +16,12 @@ from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.application.use_cases.user.reject_user import RejectUserUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
+from app.bot.telegram.keyboards import betting_keyboard as tg_betting_keyboard
+from app.bot.telegram.keyboards import main_keyboard as tg_main_keyboard
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.vk.api import clear_vk_inline_keyboard, send_vk_message, send_vk_message_event_answer
 from app.bot.vk.keyboards import (
+  betting_keyboard,
   link_candidates_keyboard,
   link_candidates_page_keyboard,
   main_keyboard,
@@ -32,6 +35,7 @@ from app.bot.vk.keyboards import (
 )
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
@@ -421,9 +425,13 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       from app.bot.telegram.runtime import telegram_bot
       if telegram_bot is not None:
         for user_id in tg_user_ids:
-          await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_POKER.value)
+          await telegram_bot.send_message(
+            chat_id=user_id,
+            text=Text.user.START_POKER.value,
+            reply_markup=tg_main_keyboard,
+          )
       for user_id in vk_user_ids:
-        await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value)
+        await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value, keyboard=main_keyboard)
     return None
 
   if action == "poker_add_player_select":
@@ -475,6 +483,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
         use_case = ManagePokerPlayersUseCase(
           poker_repository=PokerRepository(session),
           poker_data_repository=PokerDataRepository(session),
+          poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
         removed = await use_case.remove_player_from_active_poker(player_id=int(player_id))
         if removed is None:
@@ -811,9 +820,13 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
 
     if telegram_bot is not None:
       for recipient_id in tg_user_ids:
-        await telegram_bot.send_message(chat_id=recipient_id, text=Text.user.START_BETTING.value)
+        await telegram_bot.send_message(
+          chat_id=recipient_id,
+          text=Text.user.START_BETTING.value,
+          reply_markup=tg_betting_keyboard,
+        )
     for recipient_id in vk_user_ids:
-      await send_vk_message(user_id=recipient_id, message=Text.user.START_BETTING.value)
+      await send_vk_message(user_id=recipient_id, message=Text.user.START_BETTING.value, keyboard=betting_keyboard)
 
     await send_vk_message(user_id=user_id, message=Text.admin.BETTING_START_SUCCESS.value)
     return PlainTextResponse("ok")

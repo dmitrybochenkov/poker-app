@@ -9,6 +9,7 @@ from app.db.models.bet_param import BetParam
 from app.db.models.bet_tournament_param import BetTournamentParam
 from app.db.models.stat_indicator import StatIndicator
 from app.db.models.achievement import Achievement
+from app.db.models.poker_room_denied import PokerRoomDenied
 
 __all__ = [
   "User",
@@ -22,4 +23,5 @@ __all__ = [
   "BetTournamentParam",
   "StatIndicator",
   "Achievement",
+  "PokerRoomDenied",
 ]

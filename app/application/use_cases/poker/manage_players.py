@@ -1,5 +1,6 @@
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.poker_repository import PokerRepository
 
 
@@ -9,10 +10,12 @@ class ManagePokerPlayersUseCase:
     poker_repository: PokerRepository,
     poker_data_repository: PokerDataRepository,
     buyin_data_repository: BuyinDataRepository | None = None,
+    poker_room_denied_repository: PokerRoomDeniedRepository | None = None,
   ) -> None:
     self.poker_repository = poker_repository
     self.poker_data_repository = poker_data_repository
     self.buyin_data_repository = buyin_data_repository
+    self.poker_room_denied_repository = poker_room_denied_repository
 
   async def add_player_to_active_poker(
     self,
@@ -54,7 +57,27 @@ class ManagePokerPlayersUseCase:
     if active is None:
       return None
     poker, _ = active
-    return await self.poker_data_repository.remove_player(date=poker.date, player_id=player_id)
+    removed = await self.poker_data_repository.remove_player(date=poker.date, player_id=player_id)
+    if removed and self.poker_room_denied_repository is not None:
+      platform = "tg" if int(player_id) < 2_000_000_000 else "vk"
+      await self.poker_room_denied_repository.add(
+        date=poker.date,
+        player_id=player_id,
+        platform=platform,
+      )
+    return removed
+
+  async def is_denied_for_active_poker(self, *, player_id: int) -> bool:
+    if self.poker_room_denied_repository is None:
+      return False
+    active = await self.poker_repository.get_started()
+    if active is None:
+      return False
+    poker, _ = active
+    return await self.poker_room_denied_repository.is_denied(
+      date=poker.date,
+      player_id=player_id,
+    )
 
   async def add_buyin_to_active_player(self, *, player_id: int, buyins_count: int):
     active = await self.poker_repository.get_started()

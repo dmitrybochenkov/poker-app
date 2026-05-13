@@ -46,6 +46,7 @@ from app.bot.vk.keyboards import (
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
@@ -218,7 +219,12 @@ async def show_user_status(message: Message) -> None:
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
+    is_denied = await use_case.is_denied_for_active_poker(player_id=int(message.from_user.id))
+    if is_denied:
+      await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
+      return
     players = await use_case.list_active_poker_players()
     if not players:
       await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
@@ -256,7 +262,7 @@ async def join_poker_room(message: Message) -> None:
     if players:
       already_in_room = any(int(item.player_id) == int(message.from_user.id) for item in players)
       if already_in_room:
-        await message.answer(Text.user.ROOM_ALREADY_JOINED.value)
+        await message.answer(Text.user.ROOM_JOINED.value)
         return
     created = await use_case.add_player_to_active_poker(
       player_id=int(message.from_user.id),

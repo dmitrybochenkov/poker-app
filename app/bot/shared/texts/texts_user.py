@@ -39,6 +39,7 @@ class UserText(Enum):
   STATUS_BUYINS = "🏦 Закупы: {buyins}"
   ROOM_JOINED = "Добро пожаловать в покер рум!"
   ROOM_ALREADY_JOINED = "Ты уже добавлен в покер рум."
+  MAIN_MENU = "Главное меню."
   BETTING_MENU = "Раздел ставок."
   BETTING_NOT_OPEN = "Сейчас ставки закрыты."
   BETTING_TOURNAMENT_CHOOSE = "Выбери турнир для ставки:"

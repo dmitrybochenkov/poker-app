@@ -20,8 +20,10 @@ from app.application.use_cases.poker.calculate_bet_scores import CalculateBetSco
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
+  betting_keyboard,
   link_candidates_keyboard,
   link_candidates_page_keyboard,
+  main_keyboard,
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
   poker_buyin_candidates_keyboard,
@@ -33,9 +35,12 @@ from app.bot.telegram.keyboards import (
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.states import AdminPokerState, RegistrationState
 from app.bot.vk.api import send_vk_message
+from app.bot.vk.keyboards import betting_keyboard as vk_betting_keyboard
+from app.bot.vk.keyboards import main_keyboard as vk_main_keyboard
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
@@ -149,9 +154,13 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
 
   if telegram_bot is not None:
     for user_id in tg_user_ids:
-      await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_POKER.value)
+      await telegram_bot.send_message(
+        chat_id=user_id,
+        text=Text.user.START_POKER.value,
+        reply_markup=main_keyboard,
+      )
   for user_id in vk_user_ids:
-    await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value)
+    await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value, keyboard=vk_main_keyboard)
 
   if callback.message is not None:
     await callback.message.edit_text(Text.admin.POKER_START_SUCCESS.value)
@@ -226,9 +235,13 @@ async def start_betting(message: Message) -> None:
 
   if telegram_bot is not None:
     for user_id in tg_user_ids:
-      await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_BETTING.value)
+      await telegram_bot.send_message(
+        chat_id=user_id,
+        text=Text.user.START_BETTING.value,
+        reply_markup=betting_keyboard,
+      )
   for user_id in vk_user_ids:
-    await send_vk_message(user_id=user_id, message=Text.user.START_BETTING.value)
+    await send_vk_message(user_id=user_id, message=Text.user.START_BETTING.value, keyboard=vk_betting_keyboard)
 
   await message.answer(Text.admin.BETTING_START_SUCCESS.value)
 
@@ -302,6 +315,7 @@ async def add_player_menu(message: Message) -> None:
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
     players = await use_case.list_active_poker_players()
     active_tg_ids = {int(player.player_id) for player in players}

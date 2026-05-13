@@ -58,6 +58,7 @@ from app.db.repositories.bet_tournament_repository import BetTournamentRepositor
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
+from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
@@ -165,7 +166,7 @@ async def _submit_registration_request(
       else vk_registration_review_keyboard(row_id=user.row_id)
     ),
   )
-  await send_vk_message(user_id=user_id, message=success_message, keyboard=main_keyboard)
+  await send_vk_message(user_id=user_id, message=success_message, keyboard=new_user_keyboard)
 
 
 def _normalize_phone(value: str) -> str | None:
@@ -846,12 +847,17 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       use_case = ManagePokerPlayersUseCase(
         poker_repository=PokerRepository(session),
         poker_data_repository=PokerDataRepository(session),
+        poker_room_denied_repository=PokerRoomDeniedRepository(session),
       )
+      is_denied = await use_case.is_denied_for_active_poker(player_id=int(user_id))
+      if is_denied:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
+        return PlainTextResponse("ok")
       players = await use_case.list_active_poker_players()
       if players:
         already_in_room = any(int(item.player_id) == int(user_id) for item in players)
         if already_in_room:
-          await send_vk_message(user_id=user_id, message=Text.user.ROOM_ALREADY_JOINED.value)
+          await send_vk_message(user_id=user_id, message=Text.user.ROOM_JOINED.value)
           return PlainTextResponse("ok")
 
       created = await use_case.add_player_to_active_poker(
