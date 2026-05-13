@@ -600,7 +600,12 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           poker_data_repository=PokerDataRepository(session),
         )
         updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
-        result_text = Text.admin.POKER_CASHIER_SET.value if updated is not None else Text.admin.POKER_ACTIVE_NOT_FOUND.value
+        if updated is None:
+          result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+        else:
+          cashier_user = await user_repository.get_by_row_id(user_row_id)
+          cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
+          result_text = f"{cashier_name} выбран кассиром."
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,

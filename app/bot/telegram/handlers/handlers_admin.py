@@ -357,9 +357,12 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
     if updated is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
       return
+    cashier_user = await user_repository.get_by_row_id(user_row_id)
+    cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
+    cashier_text = f"{cashier_name} выбран кассиром."
   if callback.message is not None:
-    await callback.message.edit_text(Text.admin.POKER_CASHIER_SET.value)
-  await callback.answer(Text.admin.POKER_CASHIER_SET.value)
+    await callback.message.edit_text(cashier_text)
+  await callback.answer(cashier_text)
 
 
 @router.message(F.text == Buttons.admin_room.ADD_PLAYER.value)
