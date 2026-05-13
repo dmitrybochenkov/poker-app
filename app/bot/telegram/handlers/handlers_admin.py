@@ -556,7 +556,7 @@ async def buyin_menu(message: Message) -> None:
     if active is None:
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
-    poker, _ = active
+    poker, params = active
     if poker.cashier_id is None:
       await message.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
       return
