@@ -28,7 +28,6 @@ from app.bot.vk.keyboards import (
   betting_stat_mode_keyboard,
   betting_stat_indicators_keyboard,
   poker_stat_indicators_keyboard,
-  betting_tournament_keyboard,
   main_keyboard,
   main_admin_entry_keyboard,
   new_user_keyboard,
@@ -392,10 +391,15 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     if not await _is_vk_user_approved(user_id):
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_PENDING.value)
       return PlainTextResponse("ok")
-    tournament_type = "regular" if action.endswith("regular") else "year"
+    tournament_type = "single"
     async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None or not user.is_approved:
+        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_NOT_OPEN.value)
+        return PlainTextResponse("ok")
       use_case = BetUseCases(
-        user_repository=UserRepository(session),
+        user_repository=user_repository,
         poker_repository=PokerRepository(session),
         bet_repository=BetRepository(session),
         bet_param_repository=BetParamRepository(session),
@@ -420,6 +424,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     context = vk_user_contexts.setdefault(user_id, {})
     context["bet_tournament_type"] = tournament_type
     context["bet_players"] = "|".join([p.player_name for p in players])
+    context["bet_better_name"] = user.name
     vk_user_states[user_id] = WAITING_FOR_BET_AMOUNT
     await send_vk_message_event_answer(
       event_id=event_id,
@@ -474,7 +479,11 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
     context["bet_winner_name"] = winner_name
-    losers = [p for p in players if p != winner_name]
+    better_name = context.get("bet_better_name")
+    losers = [p for p in players if p != winner_name and p != better_name]
+    if not losers:
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_AMOUNT_INVALID.value)
+      return PlainTextResponse("ok")
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_LOSER_CHOOSE.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
@@ -529,7 +538,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     winner_name = context.get("bet_winner_name")
     loser_name = context.get("bet_loser_name")
     amount_kopecks = int(context.get("bet_amount_kopecks", "0"))
-    if tournament_type not in {"regular", "year"} or not winner_name or not loser_name or amount_kopecks <= 0:
+    if not tournament_type or not winner_name or not loser_name or amount_kopecks <= 0:
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
     async with SessionFactory() as session:
@@ -851,8 +860,13 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
 
   if text == Buttons.betting.MAKE_BET.value:
     async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None or not user.is_approved:
+        await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value)
+        return PlainTextResponse("ok")
       use_case = BetUseCases(
-        user_repository=UserRepository(session),
+        user_repository=user_repository,
         poker_repository=PokerRepository(session),
         bet_repository=BetRepository(session),
         bet_param_repository=BetParamRepository(session),
@@ -860,15 +874,25 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         bet_tournament_param_repository=BetTournamentParamRepository(session),
         poker_data_repository=PokerDataRepository(session),
       )
-      tournaments = await use_case.list_current_tournaments()
-    if not tournaments:
+      bet_params, players, status = await use_case.get_bet_draft_data(
+        better_id=user_id,
+        tournament_type="single",
+      )
+    if status != "ok" or bet_params is None:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value)
       return PlainTextResponse("ok")
+    context = vk_user_contexts.setdefault(user_id, {})
+    context["bet_tournament_type"] = "single"
+    context["bet_players"] = "|".join([p.player_name for p in players])
+    context["bet_better_name"] = user.name
     vk_user_states[user_id] = WAITING_FOR_BET_AMOUNT
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.BETTING_TOURNAMENT_CHOOSE.value,
-      keyboard=betting_tournament_keyboard(),
+      message=Text.user.BETTING_SIZE_CHOOSE.value,
+      keyboard=betting_size_keyboard(
+        small_size_kopecks=bet_params.small_size_kopecks,
+        big_size_kopecks=bet_params.big_size_kopecks,
+      ),
     )
     return PlainTextResponse("ok")
 

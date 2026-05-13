@@ -277,7 +277,7 @@ async def start_betting(message: Message) -> None:
     if active is None:
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
-    poker, _ = active
+    poker, params = active
     if poker.is_bettable:
       await message.answer(Text.admin.BETTING_ALREADY_OPEN.value)
       return
@@ -377,11 +377,11 @@ async def add_player_menu(message: Message) -> None:
       poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
     players = await use_case.list_active_poker_players()
-    active_tg_ids = {int(player.player_id) for player in players}
+    active_user_row_ids = {int(player.player_id) for player in players}
     approved_users = await user_repository.list_approved()
     candidates = [
       user for user in approved_users
-      if user.telegram_id is not None and int(user.telegram_id) not in active_tg_ids
+      if user.telegram_id is not None and int(user.row_id) not in active_user_row_ids
     ]
     if not candidates:
       await message.answer(Text.admin.POKER_ADD_PLAYER_EMPTY.value)
@@ -561,11 +561,7 @@ async def buyin_menu(message: Message) -> None:
       await message.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
       return
     poker_data_repository = PokerDataRepository(session)
-    use_case = ManagePokerPlayersUseCase(
-      poker_repository=poker_repository,
-      poker_data_repository=poker_data_repository,
-    )
-    players = await use_case.list_active_poker_players()
+    players = await poker_data_repository.list_players(date=poker.date)
     if not players:
       await message.answer(Text.admin.POKER_BUYIN_EMPTY.value)
       return
@@ -612,7 +608,6 @@ async def buyin_select_callback(callback: CallbackQuery) -> None:
     if not await is_tg_admin(session=session, telegram_id=callback.from_user.id):
       await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
       return
-  async with SessionFactory() as session:
     poker_repository = PokerRepository(session)
     active = await poker_repository.get_started()
     if active is None:
@@ -724,6 +719,7 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
       buyins_count=buyins_count,
       big_buyin_count=big_count,
       super_buyin_count=super_count,
+      poker_date=poker.date,
     )
     if updated is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)

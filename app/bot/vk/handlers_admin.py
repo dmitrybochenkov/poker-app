@@ -748,6 +748,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             buyins_count=int(buyins_count),
             big_buyin_count=big_count,
             super_buyin_count=super_count,
+            poker_date=poker.date,
           )
           if updated is None:
             result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
@@ -964,7 +965,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       if active is None:
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
         return PlainTextResponse("ok")
-      poker, _ = active
+      poker, params = active
       poker_data_repository = PokerDataRepository(session)
       players = await poker_data_repository.list_players(date=poker.date)
       await CalculateBetScoresUseCase(
@@ -1145,11 +1146,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         return PlainTextResponse("ok")
       is_admin = await is_vk_admin(session=session, vk_id=user_id)
       poker_data_repository = PokerDataRepository(session)
-      use_case = ManagePokerPlayersUseCase(
-        poker_repository=poker_repository,
-        poker_data_repository=poker_data_repository,
-      )
-      players = await use_case.list_active_poker_players()
+      players = await poker_data_repository.list_players(date=poker.date)
       if not players:
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_EMPTY.value)
         return PlainTextResponse("ok")

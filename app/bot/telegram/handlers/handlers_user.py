@@ -31,7 +31,6 @@ from app.bot.telegram.keyboards import (
   betting_stat_mode_keyboard,
   betting_stat_indicators_keyboard,
   poker_stat_indicators_keyboard,
-  betting_tournament_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_candidates_page_keyboard,
@@ -705,8 +704,13 @@ async def start_make_bet(message: Message, state: FSMContext) -> None:
     return
 
   async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    user = await user_repository.get_by_telegram_id(message.from_user.id)
+    if user is None or not user.is_approved:
+      await message.answer(Text.user.BETTING_NOT_OPEN.value)
+      return
     use_case = BetUseCases(
-      user_repository=UserRepository(session),
+      user_repository=user_repository,
       poker_repository=PokerRepository(session),
       bet_repository=BetRepository(session),
       bet_param_repository=BetParamRepository(session),
@@ -714,16 +718,27 @@ async def start_make_bet(message: Message, state: FSMContext) -> None:
       bet_tournament_param_repository=BetTournamentParamRepository(session),
       poker_data_repository=PokerDataRepository(session),
     )
-    tournaments = await use_case.list_current_tournaments()
+    bet_params, players, status = await use_case.get_bet_draft_data(
+      better_id=message.from_user.id,
+      tournament_type="single",
+    )
 
-  if not tournaments:
+  if status != "ok" or bet_params is None:
     await message.answer(Text.user.BETTING_NOT_OPEN.value)
     return
 
   await state.set_state(RegistrationState.waiting_for_bet_amount)
+  await state.update_data(
+    bet_tournament_type="single",
+    bet_players=[p.player_name for p in players],
+    bet_better_name=user.name,
+  )
   await message.answer(
-    Text.user.BETTING_TOURNAMENT_CHOOSE.value,
-    reply_markup=betting_tournament_keyboard(),
+    Text.user.BETTING_SIZE_CHOOSE.value,
+    reply_markup=betting_size_keyboard(
+      small_size_kopecks=bet_params.small_size_kopecks,
+      big_size_kopecks=bet_params.big_size_kopecks,
+    ),
   )
 
 
@@ -1021,14 +1036,18 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  tournament_type = callback.data.split(":", 1)[1]
-  if tournament_type not in {"regular", "year"}:
-    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
-    return
+  tournament_type = "single"
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    user = await user_repository.get_by_telegram_id(callback.from_user.id)
+    if user is None or not user.is_approved:
+      await state.clear()
+      await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+      await callback.answer()
+      return
     use_case = BetUseCases(
-      user_repository=UserRepository(session),
+      user_repository=user_repository,
       poker_repository=PokerRepository(session),
       bet_repository=BetRepository(session),
       bet_param_repository=BetParamRepository(session),
@@ -1049,6 +1068,7 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
   await state.update_data(
     bet_tournament_type=tournament_type,
     bet_players=[p.player_name for p in players],
+    bet_better_name=user.name,
   )
   await callback.message.answer(
     Text.user.BETTING_SIZE_CHOOSE.value,
@@ -1092,12 +1112,17 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
     return
   data = await state.get_data()
   players = data.get("bet_players")
+  better_name = data.get("bet_better_name")
   winner_name = callback.data.split(":", 1)[1]
   if not isinstance(players, list) or winner_name not in players:
     await state.clear()
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
-  loser_candidates = [player for player in players if player != winner_name]
+  loser_candidates = [player for player in players if player != winner_name and player != better_name]
+  if not loser_candidates:
+    await state.clear()
+    await callback.answer(Text.user.BETTING_AMOUNT_INVALID.value, show_alert=True)
+    return
   await _clear_inline_keyboard(callback)
   await state.update_data(bet_winner_name=winner_name)
   await callback.message.answer(
@@ -1161,12 +1186,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
   amount_kopecks = data.get("bet_amount_kopecks")
   winner_name = data.get("bet_winner_name")
   loser_name = data.get("bet_loser_name")
-  if (
-    tournament_type not in {"regular", "year"}
-    or not isinstance(amount_kopecks, int)
-    or not winner_name
-    or not loser_name
-  ):
+  if (not tournament_type or not isinstance(amount_kopecks, int) or not winner_name or not loser_name):
     await state.clear()
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return

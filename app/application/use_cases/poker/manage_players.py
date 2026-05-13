@@ -100,13 +100,16 @@ class ManagePokerPlayersUseCase:
     buyins_count: int,
     big_buyin_count: int = 0,
     super_buyin_count: int = 0,
+    poker_date=None,
   ):
-    active = await self.poker_repository.get_started()
-    if active is None:
-      return None
-    poker, _ = active
+    if poker_date is None:
+      active = await self.poker_repository.get_started()
+      if active is None:
+        return None
+      poker, _ = active
+      poker_date = poker.date
     updated = await self.poker_data_repository.add_buyins(
-      date=poker.date,
+      date=poker_date,
       player_id=player_id,
       buyins_count=buyins_count,
       big_buyin_count=big_buyin_count,
@@ -116,7 +119,7 @@ class ManagePokerPlayersUseCase:
       return None
     if self.buyin_data_repository is not None:
       await self.buyin_data_repository.add_buyin(
-        poker_date=poker.date,
+        poker_date=poker_date,
         player_id=player_id,
         player_name=updated.player_name,
         buyins_count=buyins_count,
