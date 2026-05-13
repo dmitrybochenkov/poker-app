@@ -319,7 +319,7 @@ INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percen
 INSERT INTO bet_tournament_params (row_id, tournament_type, bet_param_id, percent_to_first, percent_to_second, percent_to_third, duration_months) VALUES (2, 'year', 1, 50, 33, 17, 12);
 
 INSERT INTO bet_tournaments (row_id, tournament_type, current_bank_kopecks, params_id) VALUES (1, 'regular', 832000, 1);
-INSERT INTO bet_tournaments (row_id, tournament_type, current_bank_kopecks, params_id) VALUES (2, 'year', 1008000, 1);
+INSERT INTO bet_tournaments (row_id, tournament_type, current_bank_kopecks, params_id) VALUES (2, 'year', 1008000, 2);
 
 INSERT INTO bets (row_id, params_id, date, better_name, better_id, size_kopecks, winner, looser, score, is_paid) VALUES (1, 1, '2025-04-20', 'Серега Маякин', 4, 20000, 'Серега Кузьмин', 'Игорь Пышкин', 3, 1);
 INSERT INTO bets (row_id, params_id, date, better_name, better_id, size_kopecks, winner, looser, score, is_paid) VALUES (2, 1, '2025-04-20', 'Дима Боченков', 1, 40000, 'Саня Илларионов', 'Игорь Пышкин', 2, 1);

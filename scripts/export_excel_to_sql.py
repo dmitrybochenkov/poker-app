@@ -103,6 +103,9 @@ def main() -> None:
   bet_tournament_param_final.sort(key=lambda x: x["row_id"] or 0)
   for i, row in enumerate(bet_tournament_param_final, 1):
     row["row_id"] = i
+  bet_tournament_param_id_by_type = {
+    str(row["tournament_type"]): int(row["row_id"]) for row in bet_tournament_param_final
+  }
 
   bet_tournament_rows: list[dict[str, object]] = []
   # Seed minimal active banks expected by app.
@@ -120,7 +123,7 @@ def main() -> None:
         "row_id": idx,
         "tournament_type": ttype,
         "current_bank_kopecks": bank,
-        "params_id": 1,
+        "params_id": bet_tournament_param_id_by_type.get(ttype, 1),
       }
     )
 
