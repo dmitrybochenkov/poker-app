@@ -11,6 +11,8 @@ class Bet(Base):
   )
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+  poker_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+  tournament_type: Mapped[str] = mapped_column(String(16), nullable=False)
   params_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
   date: Mapped[Date | None] = mapped_column(Date, nullable=True)
   better_name: Mapped[str] = mapped_column(String(255), nullable=False)
