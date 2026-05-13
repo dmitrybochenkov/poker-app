@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.db.models.buyin_data import BuyinData
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,7 @@ class BuyinDataRepository:
       player_id=player_id,
       player_name=player_name,
       buyins_count=buyins_count,
+      created_at=datetime.utcnow(),
     )
     self.session.add(item)
     await self.session.flush()

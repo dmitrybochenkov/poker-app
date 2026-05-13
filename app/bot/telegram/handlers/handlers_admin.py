@@ -610,6 +610,7 @@ async def buyin_select_callback(callback: CallbackQuery) -> None:
     await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
     return
   player_id = int(callback.data.split(":", 1)[1])
+  source_message = callback.message
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
     if not await is_tg_admin(session=session, telegram_id=callback.from_user.id):
@@ -627,8 +628,12 @@ async def buyin_select_callback(callback: CallbackQuery) -> None:
       return
     player = await PokerDataRepository(session).get_player(date=poker.date, player_id=player_id)
     include_king_buyin = bool(player is not None and player.is_prev_winner)
-  if callback.message is not None:
-    await callback.message.answer(
+  if source_message is not None:
+    try:
+      await source_message.delete()
+    except Exception:
+      pass
+    await source_message.answer(
       Text.admin.POKER_BUYIN_PROMPT.value,
       reply_markup=poker_buyin_count_keyboard(
         player_id=player_id,
@@ -659,6 +664,7 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
   if buyins_count <= 0:
     await callback.answer(Text.admin.POKER_BUYIN_INVALID.value, show_alert=True)
     return
+  source_message = callback.message
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
     is_admin = await is_tg_admin(session=session, telegram_id=callback.from_user.id)
@@ -714,14 +720,24 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
       updated_player=updated,
       buyins_count=buyins_count,
     )
-  if callback.message is not None:
-    await callback.message.answer(f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
+  if source_message is not None:
+    try:
+      await source_message.delete()
+    except Exception:
+      pass
+    await source_message.answer(f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
   await callback.answer(Text.admin.POKER_BUYIN_SAVED.value)
 
 
 @router.callback_query(F.data.startswith("pokerbuyincancel:"))
 async def buyin_cancel_callback(callback: CallbackQuery) -> None:
+  source_message = callback.message
   await _clear_inline_keyboard(callback)
+  if source_message is not None:
+    try:
+      await source_message.delete()
+    except Exception:
+      pass
   await callback.answer(Buttons.betting_inline.CONFIRM_NO.value)
 
 
