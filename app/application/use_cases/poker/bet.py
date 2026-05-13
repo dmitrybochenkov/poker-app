@@ -109,8 +109,7 @@ class BetUseCases:
       loser_name=loser_name,
       is_paid=False,
     )
-    await self.bet_tournament_repository.add_to_bank(tournament_type=self.TOURNAMENT_REGULAR, amount_kopecks=amount_kopecks)
-    await self.bet_tournament_repository.add_to_bank(tournament_type=self.TOURNAMENT_YEAR, amount_kopecks=amount_kopecks)
+    # Temporary: bank top-up is disabled until historical schema sync is finalized.
     await self.bet_repository.session.commit()
     return created, "ok"
 
