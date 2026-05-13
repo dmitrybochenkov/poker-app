@@ -46,6 +46,7 @@ from app.bot.vk.keyboards import (
   registration_link_review_keyboard as vk_registration_link_review_keyboard,
   registration_review_keyboard as vk_registration_review_keyboard,
 )
+from app.bot.vk.api import send_vk_message
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -61,6 +62,35 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 router = Router()
+
+
+async def _notify_admins_about_room_join(
+  *,
+  session,
+  joined_user: User,
+  platform_label: str,
+) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  repository = UserRepository(session)
+  admin_tg_ids = await repository.list_telegram_admin_ids()
+  admin_vk_ids = await repository.list_vk_admin_ids()
+  text = (
+    "🟢 Новый игрок в покер руме\n"
+    f"Игрок: {joined_user.name}\n"
+    f"Платформа: {platform_label}"
+  )
+
+  for admin_id in admin_tg_ids:
+    if joined_user.telegram_id is not None and int(admin_id) == int(joined_user.telegram_id):
+      continue
+    if telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=admin_id, text=text)
+
+  for admin_id in admin_vk_ids:
+    if joined_user.vk_id is not None and int(admin_id) == int(joined_user.vk_id):
+      continue
+    await send_vk_message(user_id=admin_id, message=text)
 
 
 async def _get_telegram_user(telegram_id: int) -> User | None:
@@ -282,6 +312,11 @@ async def join_poker_room(message: Message) -> None:
     if created is None:
       await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
       return
+    await _notify_admins_about_room_join(
+      session=session,
+      joined_user=user,
+      platform_label="Telegram",
+    )
 
   await message.answer(
     Text.user.ROOM_JOINED.value,

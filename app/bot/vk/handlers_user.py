@@ -68,6 +68,35 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 
+async def _notify_admins_about_room_join(
+  *,
+  session,
+  joined_user: User,
+  platform_label: str,
+) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  repository = UserRepository(session)
+  admin_tg_ids = await repository.list_telegram_admin_ids()
+  admin_vk_ids = await repository.list_vk_admin_ids()
+  text = (
+    "🟢 Новый игрок в покер руме\n"
+    f"Игрок: {joined_user.name}\n"
+    f"Платформа: {platform_label}"
+  )
+
+  for admin_id in admin_tg_ids:
+    if joined_user.telegram_id is not None and int(admin_id) == int(joined_user.telegram_id):
+      continue
+    if telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=admin_id, text=text)
+
+  for admin_id in admin_vk_ids:
+    if joined_user.vk_id is not None and int(admin_id) == int(joined_user.vk_id):
+      continue
+    await send_vk_message(user_id=admin_id, message=text)
+
+
 async def _get_vk_user(user_id: int) -> User | None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -885,6 +914,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       if created is None:
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
         return PlainTextResponse("ok")
+      await _notify_admins_about_room_join(
+        session=session,
+        joined_user=user,
+        platform_label="VK",
+      )
 
     await send_vk_message(
       user_id=user_id,
