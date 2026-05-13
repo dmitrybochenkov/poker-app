@@ -65,6 +65,9 @@ async def send_vk_message_event_answer(
   peer_id: int,
   text: str,
 ) -> None:
+  safe_text = text
+  if len(safe_text) > 90:
+    safe_text = safe_text[:87].rstrip() + "..."
   try:
     await vk_api_call(
       "messages.sendMessageEventAnswer",
@@ -74,7 +77,7 @@ async def send_vk_message_event_answer(
       event_data=json.dumps(
         {
           "type": "show_snackbar",
-          "text": text,
+          "text": safe_text,
         },
         ensure_ascii=False,
       ),
@@ -82,7 +85,10 @@ async def send_vk_message_event_answer(
   except VkApiError as exc:
     # VK can return "invalid event_id" when callback answer is late/stale.
     # This should not break webhook processing.
-    if exc.code == 100 and "invalid event_id" in exc.message.lower():
+    if exc.code == 100 and (
+      "invalid event_id" in exc.message.lower()
+      or "client_action text should be not more than 90 letters length" in exc.message.lower()
+    ):
       return
     raise
 
