@@ -1220,7 +1220,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
   elif status in {"betting_closed", "user_not_approved", "invalid_tournament", "missing_params"}:
     await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
   elif status == "invalid_amount" or created is None:
-    await callback.message.answer(Text.user.BETTING_AMOUNT_INVALID.value)
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
   else:
     await callback.message.answer(
       Text.user.BETTING_CREATED.value.format(

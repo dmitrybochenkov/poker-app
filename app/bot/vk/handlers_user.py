@@ -573,7 +573,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     elif status in {"betting_closed", "user_not_approved", "invalid_tournament", "missing_params"}:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
     elif status == "invalid_amount" or created is None:
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_AMOUNT_INVALID.value)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
     else:
       await send_vk_message(
         user_id=user_id,
