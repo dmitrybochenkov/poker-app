@@ -168,6 +168,7 @@ class ReplyKbs:
       _button_labels(
         [
           Buttons.admin_main.START_POKER,
+          Buttons.admin_main.MAKE_ADMIN,
           Buttons.admin_main.TO_MAIN,
         ]
       ),
@@ -180,6 +181,7 @@ class ReplyKbs:
       _button_labels(
         [
           Buttons.admin_main.START_POKER,
+          Buttons.admin_main.MAKE_ADMIN,
           Buttons.admin_main.TO_MAIN,
         ]
       ),
@@ -237,6 +239,104 @@ class ReplyKbs:
           Buttons.poker.POKER_STAT,
           Buttons.poker.POKER_INFO,
           Buttons.poker.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def room_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.room.STATUS,
+          Buttons.room.BUYIN,
+          Buttons.room.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def room_admin_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.room.STATUS,
+          Buttons.room.BUYIN,
+          Buttons.room.POKER_ADMIN,
+          Buttons.room.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def room_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.room.STATUS,
+          Buttons.room.BUYIN,
+          Buttons.room.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def room_admin_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.room.STATUS,
+          Buttons.room.BUYIN,
+          Buttons.room.POKER_ADMIN,
+          Buttons.room.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def admin_room_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.admin_room.SET_CASHIER,
+          Buttons.admin_room.START_BETTING,
+          Buttons.admin_room.FINISH_POKER,
+          Buttons.admin_room.CALCULATE_POKER,
+          Buttons.admin_room.ADD_PLAYER,
+          Buttons.admin_room.REMOVE_PLAYER,
+          Buttons.admin_room.UNBAN_PLAYER,
+          Buttons.admin_room.CASHOUT,
+          Buttons.admin_room.TO_ROOM,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def admin_room_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.admin_room.SET_CASHIER,
+          Buttons.admin_room.START_BETTING,
+          Buttons.admin_room.FINISH_POKER,
+          Buttons.admin_room.CALCULATE_POKER,
+          Buttons.admin_room.ADD_PLAYER,
+          Buttons.admin_room.REMOVE_PLAYER,
+          Buttons.admin_room.UNBAN_PLAYER,
+          Buttons.admin_room.CASHOUT,
+          Buttons.admin_room.TO_ROOM,
         ]
       ),
       adjust=1,

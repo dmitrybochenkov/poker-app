@@ -2,6 +2,7 @@ from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.user_repository import UserRepository
 
 
 class ManagePokerPlayersUseCase:
@@ -11,11 +12,13 @@ class ManagePokerPlayersUseCase:
     poker_data_repository: PokerDataRepository,
     buyin_data_repository: BuyinDataRepository | None = None,
     poker_room_denied_repository: PokerRoomDeniedRepository | None = None,
+    user_repository: UserRepository | None = None,
   ) -> None:
     self.poker_repository = poker_repository
     self.poker_data_repository = poker_data_repository
     self.buyin_data_repository = buyin_data_repository
     self.poker_room_denied_repository = poker_room_denied_repository
+    self.user_repository = user_repository
 
   async def add_player_to_active_poker(
     self,
@@ -59,12 +62,18 @@ class ManagePokerPlayersUseCase:
     poker, _ = active
     removed = await self.poker_data_repository.remove_player(date=poker.date, player_id=player_id)
     if removed and self.poker_room_denied_repository is not None:
-      platform = "tg" if int(player_id) < 2_000_000_000 else "vk"
-      await self.poker_room_denied_repository.add(
-        date=poker.date,
-        player_id=player_id,
-        platform=platform,
-      )
+      is_admin = False
+      if self.user_repository is not None:
+        tg_user = await self.user_repository.get_by_telegram_id(int(player_id))
+        vk_user = await self.user_repository.get_by_vk_id(int(player_id))
+        is_admin = bool((tg_user and tg_user.is_admin) or (vk_user and vk_user.is_admin))
+      if not is_admin:
+        platform = "tg" if int(player_id) < 2_000_000_000 else "vk"
+        await self.poker_room_denied_repository.add(
+          date=poker.date,
+          player_id=player_id,
+          platform=platform,
+        )
     return removed
 
   async def is_denied_for_active_poker(self, *, player_id: int) -> bool:
@@ -75,6 +84,27 @@ class ManagePokerPlayersUseCase:
       return False
     poker, _ = active
     return await self.poker_room_denied_repository.is_denied(
+      date=poker.date,
+      player_id=player_id,
+    )
+
+  async def list_denied_for_active_poker(self):
+    if self.poker_room_denied_repository is None:
+      return []
+    active = await self.poker_repository.get_started()
+    if active is None:
+      return []
+    poker, _ = active
+    return await self.poker_room_denied_repository.list_by_date(date=poker.date)
+
+  async def remove_denied_for_active_poker(self, *, player_id: int) -> bool:
+    if self.poker_room_denied_repository is None:
+      return False
+    active = await self.poker_repository.get_started()
+    if active is None:
+      return False
+    poker, _ = active
+    return await self.poker_room_denied_repository.remove(
       date=poker.date,
       player_id=player_id,
     )

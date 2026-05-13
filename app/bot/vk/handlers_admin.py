@@ -31,7 +31,9 @@ from app.bot.vk.keyboards import (
   poker_cashout_candidates_keyboard,
   poker_cashier_candidates_keyboard,
   poker_remove_player_candidates_keyboard,
+  poker_unban_player_candidates_keyboard,
   poker_params_keyboard,
+  room_admin_keyboard,
 )
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -483,6 +485,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
         use_case = ManagePokerPlayersUseCase(
           poker_repository=PokerRepository(session),
           poker_data_repository=PokerDataRepository(session),
+          user_repository=user_repository,
           poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
         removed = await use_case.remove_player_from_active_poker(player_id=int(player_id))
@@ -492,6 +495,34 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_text = Text.admin.USER_NOT_FOUND.value
         else:
           result_text = Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text=result_text,
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=admin_user_id, message=result_text)
+    return PlainTextResponse("ok")
+
+  if action == "poker_unban_player_select":
+    player_id = callback_payload.get("player_id")
+    if not isinstance(player_id, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if admin_user_id not in admin_ids:
+        result_text = Text.admin.NO_RIGHTS.value
+      else:
+        use_case = ManagePokerPlayersUseCase(
+          poker_repository=PokerRepository(session),
+          poker_data_repository=PokerDataRepository(session),
+          poker_room_denied_repository=PokerRoomDeniedRepository(session),
+          user_repository=user_repository,
+        )
+        removed = await use_case.remove_denied_for_active_poker(player_id=int(player_id))
+        result_text = Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value if removed else Text.admin.POKER_UNBAN_PLAYER_EMPTY.value
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -717,7 +748,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text.lower() in {"make_admin", "/make_admin", "make admin"}:
+  if text == Buttons.admin_main.MAKE_ADMIN.value:
     async with SessionFactory() as session:
       repository = UserRepository(session)
       admin_ids = await repository.list_vk_admin_ids()
@@ -736,7 +767,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_main.START_POKER.value or text.lower() in {"start_poker", "/start_poker"}:
+  if text == Buttons.admin_main.START_POKER.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -761,7 +792,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.FINISH_POKER.value or text.lower() in {"finish_poker", "/finish_poker"}:
+  if text == Buttons.admin_room.FINISH_POKER.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -796,7 +827,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.START_BETTING.value or text.lower() in {"start_betting", "/start_betting"}:
+  if text == Buttons.admin_room.START_BETTING.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -831,7 +862,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     await send_vk_message(user_id=user_id, message=Text.admin.BETTING_START_SUCCESS.value)
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.ADD_PLAYER.value or text.lower() in {"add_player", "/add_player"}:
+  if text == Buttons.admin_room.ADD_PLAYER.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -859,7 +890,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.REMOVE_PLAYER.value or text.lower() in {"remove_player", "/remove_player"}:
+  if text == Buttons.admin_room.REMOVE_PLAYER.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -881,7 +912,38 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.SET_CASHIER.value or text.lower() in {"set_cashier", "/set_cashier"}:
+  if text == Buttons.admin_room.UNBAN_PLAYER.value:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      use_case = ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+        poker_room_denied_repository=PokerRoomDeniedRepository(session),
+        user_repository=user_repository,
+      )
+      denied = await use_case.list_denied_for_active_poker()
+      if not denied:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_UNBAN_PLAYER_EMPTY.value)
+        return PlainTextResponse("ok")
+      candidates: list[dict[str, int | str]] = []
+      for item in denied:
+        user = await user_repository.get_by_telegram_id(int(item.player_id))
+        if user is None:
+          user = await user_repository.get_by_vk_id(int(item.player_id))
+        name = user.name if user is not None else f"ID {int(item.player_id)}"
+        candidates.append({"player_id": int(item.player_id), "name": name})
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.admin.POKER_UNBAN_PLAYER_CHOOSE.value,
+      keyboard=poker_unban_player_candidates_keyboard(players=candidates),
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_room.SET_CASHIER.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -903,7 +965,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.room.BUYIN.value or text.lower() in {"buyin", "/buyin"}:
+  if text == Buttons.room.BUYIN.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -925,7 +987,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.CASHOUT.value or text.lower() in {"cashout", "/cashout"}:
+  if text == Buttons.admin_room.CASHOUT.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       admin_ids = await user_repository.list_vk_admin_ids()
@@ -944,6 +1006,20 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       user_id=user_id,
       message=Text.admin.POKER_CASHOUT_CHOOSE.value,
       keyboard=poker_cashout_candidates_keyboard(players=players),
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_room.TO_ROOM.value:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      admin_ids = await user_repository.list_vk_admin_ids()
+      if user_id not in admin_ids:
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+    await send_vk_message(
+      user_id=user_id,
+      message="Покер рум.",
+      keyboard=room_admin_keyboard,
     )
     return PlainTextResponse("ok")
 

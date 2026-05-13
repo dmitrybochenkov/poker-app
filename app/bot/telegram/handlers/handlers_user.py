@@ -16,12 +16,15 @@ from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
+  admin_room_keyboard,
   main_keyboard,
   main_admin_entry_keyboard,
   admin_main_keyboard,
   new_user_keyboard,
   betting_keyboard,
   poker_keyboard,
+  room_admin_keyboard,
+  room_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
   betting_size_keyboard,
@@ -257,12 +260,20 @@ async def join_poker_room(message: Message) -> None:
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
+    is_denied = await use_case.is_denied_for_active_poker(player_id=int(message.from_user.id))
+    if is_denied:
+      await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
+      return
     players = await use_case.list_active_poker_players()
     if players:
       already_in_room = any(int(item.player_id) == int(message.from_user.id) for item in players)
       if already_in_room:
-        await message.answer(Text.user.ROOM_JOINED.value)
+        await message.answer(
+          Text.user.ROOM_JOINED.value,
+          reply_markup=room_admin_keyboard if user.is_admin else room_keyboard,
+        )
         return
     created = await use_case.add_player_to_active_poker(
       player_id=int(message.from_user.id),
@@ -272,7 +283,28 @@ async def join_poker_room(message: Message) -> None:
       await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
       return
 
-  await message.answer(Text.user.ROOM_JOINED.value)
+  await message.answer(
+    Text.user.ROOM_JOINED.value,
+    reply_markup=room_admin_keyboard if user.is_admin else room_keyboard,
+  )
+
+
+@router.message(F.text == Buttons.room.POKER_ADMIN.value)
+async def open_room_admin_panel(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_admin:
+    await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=room_keyboard)
+    return
+  await message.answer("Покер админ панель.", reply_markup=admin_room_keyboard)
 
 
 @router.message(F.text == Buttons.main.BETTING.value)
@@ -319,7 +351,7 @@ async def back_from_admin_to_main(message: Message) -> None:
   if not user.is_approved:
     await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.betting.TO_MAIN.value)
@@ -330,7 +362,7 @@ async def back_to_main_from_betting(message: Message) -> None:
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.poker.TO_MAIN.value)
@@ -341,7 +373,18 @@ async def back_to_main_from_poker(message: Message) -> None:
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
+
+
+@router.message(F.text == Buttons.room.TO_MAIN.value)
+async def back_to_main_from_room(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.poker.POKER_INFO.value)

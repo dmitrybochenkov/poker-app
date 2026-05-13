@@ -1,5 +1,4 @@
 from aiogram import F, Router
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -30,7 +29,9 @@ from app.bot.telegram.keyboards import (
   poker_cashout_candidates_keyboard,
   poker_cashier_candidates_keyboard,
   poker_remove_player_candidates_keyboard,
+  poker_unban_player_candidates_keyboard,
   poker_params_keyboard,
+  room_admin_keyboard,
 )
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.states import AdminPokerState, RegistrationState
@@ -90,7 +91,6 @@ async def _notify_players_about_finish(*, players: list) -> None:
         await send_vk_message(user_id=user.vk_id, message=text)
 
 
-@router.message(Command("start_poker"))
 @router.message(F.text == Buttons.admin_main.START_POKER.value)
 async def start_poker_menu(message: Message) -> None:
   if message.from_user is None:
@@ -167,7 +167,6 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
   await callback.answer(Text.admin.POKER_START_SUCCESS.value)
 
 
-@router.message(Command("finish_poker"))
 @router.message(F.text == Buttons.admin_room.FINISH_POKER.value)
 async def finish_poker(message: Message) -> None:
   if message.from_user is None:
@@ -206,7 +205,6 @@ async def finish_poker(message: Message) -> None:
     )
 
 
-@router.message(Command("start_betting"))
 @router.message(F.text == Buttons.admin_room.START_BETTING.value)
 async def start_betting(message: Message) -> None:
   if message.from_user is None:
@@ -246,7 +244,6 @@ async def start_betting(message: Message) -> None:
   await message.answer(Text.admin.BETTING_START_SUCCESS.value)
 
 
-@router.message(Command("set_cashier"))
 @router.message(F.text == Buttons.admin_room.SET_CASHIER.value)
 async def set_cashier_menu(message: Message) -> None:
   if message.from_user is None:
@@ -300,7 +297,6 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
   await callback.answer(Text.admin.POKER_CASHIER_SET.value)
 
 
-@router.message(Command("add_player"))
 @router.message(F.text == Buttons.admin_room.ADD_PLAYER.value)
 async def add_player_menu(message: Message) -> None:
   if message.from_user is None:
@@ -315,6 +311,7 @@ async def add_player_menu(message: Message) -> None:
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
+      user_repository=user_repository,
       poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
     players = await use_case.list_active_poker_players()
@@ -366,7 +363,6 @@ async def add_player_callback(callback: CallbackQuery) -> None:
   await callback.answer(Text.admin.POKER_ADD_PLAYER_SUCCESS.value)
 
 
-@router.message(Command("remove_player"))
 @router.message(F.text == Buttons.admin_room.REMOVE_PLAYER.value)
 async def remove_player_menu(message: Message) -> None:
   if message.from_user is None:
@@ -421,7 +417,68 @@ async def remove_player_callback(callback: CallbackQuery) -> None:
   await callback.answer(Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value)
 
 
-@router.message(Command("buyin"))
+@router.message(F.text == Buttons.admin_room.UNBAN_PLAYER.value)
+async def unban_player_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
+      user_repository=user_repository,
+    )
+    denied = await use_case.list_denied_for_active_poker()
+    if not denied:
+      await message.answer(Text.admin.POKER_UNBAN_PLAYER_EMPTY.value)
+      return
+    candidates: list[dict[str, int | str]] = []
+    for item in denied:
+      user = await user_repository.get_by_telegram_id(int(item.player_id))
+      if user is None:
+        user = await user_repository.get_by_vk_id(int(item.player_id))
+      name = user.name if user is not None else f"ID {int(item.player_id)}"
+      candidates.append({"player_id": int(item.player_id), "name": name})
+  await message.answer(
+    Text.admin.POKER_UNBAN_PLAYER_CHOOSE.value,
+    reply_markup=poker_unban_player_candidates_keyboard(players=candidates),
+  )
+
+
+@router.callback_query(F.data.startswith("pokerunban:"))
+async def unban_player_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  player_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    admin_ids = await user_repository.list_telegram_admin_ids()
+    if callback.from_user.id not in admin_ids:
+      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+      return
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
+      user_repository=user_repository,
+    )
+    removed = await use_case.remove_denied_for_active_poker(player_id=player_id)
+    if not removed:
+      await callback.answer(Text.admin.POKER_UNBAN_PLAYER_EMPTY.value, show_alert=True)
+      return
+  if callback.message is not None:
+    await callback.message.edit_text(Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
+  await callback.answer(Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
+
+
 @router.message(F.text == Buttons.room.BUYIN.value)
 async def buyin_menu(message: Message) -> None:
   if message.from_user is None:
@@ -503,7 +560,6 @@ async def buyin_count_input(message: Message, state: FSMContext) -> None:
   await message.answer(f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
 
 
-@router.message(Command("cashout"))
 @router.message(F.text == Buttons.admin_room.CASHOUT.value)
 async def cashout_menu(message: Message) -> None:
   if message.from_user is None:
@@ -587,10 +643,10 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
   )
 
 
-@router.message(Command("make_admin"))
-async def make_admin_command(message: Message) -> None:
-  if message.from_user is None or message.text is None:
-    await message.answer(Text.admin.MAKE_ADMIN_USAGE.value)
+@router.message(F.text == Buttons.admin_main.MAKE_ADMIN.value)
+async def make_admin_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
 
   async with SessionFactory() as session:
@@ -641,6 +697,20 @@ async def make_admin_select_callback(callback: CallbackQuery) -> None:
       f"Имя: {user.name}"
     )
   await callback.answer(Text.admin.MAKE_ADMIN_SUCCESS.value)
+
+
+@router.message(F.text == Buttons.admin_room.TO_ROOM.value)
+async def back_to_room_admin_panel(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    repository = UserRepository(session)
+    admin_ids = await repository.list_telegram_admin_ids()
+    if message.from_user.id not in admin_ids:
+      await message.answer(Text.admin.NO_RIGHTS.value)
+      return
+  await message.answer("Покер рум.", reply_markup=room_admin_keyboard)
 
 
 @router.callback_query(F.data.startswith("approve:"))

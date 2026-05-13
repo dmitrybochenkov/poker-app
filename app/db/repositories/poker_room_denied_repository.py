@@ -34,3 +34,18 @@ class PokerRoomDeniedRepository:
     item = await self.get(date=date, player_id=player_id)
     return item is not None
 
+  async def remove(self, *, date, player_id: int) -> bool:
+    item = await self.get(date=date, player_id=player_id)
+    if item is None:
+      return False
+    await self.session.delete(item)
+    await self.session.commit()
+    return True
+
+  async def list_by_date(self, *, date) -> list[PokerRoomDenied]:
+    result = await self.session.execute(
+      select(PokerRoomDenied)
+      .where(PokerRoomDenied.date == date)
+      .order_by(PokerRoomDenied.row_id.asc())
+    )
+    return list(result.scalars().all())

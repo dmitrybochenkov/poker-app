@@ -32,6 +32,9 @@ from app.bot.vk.keyboards import (
   main_keyboard,
   main_admin_entry_keyboard,
   new_user_keyboard,
+  room_admin_keyboard,
+  room_keyboard,
+  admin_room_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_candidates_page_keyboard,
@@ -727,7 +730,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if not user.is_approved:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=_approved_vk_keyboard(user))
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=_approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.main.BETTING.value:
@@ -739,7 +742,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.TO_MAIN.value:
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=main_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=main_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.TO_MAIN.value:
@@ -747,7 +750,18 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if user is None:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=_approved_vk_keyboard(user))
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=_approved_vk_keyboard(user))
+    return PlainTextResponse("ok")
+
+  if text == Buttons.room.TO_MAIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=_approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.POKER_INFO.value:
@@ -857,7 +871,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       if players:
         already_in_room = any(int(item.player_id) == int(user_id) for item in players)
         if already_in_room:
-          await send_vk_message(user_id=user_id, message=Text.user.ROOM_JOINED.value)
+          await send_vk_message(
+            user_id=user_id,
+            message=Text.user.ROOM_JOINED.value,
+            keyboard=room_admin_keyboard if user.is_admin else room_keyboard,
+          )
           return PlainTextResponse("ok")
 
       created = await use_case.add_player_to_active_poker(
@@ -868,7 +886,25 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
         return PlainTextResponse("ok")
 
-    await send_vk_message(user_id=user_id, message=Text.user.ROOM_JOINED.value)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.ROOM_JOINED.value,
+      keyboard=room_admin_keyboard if user.is_admin else room_keyboard,
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.room.POKER_ADMIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_admin:
+      await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value, keyboard=room_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message="Покер админ панель.", keyboard=admin_room_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.room.STATUS.value:

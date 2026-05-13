@@ -29,6 +29,7 @@ class AdminRoomBtns(Enum):
   CALCULATE_POKER = "🤖 Рассчитать покер" # 
   ADD_PLAYER = "👨 Добавить игрока"
   REMOVE_PLAYER = "❌ Удалить игрока"
+  UNBAN_PLAYER = "✅ Разрешить обратно"
   CORRECT_POKER = "🔧 Исправить данные"
   TO_ROOM = "♣️ В ПокерРум"
 
