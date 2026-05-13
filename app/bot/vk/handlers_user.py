@@ -892,7 +892,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         poker_data_repository=PokerDataRepository(session),
         poker_room_denied_repository=PokerRoomDeniedRepository(session),
       )
-      is_denied = await use_case.is_denied_for_active_poker(player_id=int(user_id))
+      is_denied = await use_case.is_denied_for_active_poker(user_row_id=int(user.row_id))
       if is_denied:
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
         return PlainTextResponse("ok")

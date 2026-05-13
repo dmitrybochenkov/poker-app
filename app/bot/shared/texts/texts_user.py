@@ -36,6 +36,8 @@ class UserText(Enum):
   STATUS_PENDING = "Твоя заявка еще на рассмотрении у администратора."
   STATUS_ROOM_CLOSED = "Сейчас покер рум закрыт."
   STATUS_ROOM_NOT_ADDED = "Ты не добавлен в покер рум! Спроси у админа почему."
+  ROOM_REMOVED_BY_ADMIN = "Ты исключен из покер рума администратором."
+  ROOM_UNBANNED_BY_ADMIN = "Тебе снова разрешен вход в покер рум."
   STATUS_BUYINS = "🏦 Закупы: {buyins}"
   ROOM_JOINED = "Добро пожаловать в покер рум!"
   ROOM_ALREADY_JOINED = "Ты уже добавлен в покер рум."

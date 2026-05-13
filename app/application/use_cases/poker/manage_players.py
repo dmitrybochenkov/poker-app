@@ -67,16 +67,18 @@ class ManagePokerPlayersUseCase:
         tg_user = await self.user_repository.get_by_telegram_id(int(player_id))
         vk_user = await self.user_repository.get_by_vk_id(int(player_id))
         is_admin = bool((tg_user and tg_user.is_admin) or (vk_user and vk_user.is_admin))
-      if not is_admin:
-        platform = "tg" if int(player_id) < 2_000_000_000 else "vk"
-        await self.poker_room_denied_repository.add(
-          date=poker.date,
-          player_id=player_id,
-          platform=platform,
-        )
+      if not is_admin and self.user_repository is not None:
+        user = await self.user_repository.get_by_telegram_id(int(player_id))
+        if user is None:
+          user = await self.user_repository.get_by_vk_id(int(player_id))
+        if user is not None:
+          await self.poker_room_denied_repository.add(
+            date=poker.date,
+            user_row_id=int(user.row_id),
+          )
     return removed
 
-  async def is_denied_for_active_poker(self, *, player_id: int) -> bool:
+  async def is_denied_for_active_poker(self, *, user_row_id: int) -> bool:
     if self.poker_room_denied_repository is None:
       return False
     active = await self.poker_repository.get_started()
@@ -85,7 +87,7 @@ class ManagePokerPlayersUseCase:
     poker, _ = active
     return await self.poker_room_denied_repository.is_denied(
       date=poker.date,
-      player_id=player_id,
+      user_row_id=user_row_id,
     )
 
   async def list_denied_for_active_poker(self):
@@ -97,7 +99,7 @@ class ManagePokerPlayersUseCase:
     poker, _ = active
     return await self.poker_room_denied_repository.list_by_date(date=poker.date)
 
-  async def remove_denied_for_active_poker(self, *, player_id: int) -> bool:
+  async def remove_denied_for_active_poker(self, *, user_row_id: int) -> bool:
     if self.poker_room_denied_repository is None:
       return False
     active = await self.poker_repository.get_started()
@@ -106,7 +108,7 @@ class ManagePokerPlayersUseCase:
     poker, _ = active
     return await self.poker_room_denied_repository.remove(
       date=poker.date,
-      player_id=player_id,
+      user_row_id=user_row_id,
     )
 
   async def add_buyin_to_active_player(

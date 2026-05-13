@@ -115,6 +115,24 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
       await send_vk_message(user_id=user.vk_id, message=text)
 
 
+async def _notify_user_removed_from_room(*, user) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  if user.telegram_id is not None and telegram_bot is not None:
+    await telegram_bot.send_message(chat_id=user.telegram_id, text=Text.user.ROOM_REMOVED_BY_ADMIN.value)
+  if user.vk_id is not None:
+    await send_vk_message(user_id=user.vk_id, message=Text.user.ROOM_REMOVED_BY_ADMIN.value)
+
+
+async def _notify_user_unbanned_for_room(*, user) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+    await telegram_bot.send_message(chat_id=user.telegram_id, text=Text.user.ROOM_UNBANNED_BY_ADMIN.value)
+  elif user.notification_platform == "vk" and user.vk_id is not None:
+    await send_vk_message(user_id=user.vk_id, message=Text.user.ROOM_UNBANNED_BY_ADMIN.value)
+
+
 async def _clear_event_inline_keyboard_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
   if peer_id is None or conversation_message_id is None:
     return
@@ -438,6 +456,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
         use_case = StartPokerUseCase(
           poker_repository=PokerRepository(session),
           poker_param_repository=PokerParamRepository(session),
+          poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
         created = await use_case.execute(params_id=params_id)
         if created is None:
@@ -519,6 +538,9 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           user_repository=user_repository,
           poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
+        removed_user = await user_repository.get_by_telegram_id(int(player_id))
+        if removed_user is None:
+          removed_user = await user_repository.get_by_vk_id(int(player_id))
         removed = await use_case.remove_player_from_active_poker(player_id=int(player_id))
         if removed is None:
           result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
@@ -526,6 +548,8 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_text = Text.admin.USER_NOT_FOUND.value
         else:
           result_text = Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value
+          if removed_user is not None:
+            await _notify_user_removed_from_room(user=removed_user)
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -537,8 +561,8 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     return PlainTextResponse("ok")
 
   if action == "poker_unban_player_select":
-    player_id = callback_payload.get("player_id")
-    if not isinstance(player_id, int):
+    user_row_id = callback_payload.get("player_id")
+    if not isinstance(user_row_id, int):
       return PlainTextResponse("ok")
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
@@ -552,8 +576,11 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           poker_room_denied_repository=PokerRoomDeniedRepository(session),
           user_repository=user_repository,
         )
-        removed = await use_case.remove_denied_for_active_poker(player_id=int(player_id))
+        unbanned_user = await user_repository.get_by_row_id(int(user_row_id))
+        removed = await use_case.remove_denied_for_active_poker(user_row_id=int(user_row_id))
         result_text = Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value if removed else Text.admin.POKER_UNBAN_PLAYER_EMPTY.value
+        if removed and unbanned_user is not None:
+          await _notify_user_unbanned_for_room(user=unbanned_user)
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -896,6 +923,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       use_case = StartPokerUseCase(
         poker_repository=PokerRepository(session),
         poker_param_repository=PokerParamRepository(session),
+        poker_room_denied_repository=PokerRoomDeniedRepository(session),
       )
       can_start, params = await use_case.get_start_data()
       if not can_start:
@@ -1050,11 +1078,9 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         return PlainTextResponse("ok")
       candidates: list[dict[str, int | str]] = []
       for item in denied:
-        user = await user_repository.get_by_telegram_id(int(item.player_id))
-        if user is None:
-          user = await user_repository.get_by_vk_id(int(item.player_id))
-        name = user.name if user is not None else f"ID {int(item.player_id)}"
-        candidates.append({"player_id": int(item.player_id), "name": name})
+        user = await user_repository.get_by_row_id(int(item.user_row_id))
+        name = user.name if user is not None else f"ID {int(item.user_row_id)}"
+        candidates.append({"player_id": int(item.user_row_id), "name": name})
     await send_vk_message(
       user_id=user_id,
       message=Text.admin.POKER_UNBAN_PLAYER_CHOOSE.value,

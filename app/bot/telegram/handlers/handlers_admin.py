@@ -123,6 +123,24 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
       await send_vk_message(user_id=user.vk_id, message=text)
 
 
+async def _notify_user_removed_from_room(*, user) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  if user.telegram_id is not None and telegram_bot is not None:
+    await telegram_bot.send_message(chat_id=user.telegram_id, text=Text.user.ROOM_REMOVED_BY_ADMIN.value)
+  if user.vk_id is not None:
+    await send_vk_message(user_id=user.vk_id, message=Text.user.ROOM_REMOVED_BY_ADMIN.value)
+
+
+async def _notify_user_unbanned_for_room(*, user) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+    await telegram_bot.send_message(chat_id=user.telegram_id, text=Text.user.ROOM_UNBANNED_BY_ADMIN.value)
+  elif user.notification_platform == "vk" and user.vk_id is not None:
+    await send_vk_message(user_id=user.vk_id, message=Text.user.ROOM_UNBANNED_BY_ADMIN.value)
+
+
 @router.message(F.text == Buttons.admin_main.START_POKER.value)
 async def start_poker_menu(message: Message) -> None:
   if message.from_user is None:
@@ -139,6 +157,7 @@ async def start_poker_menu(message: Message) -> None:
     use_case = StartPokerUseCase(
       poker_repository=PokerRepository(session),
       poker_param_repository=PokerParamRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
     can_start, params = await use_case.get_start_data()
     if not can_start:
@@ -173,6 +192,7 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
     use_case = StartPokerUseCase(
       poker_repository=PokerRepository(session),
       poker_param_repository=PokerParamRepository(session),
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
     created = await use_case.execute(params_id=params_id)
     if created is None:
@@ -441,6 +461,9 @@ async def remove_player_callback(callback: CallbackQuery) -> None:
       poker_room_denied_repository=PokerRoomDeniedRepository(session),
       user_repository=user_repository,
     )
+    removed_user = await user_repository.get_by_telegram_id(player_id)
+    if removed_user is None:
+      removed_user = await user_repository.get_by_vk_id(player_id)
     removed = await use_case.remove_player_from_active_poker(player_id=player_id)
     if removed is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
@@ -448,6 +471,8 @@ async def remove_player_callback(callback: CallbackQuery) -> None:
     if removed is False:
       await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
       return
+    if removed_user is not None:
+      await _notify_user_removed_from_room(user=removed_user)
   if callback.message is not None:
     await callback.message.edit_text(Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value)
   await callback.answer(Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value)
@@ -476,11 +501,9 @@ async def unban_player_menu(message: Message) -> None:
       return
     candidates: list[dict[str, int | str]] = []
     for item in denied:
-      user = await user_repository.get_by_telegram_id(int(item.player_id))
-      if user is None:
-        user = await user_repository.get_by_vk_id(int(item.player_id))
-      name = user.name if user is not None else f"ID {int(item.player_id)}"
-      candidates.append({"player_id": int(item.player_id), "name": name})
+      user = await user_repository.get_by_row_id(int(item.user_row_id))
+      name = user.name if user is not None else f"ID {int(item.user_row_id)}"
+      candidates.append({"player_id": int(item.user_row_id), "name": name})
   await message.answer(
     Text.admin.POKER_UNBAN_PLAYER_CHOOSE.value,
     reply_markup=poker_unban_player_candidates_keyboard(players=candidates),
@@ -492,7 +515,7 @@ async def unban_player_callback(callback: CallbackQuery) -> None:
   if callback.from_user is None:
     await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
     return
-  player_id = int(callback.data.split(":", 1)[1])
+  user_row_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
     user_repository = UserRepository(session)
@@ -506,10 +529,13 @@ async def unban_player_callback(callback: CallbackQuery) -> None:
       poker_room_denied_repository=PokerRoomDeniedRepository(session),
       user_repository=user_repository,
     )
-    removed = await use_case.remove_denied_for_active_poker(player_id=player_id)
+    unbanned_user = await user_repository.get_by_row_id(user_row_id)
+    removed = await use_case.remove_denied_for_active_poker(user_row_id=user_row_id)
     if not removed:
       await callback.answer(Text.admin.POKER_UNBAN_PLAYER_EMPTY.value, show_alert=True)
       return
+    if unbanned_user is not None:
+      await _notify_user_unbanned_for_room(user=unbanned_user)
   if callback.message is not None:
     await callback.message.edit_text(Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
   await callback.answer(Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
