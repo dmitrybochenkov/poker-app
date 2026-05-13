@@ -5,7 +5,7 @@ from app.db.base import Base
 
 
 class BuyinData(Base):
-  __tablename__ = "buyin_data"
+  __tablename__ = "buyins_data"
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
   poker_date: Mapped[Date] = mapped_column("date", Date, nullable=False, index=True)
