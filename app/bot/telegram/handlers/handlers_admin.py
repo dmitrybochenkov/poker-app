@@ -17,6 +17,7 @@ from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.application.use_cases.poker.calculate_bet_scores import CalculateBetScoresUseCase
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.guards import is_tg_admin
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   betting_keyboard,
@@ -141,6 +142,20 @@ async def _notify_user_unbanned_for_room(*, user) -> None:
     await send_vk_message(user_id=user.vk_id, message=Text.user.ROOM_UNBANNED_BY_ADMIN.value)
 
 
+async def _ensure_tg_admin_message(*, session, user_id: int, message: Message) -> bool:
+  if not await is_tg_admin(session=session, telegram_id=user_id):
+    await message.answer(Text.admin.NO_RIGHTS.value)
+    return False
+  return True
+
+
+async def _ensure_tg_admin_callback(*, session, user_id: int, callback: CallbackQuery) -> bool:
+  if not await is_tg_admin(session=session, telegram_id=user_id):
+    await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    return False
+  return True
+
+
 @router.message(F.text == Buttons.admin_main.START_POKER.value)
 async def start_poker_menu(message: Message) -> None:
   if message.from_user is None:
@@ -148,11 +163,9 @@ async def start_poker_menu(message: Message) -> None:
     return
 
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
 
     use_case = StartPokerUseCase(
       poker_repository=PokerRepository(session),
@@ -183,11 +196,9 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
   await _clear_inline_keyboard(callback)
 
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
+    user_repository = UserRepository(session)
 
     use_case = StartPokerUseCase(
       poker_repository=PokerRepository(session),
@@ -225,11 +236,9 @@ async def finish_poker(message: Message) -> None:
     await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
     poker_repository = PokerRepository(session)
     active = await poker_repository.get_started()
     if active is None:
@@ -263,11 +272,9 @@ async def start_betting(message: Message) -> None:
     await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
     poker_repository = PokerRepository(session)
     active = await poker_repository.get_started()
     if active is None:
@@ -302,11 +309,9 @@ async def set_cashier_menu(message: Message) -> None:
     await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -330,11 +335,9 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
   player_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -355,11 +358,9 @@ async def add_player_menu(message: Message) -> None:
     await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -390,11 +391,9 @@ async def add_player_callback(callback: CallbackQuery) -> None:
   row_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
+    user_repository = UserRepository(session)
     user = await user_repository.get_by_row_id(row_id)
     if user is None or user.telegram_id is None:
       await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
@@ -421,11 +420,9 @@ async def remove_player_menu(message: Message) -> None:
     await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -450,11 +447,9 @@ async def remove_player_callback(callback: CallbackQuery) -> None:
   player_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -484,11 +479,9 @@ async def unban_player_menu(message: Message) -> None:
     await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -518,11 +511,9 @@ async def unban_player_callback(callback: CallbackQuery) -> None:
   user_row_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -548,10 +539,11 @@ async def buyin_menu(message: Message) -> None:
     return
   async with SessionFactory() as session:
     user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    user = await user_repository.get_by_telegram_id(message.from_user.id)
+    if user is None or not user.is_approved:
+      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value)
       return
+    is_admin = await is_tg_admin(session=session, telegram_id=message.from_user.id)
     poker_repository = PokerRepository(session)
     active = await poker_repository.get_started()
     if active is None:
@@ -561,18 +553,42 @@ async def buyin_menu(message: Message) -> None:
     if poker.cashier_id is None:
       await message.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
       return
+    poker_data_repository = PokerDataRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=poker_repository,
-      poker_data_repository=PokerDataRepository(session),
+      poker_data_repository=poker_data_repository,
     )
     players = await use_case.list_active_poker_players()
     if not players:
       await message.answer(Text.admin.POKER_BUYIN_EMPTY.value)
       return
-  await message.answer(
-    Text.admin.POKER_BUYIN_CHOOSE.value,
-    reply_markup=poker_buyin_candidates_keyboard(players=players),
-  )
+
+    if is_admin:
+      await message.answer(
+        Text.admin.POKER_BUYIN_CHOOSE.value,
+        reply_markup=poker_buyin_candidates_keyboard(players=players),
+      )
+      return
+
+    self_player = await poker_data_repository.get_player(date=poker.date, player_id=int(message.from_user.id))
+    if self_player is None:
+      await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
+      return
+    include_king_buyin = bool(self_player.is_prev_winner)
+    await message.answer(
+      Text.admin.POKER_BUYIN_PROMPT.value,
+      reply_markup=poker_buyin_count_keyboard(
+        player_id=int(message.from_user.id),
+        max_buyins=int(params.max_buyins),
+        big_buyin=params.big_buyin,
+        king_buyin=params.king_buyin,
+        super_buyin=params.super_buyin,
+        big_buyin_pic=params.big_buyin_pic,
+        king_buyin_pic=params.king_buyin_pic,
+        super_buyin_pic=params.super_buyin_pic,
+        include_king_buyin=include_king_buyin,
+      ),
+    )
 
 
 @router.callback_query(F.data.startswith("pokerbuyin:"))
@@ -583,9 +599,7 @@ async def buyin_select_callback(callback: CallbackQuery) -> None:
   player_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
+    if not await is_tg_admin(session=session, telegram_id=callback.from_user.id):
       await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
       return
   async with SessionFactory() as session:
@@ -634,9 +648,8 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
     return
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
+    is_admin = await is_tg_admin(session=session, telegram_id=callback.from_user.id)
+    if not is_admin and int(player_id) != int(callback.from_user.id):
       await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
       return
     poker_repository = PokerRepository(session)
@@ -707,11 +720,9 @@ async def cashout_select_callback(callback: CallbackQuery, state: FSMContext) ->
   player_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
+    user_repository = UserRepository(session)
   await state.set_state(AdminPokerState.waiting_for_cashout_amount)
   await state.update_data(cashout_player_id=player_id)
   if callback.message is not None:
@@ -735,12 +746,10 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
     await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
     return
   async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       await state.clear()
-      await message.answer(Text.admin.NO_RIGHTS.value)
       return
+    user_repository = UserRepository(session)
     use_case = ManagePokerPlayersUseCase(
       poker_repository=PokerRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -765,9 +774,7 @@ async def make_admin_menu(message: Message) -> None:
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
 
     approved_users = await repository.list_approved()
@@ -793,9 +800,7 @@ async def make_admin_select_callback(callback: CallbackQuery) -> None:
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
 
     use_case = MakeAdminUseCase(repository)
@@ -820,9 +825,7 @@ async def back_to_room_admin_panel(message: Message) -> None:
     return
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
   await message.answer("Покер рум.", reply_markup=room_admin_keyboard)
 
@@ -838,9 +841,7 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
 
     use_case = ApproveUserUseCase(repository)
@@ -871,9 +872,7 @@ async def correct_registration_callback(callback: CallbackQuery, state: FSMConte
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
 
     user = await repository.get_by_row_id(row_id)
@@ -926,12 +925,10 @@ async def finish_correct_user(message: Message, state: FSMContext) -> None:
     return
 
   async with SessionFactory() as session:
-    repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       await state.clear()
-      await message.answer(Text.admin.NO_RIGHTS.value)
       return
+    repository = UserRepository(session)
 
     use_case = CorrectUserUseCase(repository)
     try:
@@ -991,9 +988,7 @@ async def reject_registration_callback(callback: CallbackQuery) -> None:
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
 
     user = await repository.get_by_row_id(row_id)
@@ -1035,9 +1030,7 @@ async def link_registration_callback(callback: CallbackQuery) -> None:
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
 
     approved_users = await repository.list_approved()
@@ -1067,9 +1060,7 @@ async def choose_link_target_callback(callback: CallbackQuery) -> None:
 
   async with SessionFactory() as session:
     repository = UserRepository(session)
-    admin_ids = await repository.list_telegram_admin_ids()
-    if callback.from_user.id not in admin_ids:
-      await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
 
     use_case = LinkPendingUserUseCase(repository)

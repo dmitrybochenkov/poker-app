@@ -393,6 +393,10 @@ class InlineKbs:
         text=player.player_name,
         callback_data=f"pokerbuyin:{player.player_id}",
       )
+    keyboard.button(
+      text=Buttons.betting_inline.CONFIRM_NO.value,
+      callback_data="pokerbuyincancel:0",
+    )
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -750,6 +754,21 @@ class InlineKbs:
           }
         ]
       )
+    rows.append(
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": Buttons.betting_inline.CONFIRM_NO.value[:40],
+            "payload": {
+              "action": "poker_buyin_cancel",
+              "player_id": 0,
+            },
+          },
+          "color": "negative",
+        }
+      ]
+    )
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
