@@ -1105,6 +1105,11 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
 
   if text == Buttons.room.BUYIN.value:
     async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None or not user.is_approved:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value)
+        return PlainTextResponse("ok")
       poker_repository = PokerRepository(session)
       active = await poker_repository.get_started()
       if active is None:
