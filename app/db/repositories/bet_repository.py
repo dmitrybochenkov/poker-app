@@ -22,13 +22,9 @@ class BetRepository:
     loser_name: str | None = None,
     is_paid: bool = False,
   ) -> Bet:
-    if poker_id is None:
-      raise ValueError("poker_id is required")
     if not tournament_type:
-      tournament_type = "single"
+      tournament_type = "regular"
     bet = Bet(
-      poker_id=poker_id,
-      tournament_type=tournament_type,
       params_id=params_id,
       date=date,
       better_id=better_id,

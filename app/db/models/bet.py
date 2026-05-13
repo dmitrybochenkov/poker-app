@@ -11,14 +11,20 @@ class Bet(Base):
   )
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-  poker_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-  tournament_type: Mapped[str] = mapped_column(String(16), nullable=False)
   params_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
   date: Mapped[Date | None] = mapped_column(Date, nullable=True)
   better_name: Mapped[str] = mapped_column(String(255), nullable=False)
-  better_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+  better_id: Mapped[int] = mapped_column(Integer, nullable=False)
   amount_kopecks: Mapped[int] = mapped_column("size_kopecks", Integer, nullable=False)
   winner_name: Mapped[str | None] = mapped_column("winner", String(255), nullable=True)
   loser_name: Mapped[str | None] = mapped_column("looser", String(255), nullable=True)
   score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
   is_paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+  @property
+  def poker_id(self) -> int | None:
+    return None
+
+  @property
+  def tournament_type(self) -> str:
+    return "regular"
