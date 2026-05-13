@@ -642,6 +642,8 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             return PlainTextResponse("ok")
           player = await PokerDataRepository(session).get_player(date=poker.date, player_id=int(player_id))
           include_king_buyin = bool(player is not None and player.is_prev_winner)
+          current_big_buyin_count = int(player.big_buyin_count) if player is not None else 0
+          current_super_buyin_count = int(player.super_buyin_count) if player is not None else 0
           result_text = Text.admin.POKER_BUYIN_PROMPT.value
           result_keyboard = poker_buyin_count_keyboard(
             player_id=int(player_id),
@@ -653,6 +655,8 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             king_buyin_pic=params.king_buyin_pic,
             super_buyin_pic=params.super_buyin_pic,
             include_king_buyin=include_king_buyin,
+            current_big_buyin_count=current_big_buyin_count,
+            current_super_buyin_count=current_super_buyin_count,
           )
     await send_vk_message_event_answer(
       event_id=event_id,
@@ -701,18 +705,38 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           super_threshold = int(params.super_buyin or 10)
           king_threshold = int(params.king_buyin or 15)
           current_big_count = int(prev_player.big_buyin_count) if prev_player is not None else 0
+          current_super_count = int(prev_player.super_buyin_count) if prev_player is not None else 0
+          if is_special_mode:
+            allowed_special_amounts: set[int] = set()
+            if current_super_count == 0 and current_big_count < 2:
+              allowed_special_amounts.add(big_threshold)
+            if current_super_count == 0 and current_big_count == 0:
+              allowed_special_amounts.add(super_threshold)
+              if include_king_buyin:
+                allowed_special_amounts.add(king_threshold)
+            if int(buyins_count) > int(params.max_buyins) and int(buyins_count) not in allowed_special_amounts:
+              result_text = Text.admin.POKER_BUYIN_INVALID.value
+              await send_vk_message_event_answer(
+                event_id=event_id,
+                user_id=admin_user_id,
+                peer_id=peer_id,
+                text=result_text,
+              )
+              await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+              await send_vk_message(user_id=admin_user_id, message=result_text)
+              return PlainTextResponse("ok")
           big_count = 0
           super_count = 0
           if is_special_mode:
-            if include_king_buyin and int(buyins_count) >= king_threshold:
+            if include_king_buyin and current_big_count == 0 and current_super_count == 0 and int(buyins_count) >= king_threshold:
               big_count += 1
               super_count += 1
             elif int(buyins_count) >= super_threshold:
-              if include_king_buyin or current_big_count == 0:
+              if current_big_count == 0 and current_super_count == 0:
                 super_count += 1
-              elif int(buyins_count) >= big_threshold:
+              elif current_super_count == 0 and current_big_count < 2 and int(buyins_count) >= big_threshold:
                 big_count += 1
-            elif int(buyins_count) >= big_threshold:
+            elif current_super_count == 0 and current_big_count < 2 and int(buyins_count) >= big_threshold:
               big_count += 1
           use_case = ManagePokerPlayersUseCase(
             poker_repository=poker_repository,
@@ -1157,6 +1181,8 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
           king_buyin_pic=params.king_buyin_pic,
           super_buyin_pic=params.super_buyin_pic,
           include_king_buyin=include_king_buyin,
+          current_big_buyin_count=int(self_player.big_buyin_count),
+          current_super_buyin_count=int(self_player.super_buyin_count),
         ),
       )
     return PlainTextResponse("ok")

@@ -412,6 +412,8 @@ class InlineKbs:
     king_buyin_pic: str | None,
     super_buyin_pic: str | None,
     include_king_buyin: bool,
+    current_big_buyin_count: int = 0,
+    current_super_buyin_count: int = 0,
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     safe_max = max(1, int(max_buyins))
@@ -422,11 +424,14 @@ class InlineKbs:
       )
     if safe_max == 2:
       special_values: list[tuple[int, str]] = []
-      if big_buyin is not None and int(big_buyin) > safe_max:
+      allow_big = int(current_big_buyin_count) < 2 and int(current_super_buyin_count) == 0
+      allow_super = int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
+      allow_king = include_king_buyin and int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
+      if allow_big and big_buyin is not None and int(big_buyin) > safe_max:
         special_values.append((int(big_buyin), str(big_buyin_pic or "🟠")))
-      if super_buyin is not None and int(super_buyin) > safe_max:
+      if allow_super and super_buyin is not None and int(super_buyin) > safe_max:
         special_values.append((int(super_buyin), str(super_buyin_pic or "⭐")))
-      if include_king_buyin and king_buyin is not None and int(king_buyin) > safe_max:
+      if allow_king and king_buyin is not None and int(king_buyin) > safe_max:
         special_values.append((int(king_buyin), str(king_buyin_pic or "👑")))
       # Keep distinct values and stable visual order by amount.
       unique_special_values: list[tuple[int, str]] = []
@@ -783,6 +788,8 @@ class InlineKbs:
     king_buyin_pic: str | None,
     super_buyin_pic: str | None,
     include_king_buyin: bool,
+    current_big_buyin_count: int = 0,
+    current_super_buyin_count: int = 0,
   ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     safe_max = max(1, int(max_buyins))
@@ -805,11 +812,14 @@ class InlineKbs:
       )
     if safe_max == 2:
       special_values: list[tuple[int, str]] = []
-      if big_buyin is not None and int(big_buyin) > safe_max:
+      allow_big = int(current_big_buyin_count) < 2 and int(current_super_buyin_count) == 0
+      allow_super = int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
+      allow_king = include_king_buyin and int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
+      if allow_big and big_buyin is not None and int(big_buyin) > safe_max:
         special_values.append((int(big_buyin), str(big_buyin_pic or "🟠")))
-      if super_buyin is not None and int(super_buyin) > safe_max:
+      if allow_super and super_buyin is not None and int(super_buyin) > safe_max:
         special_values.append((int(super_buyin), str(super_buyin_pic or "⭐")))
-      if include_king_buyin and king_buyin is not None and int(king_buyin) > safe_max:
+      if allow_king and king_buyin is not None and int(king_buyin) > safe_max:
         special_values.append((int(king_buyin), str(king_buyin_pic or "👑")))
       unique_special_values: list[tuple[int, str]] = []
       seen: set[int] = set()
