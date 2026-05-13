@@ -316,7 +316,6 @@ class ReplyKbs:
           Buttons.admin_room.ADD_PLAYER,
           Buttons.admin_room.REMOVE_PLAYER,
           Buttons.admin_room.UNBAN_PLAYER,
-          Buttons.admin_room.CASHOUT,
           Buttons.admin_room.TO_ROOM,
         ]
       ),
@@ -335,7 +334,6 @@ class ReplyKbs:
           Buttons.admin_room.ADD_PLAYER,
           Buttons.admin_room.REMOVE_PLAYER,
           Buttons.admin_room.UNBAN_PLAYER,
-          Buttons.admin_room.CASHOUT,
           Buttons.admin_room.TO_ROOM,
         ]
       ),

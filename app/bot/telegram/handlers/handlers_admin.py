@@ -560,31 +560,6 @@ async def buyin_count_input(message: Message, state: FSMContext) -> None:
   await message.answer(f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}")
 
 
-@router.message(F.text == Buttons.admin_room.CASHOUT.value)
-async def cashout_menu(message: Message) -> None:
-  if message.from_user is None:
-    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
-    return
-  async with SessionFactory() as session:
-    user_repository = UserRepository(session)
-    admin_ids = await user_repository.list_telegram_admin_ids()
-    if message.from_user.id not in admin_ids:
-      await message.answer(Text.admin.NO_RIGHTS.value)
-      return
-    use_case = ManagePokerPlayersUseCase(
-      poker_repository=PokerRepository(session),
-      poker_data_repository=PokerDataRepository(session),
-    )
-    players = await use_case.list_players_for_chips_entry()
-    if not players:
-      await message.answer(Text.admin.POKER_CASHOUT_EMPTY.value)
-      return
-  await message.answer(
-    Text.admin.POKER_CASHOUT_CHOOSE.value,
-    reply_markup=poker_cashout_candidates_keyboard(players=players),
-  )
-
-
 @router.callback_query(F.data.startswith("pokercashout:"))
 async def cashout_select_callback(callback: CallbackQuery, state: FSMContext) -> None:
   if callback.from_user is None:

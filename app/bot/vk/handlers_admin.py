@@ -987,28 +987,6 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.CASHOUT.value:
-    async with SessionFactory() as session:
-      user_repository = UserRepository(session)
-      admin_ids = await user_repository.list_vk_admin_ids()
-      if user_id not in admin_ids:
-        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
-        return PlainTextResponse("ok")
-      use_case = ManagePokerPlayersUseCase(
-        poker_repository=PokerRepository(session),
-        poker_data_repository=PokerDataRepository(session),
-      )
-      players = await use_case.list_players_for_chips_entry()
-      if not players:
-        await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_EMPTY.value)
-        return PlainTextResponse("ok")
-    await send_vk_message(
-      user_id=user_id,
-      message=Text.admin.POKER_CASHOUT_CHOOSE.value,
-      keyboard=poker_cashout_candidates_keyboard(players=players),
-    )
-    return PlainTextResponse("ok")
-
   if text == Buttons.admin_room.TO_ROOM.value:
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
