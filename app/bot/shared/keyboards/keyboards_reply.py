@@ -253,6 +253,7 @@ class ReplyKbs:
         [
           Buttons.room.STATUS,
           Buttons.room.BUYIN,
+          Buttons.room.POKER_ADMIN,
           Buttons.room.TO_MAIN,
         ]
       ),
@@ -280,6 +281,7 @@ class ReplyKbs:
         [
           Buttons.room.STATUS,
           Buttons.room.BUYIN,
+          Buttons.room.POKER_ADMIN,
           Buttons.room.TO_MAIN,
         ]
       ),

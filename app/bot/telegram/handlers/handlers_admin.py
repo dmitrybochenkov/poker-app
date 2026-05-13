@@ -1,6 +1,7 @@
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from types import SimpleNamespace
 
 from app.application.exceptions import (
   UserAlreadyApprovedError,
@@ -100,9 +101,7 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
   recipients: dict[int, object] = {}
 
   if poker.cashier_id is not None:
-    cashier = await user_repository.get_by_telegram_id(int(poker.cashier_id))
-    if cashier is None:
-      cashier = await user_repository.get_by_vk_id(int(poker.cashier_id))
+    cashier = await user_repository.get_by_row_id(int(poker.cashier_id))
     if cashier is not None:
       recipients[int(cashier.row_id)] = cashier
 
@@ -317,7 +316,18 @@ async def set_cashier_menu(message: Message) -> None:
       poker_data_repository=PokerDataRepository(session),
       buyin_data_repository=BuyinDataRepository(session),
     )
-    players = await use_case.list_active_poker_players()
+    active_players = await use_case.list_active_poker_players()
+    if not active_players:
+      await message.answer(Text.admin.POKER_PLAYERS_EMPTY.value)
+      return
+    players: list[SimpleNamespace] = []
+    for player in active_players:
+      user = await user_repository.get_by_telegram_id(int(player.player_id))
+      if user is None:
+        user = await user_repository.get_by_vk_id(int(player.player_id))
+      if user is None:
+        continue
+      players.append(SimpleNamespace(player_id=int(user.row_id), player_name=player.player_name))
     if not players:
       await message.answer(Text.admin.POKER_PLAYERS_EMPTY.value)
       return
@@ -332,7 +342,7 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
   if callback.from_user is None:
     await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
     return
-  player_id = int(callback.data.split(":", 1)[1])
+  user_row_id = int(callback.data.split(":", 1)[1])
   await _clear_inline_keyboard(callback)
   async with SessionFactory() as session:
     if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
@@ -343,7 +353,7 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
       poker_data_repository=PokerDataRepository(session),
       buyin_data_repository=BuyinDataRepository(session),
     )
-    updated = await use_case.set_cashier_for_active_poker(cashier_id=player_id)
+    updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
     if updated is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
       return

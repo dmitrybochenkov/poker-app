@@ -1,4 +1,5 @@
 from fastapi.responses import PlainTextResponse
+from types import SimpleNamespace
 
 from app.application.exceptions import (
   UserAlreadyApprovedError,
@@ -92,9 +93,7 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
   recipients: dict[int, object] = {}
 
   if poker.cashier_id is not None:
-    cashier = await user_repository.get_by_telegram_id(int(poker.cashier_id))
-    if cashier is None:
-      cashier = await user_repository.get_by_vk_id(int(poker.cashier_id))
+    cashier = await user_repository.get_by_row_id(int(poker.cashier_id))
     if cashier is not None:
       recipients[int(cashier.row_id)] = cashier
 
@@ -588,8 +587,8 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     return PlainTextResponse("ok")
 
   if action == "poker_set_cashier_select":
-    player_id = callback_payload.get("player_id")
-    if not isinstance(player_id, int):
+    user_row_id = callback_payload.get("player_id")
+    if not isinstance(user_row_id, int):
       return PlainTextResponse("ok")
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
@@ -600,7 +599,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           poker_repository=PokerRepository(session),
           poker_data_repository=PokerDataRepository(session),
         )
-        updated = await use_case.set_cashier_for_active_poker(cashier_id=player_id)
+        updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
         result_text = Text.admin.POKER_CASHIER_SET.value if updated is not None else Text.admin.POKER_ACTIVE_NOT_FOUND.value
     await send_vk_message_event_answer(
       event_id=event_id,
@@ -1081,7 +1080,18 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         poker_repository=PokerRepository(session),
         poker_data_repository=PokerDataRepository(session),
       )
-      players = await use_case.list_active_poker_players()
+      active_players = await use_case.list_active_poker_players()
+      if not active_players:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_PLAYERS_EMPTY.value)
+        return PlainTextResponse("ok")
+      players: list[SimpleNamespace] = []
+      for player in active_players:
+        user = await user_repository.get_by_telegram_id(int(player.player_id))
+        if user is None:
+          user = await user_repository.get_by_vk_id(int(player.player_id))
+        if user is None:
+          continue
+        players.append(SimpleNamespace(player_id=int(user.row_id), player_name=player.player_name))
       if not players:
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_PLAYERS_EMPTY.value)
         return PlainTextResponse("ok")
