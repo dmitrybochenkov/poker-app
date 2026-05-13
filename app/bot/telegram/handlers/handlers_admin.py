@@ -243,7 +243,7 @@ async def finish_poker(message: Message) -> None:
     if active is None:
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
-    poker, _ = active
+    poker, params = active
     poker_data_repository = PokerDataRepository(session)
     players = await poker_data_repository.list_players(date=poker.date)
     await CalculateBetScoresUseCase(
