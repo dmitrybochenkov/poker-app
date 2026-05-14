@@ -502,7 +502,7 @@ async def back_to_main_from_room(message: Message) -> None:
 async def show_poker_info(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.POKER_INFO.value, reply_markup=poker_info_keyboard)
+  await message.answer(Text.user.POKER_STAT_BTN.value, reply_markup=poker_info_keyboard)
 
 
 @router.message(F.text == Buttons.betting.BETTING_INFO.value)

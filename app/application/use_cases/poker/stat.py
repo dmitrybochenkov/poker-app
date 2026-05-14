@@ -1,3 +1,5 @@
+import re
+
 from app.db.models.bet import Bet
 from app.db.models.poker_data import PokerData
 from app.db.models.stat_indicator import StatIndicator
@@ -38,7 +40,8 @@ class StatUseCases:
     if self.poker_data_repository is None:
       return "Нет данных по покеру."
 
-    rows = await self.poker_data_repository.list_all()
+    all_rows = await self.poker_data_repository.list_all()
+    rows = list(all_rows)
     year_set = {int(item) for item in years} if years else set()
     if year_set:
       rows = [item for item in rows if item.date is not None and int(item.date.year) in year_set]
@@ -70,6 +73,18 @@ class StatUseCases:
       winners_by_date[date_value] = {entry.player_name for entry in date_rows if int(entry.money_kopecks or 0) == max_money}
       losers_by_date[date_value] = {entry.player_name for entry in date_rows if int(entry.money_kopecks or 0) == min_money}
 
+    all_time_winners_by_date: dict = {}
+    by_date_all_time: dict = {}
+    for item in all_rows:
+      by_date_all_time.setdefault(item.date, []).append(item)
+    for date_value, date_rows in by_date_all_time.items():
+      max_money = max(int(entry.money_kopecks or 0) for entry in date_rows)
+      all_time_winners_by_date[date_value] = {entry.player_name for entry in date_rows if int(entry.money_kopecks or 0) == max_money}
+    all_time_win_streaks = {
+      user: self._max_win_streak(user=user, winners_by_date=all_time_winners_by_date)
+      for user in users
+    }
+
     selected = indicators or []
     selected_pics = [indicator.pic for indicator in selected]
     if not selected_pics:
@@ -95,6 +110,7 @@ class StatUseCases:
       rows=result_rows,
       indicator_id_to_pic={int(ind.row_id): ind.pic for ind in selected},
       achievement_type="poker",
+      all_time_win_streaks=all_time_win_streaks,
     )
     return self._to_text_table(rows=result_rows, headers=["👨"] + selected_pics)
 
@@ -201,6 +217,7 @@ class StatUseCases:
     rows: list[dict[str, str | int | float]],
     indicator_id_to_pic: dict[int, str],
     achievement_type: str,
+    all_time_win_streaks: dict[str, int] | None = None,
   ) -> list[dict[str, str | int | float]]:
     if self.achievement_repository is None or not rows:
       return rows
@@ -211,12 +228,28 @@ class StatUseCases:
     for row in rows:
       row.setdefault("🌟", "")
 
-    applicable = [item for item in achievements if int(item.stat_id) in set(indicator_id_to_pic.keys())]
-    for ach in applicable:
-      if ach.sort == "none":
+    selected_indicator_ids = set(indicator_id_to_pic.keys())
+    applicable = []
+    for item in achievements:
+      if int(item.stat_id) in selected_indicator_ids:
+        applicable.append(item)
         continue
+      # Permanent poker streak achievement (🎖️) must be checked for any poker stat selection.
+      if achievement_type == "poker" and str(item.pic) == "🎖️":
+        applicable.append(item)
+    for ach in applicable:
       metric_pic = indicator_id_to_pic.get(int(ach.stat_id))
-      if not metric_pic:
+      if not metric_pic and not (achievement_type == "poker" and str(ach.pic) == "🎖️"):
+        continue
+      if ach.sort == "none":
+        if all_time_win_streaks and (metric_pic == "🛡️💍" or str(ach.pic) in {"💪", "🦾", "🎖️"}):
+          threshold = self._resolve_streak_threshold(achievement_pic=str(ach.pic), achievement_description=str(ach.description or ""))
+          if threshold is None:
+            continue
+          for row in rows:
+            user = str(row.get("👨", ""))
+            if all_time_win_streaks.get(user, 0) >= threshold:
+              row["🌟"] = f"{row.get('🌟', '')}{ach.pic}"
         continue
       ranked = sorted(
         rows,
@@ -237,6 +270,34 @@ class StatUseCases:
       if user in winners_by_date[dates[index]] and user in winners_by_date[dates[index - 1]]:
         count += 1
     return count
+
+  @staticmethod
+  def _max_win_streak(*, user: str, winners_by_date: dict) -> int:
+    dates = sorted(winners_by_date.keys())
+    best = 0
+    current = 0
+    for date_value in dates:
+      if user in winners_by_date.get(date_value, set()):
+        current += 1
+        if current > best:
+          best = current
+      else:
+        current = 0
+    return best
+
+  @staticmethod
+  def _resolve_streak_threshold(*, achievement_pic: str, achievement_description: str) -> int | None:
+    pic_to_threshold = {
+      "💪": 2,
+      "🦾": 3,
+      "🎖️": 4,
+    }
+    if achievement_pic in pic_to_threshold:
+      return pic_to_threshold[achievement_pic]
+    match = re.search(r"(\d+)", achievement_description)
+    if match is None:
+      return None
+    return int(match.group(1))
 
   def _calc_poker_metric(
     self,

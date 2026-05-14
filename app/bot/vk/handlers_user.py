@@ -1235,7 +1235,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.POKER_INFO.value:
-    await send_vk_message(user_id=user_id, message=Text.user.POKER_INFO.value, keyboard=poker_info_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.POKER_STAT_BTN.value, keyboard=poker_info_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.BETTING_INFO.value:
