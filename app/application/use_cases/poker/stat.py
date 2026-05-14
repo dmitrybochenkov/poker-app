@@ -463,9 +463,21 @@ class StatUseCases:
         and user in pokers_by_id.get(int(bet.poker_id), (set(), set()))[1]
       ])
     if pic == "❌➡️💲":
-      return self._calc_money_from_role(user=user, all_bets=all_bets, tournaments=tournaments, role="loser")
+      return self._calc_money_from_role(
+        user=user,
+        all_bets=all_bets,
+        tournaments=tournaments,
+        pokers_by_id=pokers_by_id,
+        role="loser",
+      )
     if pic == "💍➡️💲":
-      return self._calc_money_from_role(user=user, all_bets=all_bets, tournaments=tournaments, role="winner")
+      return self._calc_money_from_role(
+        user=user,
+        all_bets=all_bets,
+        tournaments=tournaments,
+        pokers_by_id=pokers_by_id,
+        role="winner",
+      )
     if pic == "🏆":
       return self._count_tournament_titles(user=user, tournaments=tournaments, tournament_type="regular")
     if pic == "🎄🏆":
@@ -549,7 +561,15 @@ class StatUseCases:
         count += 1
     return count
 
-  def _calc_money_from_role(self, *, user: str, all_bets: list[Bet], tournaments: list, role: str) -> float:
+  def _calc_money_from_role(
+    self,
+    *,
+    user: str,
+    all_bets: list[Bet],
+    tournaments: list,
+    pokers_by_id: dict[int, tuple[set[str], set[str]]],
+    role: str,
+  ) -> float:
     total = 0.0
     for tournament in tournaments:
       relevant_bets = [bet for bet in all_bets if self._bet_in_tournament(bet=bet, tournament=tournament)]
@@ -570,7 +590,24 @@ class StatUseCases:
             continue
           if int(bet.score or 0) <= 0:
             continue
-          rel_score += float(int(bet.score or 0))
+          # Count only bets where target actually had that role in this poker game.
+          if bet.poker_id is None:
+            continue
+          winners, losers = pokers_by_id.get(int(bet.poker_id), (set(), set()))
+          if role == "loser" and user not in losers:
+            continue
+          if role == "winner" and user not in winners:
+            continue
+
+          # If both winner and loser were guessed correctly, split combo score in half
+          # so role-specific metrics get only their own contribution.
+          score_value = float(int(bet.score or 0))
+          winner_hit = bet.winner_name in winners
+          loser_hit = bet.loser_name in losers
+          if winner_hit and loser_hit:
+            rel_score += score_value / 2.0
+          else:
+            rel_score += score_value
         if rel_score > 0:
           total += better_prize * (rel_score / better_score)
     return round(total, 1)
