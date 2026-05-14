@@ -145,6 +145,7 @@ class StatUseCases:
     elif year is not None:
       tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) == int(year)]
     pokers_by_id = await self._load_pokers_by_id()
+    pokers_by_date = await self._load_pokers_by_date()
 
     if mode == "all":
       bets = [bet for bet in bets if self._bet_in_any_tournament(bet=bet, tournaments=tournaments)]
@@ -179,6 +180,7 @@ class StatUseCases:
           user_bets=user_bets,
           all_bets=bets,
           pokers_by_id=pokers_by_id,
+          pokers_by_date=pokers_by_date,
           tournaments=tournaments,
         )
       if mode in {"regular", "year"}:
@@ -393,6 +395,17 @@ class StatUseCases:
       data[int(poker.row_id)] = (winners, losers)
     return data
 
+  async def _load_pokers_by_date(self) -> dict:
+    if self.poker_repository is None:
+      return {}
+    data = {}
+    pokers = await self.poker_repository.list_all()
+    for poker in pokers:
+      winners = {item.strip() for item in str(poker.winners or "").split(",") if item.strip()}
+      losers = {item.strip() for item in str(poker.loosers or "").split(",") if item.strip()}
+      data[poker.date] = (winners, losers)
+    return data
+
   @staticmethod
   def _bet_in_tournament(*, bet: Bet, tournament) -> bool:
     return bool(
@@ -420,6 +433,7 @@ class StatUseCases:
     user_bets: list[Bet],
     all_bets: list[Bet],
     pokers_by_id: dict[int, tuple[set[str], set[str]]],
+    pokers_by_date: dict,
     tournaments: list,
   ) -> int | float:
     if pic == "💯":
@@ -451,16 +465,22 @@ class StatUseCases:
       return len([
         bet for bet in all_bets
         if bet.loser_name == user
-        and bet.poker_id is not None
-        and user in pokers_by_id.get(int(bet.poker_id), (set(), set()))[0]
+        and user in self._resolve_poker_fact(
+          bet=bet,
+          pokers_by_id=pokers_by_id,
+          pokers_by_date=pokers_by_date,
+        )[0]
       ])
     if pic == "👍/❌":
       return len([
         bet for bet in all_bets
         if bet.winner_name == user
         and bet.better_name != user
-        and bet.poker_id is not None
-        and user in pokers_by_id.get(int(bet.poker_id), (set(), set()))[1]
+        and user in self._resolve_poker_fact(
+          bet=bet,
+          pokers_by_id=pokers_by_id,
+          pokers_by_date=pokers_by_date,
+        )[1]
       ])
     if pic == "❌➡️💲":
       return self._calc_money_from_role(
@@ -468,6 +488,7 @@ class StatUseCases:
         all_bets=all_bets,
         tournaments=tournaments,
         pokers_by_id=pokers_by_id,
+        pokers_by_date=pokers_by_date,
         role="loser",
       )
     if pic == "💍➡️💲":
@@ -476,6 +497,7 @@ class StatUseCases:
         all_bets=all_bets,
         tournaments=tournaments,
         pokers_by_id=pokers_by_id,
+        pokers_by_date=pokers_by_date,
         role="winner",
       )
     if pic == "🏆":
@@ -568,6 +590,7 @@ class StatUseCases:
     all_bets: list[Bet],
     tournaments: list,
     pokers_by_id: dict[int, tuple[set[str], set[str]]],
+    pokers_by_date: dict,
     role: str,
   ) -> float:
     total = 0.0
@@ -591,9 +614,13 @@ class StatUseCases:
           if int(bet.score or 0) <= 0:
             continue
           # Count only bets where target actually had that role in this poker game.
-          if bet.poker_id is None:
+          winners, losers = self._resolve_poker_fact(
+            bet=bet,
+            pokers_by_id=pokers_by_id,
+            pokers_by_date=pokers_by_date,
+          )
+          if not winners and not losers:
             continue
-          winners, losers = pokers_by_id.get(int(bet.poker_id), (set(), set()))
           if role == "loser" and user not in losers:
             continue
           if role == "winner" and user not in winners:
@@ -611,3 +638,11 @@ class StatUseCases:
         if rel_score > 0:
           total += better_prize * (rel_score / better_score)
     return round(total, 1)
+
+  @staticmethod
+  def _resolve_poker_fact(*, bet: Bet, pokers_by_id: dict[int, tuple[set[str], set[str]]], pokers_by_date: dict) -> tuple[set[str], set[str]]:
+    if bet.poker_id is not None and int(bet.poker_id) in pokers_by_id:
+      return pokers_by_id[int(bet.poker_id)]
+    if bet.date is not None and bet.date in pokers_by_date:
+      return pokers_by_date[bet.date]
+    return (set(), set())
