@@ -140,6 +140,10 @@ class StatUseCases:
     elif year is not None:
       bets = [bet for bet in bets if bet.date is not None and int(bet.date.year) == int(year)]
     tournaments = await self._load_finished_tournaments()
+    if year_set:
+      tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) in year_set]
+    elif year is not None:
+      tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) == int(year)]
     pokers_by_id = await self._load_pokers_by_id()
 
     if mode == "all":

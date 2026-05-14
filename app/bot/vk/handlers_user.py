@@ -82,6 +82,14 @@ def _filter_betting_indicators_by_mode(*, indicators, mode: str):
   return [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
 
 
+def _default_betting_indicator(*, indicators, mode: str):
+  preferred = "Денег выиграно" if mode == "all" else "Баллы"
+  item = next((ind for ind in indicators if str(ind.description).strip() == preferred), None)
+  if item is None and indicators:
+    item = indicators[0]
+  return item
+
+
 def _strip_html_tags(text: str) -> str:
   return text.replace("<b>", "").replace("</b>", "")
 
@@ -1008,9 +1016,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
       indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
       if not selected_ids:
-        default_indicator = next((item for item in indicators if str(item.description).strip() == "Денег всего"), None)
-        if default_indicator is None and indicators:
-          default_indicator = indicators[0]
+        default_indicator = _default_betting_indicator(indicators=indicators, mode=mode)
         selected_ids = {int(default_indicator.row_id)} if default_indicator is not None else set()
         vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ",".join(str(x) for x in sorted(selected_ids))
       selected = [item for item in indicators if int(item.row_id) in selected_ids]

@@ -75,6 +75,14 @@ def _filter_betting_indicators_by_mode(*, indicators, mode: str):
   return [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
 
 
+def _default_betting_indicator(*, indicators, mode: str):
+  preferred = "Денег выиграно" if mode == "all" else "Баллы"
+  item = next((ind for ind in indicators if str(ind.description).strip() == preferred), None)
+  if item is None and indicators:
+    item = indicators[0]
+  return item
+
+
 async def _notify_admins_about_room_join(
   *,
   session,
@@ -1146,9 +1154,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
     indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     if not selected_ids:
-      default_indicator = next((item for item in indicators if str(item.description).strip() == "Денег всего"), None)
-      if default_indicator is None and indicators:
-        default_indicator = indicators[0]
+      default_indicator = _default_betting_indicator(indicators=indicators, mode=mode)
       selected_ids = [int(default_indicator.row_id)] if default_indicator is not None else []
       await state.update_data(betstat_selected_ids=selected_ids)
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
