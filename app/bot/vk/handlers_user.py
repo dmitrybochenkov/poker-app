@@ -116,6 +116,28 @@ def _parse_iso_dates(values: str | None) -> list[date]:
   return sorted(set(result))
 
 
+def _month_name_ru_upper(month: date) -> str:
+  names = [
+    "ЯНВАРЬ",
+    "ФЕВРАЛЬ",
+    "МАРТ",
+    "АПРЕЛЬ",
+    "МАЙ",
+    "ИЮНЬ",
+    "ИЮЛЬ",
+    "АВГУСТ",
+    "СЕНТЯБРЬ",
+    "ОКТЯБРЬ",
+    "НОЯБРЬ",
+    "ДЕКАБРЬ",
+  ]
+  return names[month.month - 1]
+
+
+def _poll_choose_text(month: date) -> str:
+  return f"Выбери даты на {_month_name_ru_upper(month)} и нажми '🚀 Готово'."
+
+
 def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
   lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
   if selected_dates:
@@ -392,7 +414,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.POLL_CHOOSE_DATES.value,
+      message=_poll_choose_text(month),
       keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected),
     )
     return PlainTextResponse("ok")
@@ -421,7 +443,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.POLL_CHOOSE_DATES.value,
+      message=_poll_choose_text(month),
       keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected_dates),
     )
     return PlainTextResponse("ok")
@@ -1686,7 +1708,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if not user.is_approved:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
-    month = date.today().replace(day=1)
+    month = date(date.today().year, 6, 1)
     month_start, month_end = _month_bounds(month)
     async with SessionFactory() as session:
       selected = await PollVoteRepository(session).get_user_month_votes(
@@ -1700,7 +1722,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     ctx["poll_selected"] = "|".join(item.isoformat() for item in selected)
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.POLL_CHOOSE_DATES.value,
+      message=_poll_choose_text(month),
       keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected),
     )
     return PlainTextResponse("ok")

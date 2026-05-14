@@ -102,6 +102,28 @@ def _parse_iso_dates(values: list[str] | None) -> list[date]:
   return sorted(set(result))
 
 
+def _month_name_ru_upper(month: date) -> str:
+  names = [
+    "ЯНВАРЬ",
+    "ФЕВРАЛЬ",
+    "МАРТ",
+    "АПРЕЛЬ",
+    "МАЙ",
+    "ИЮНЬ",
+    "ИЮЛЬ",
+    "АВГУСТ",
+    "СЕНТЯБРЬ",
+    "ОКТЯБРЬ",
+    "НОЯБРЬ",
+    "ДЕКАБРЬ",
+  ]
+  return names[month.month - 1]
+
+
+def _poll_choose_text(month: date) -> str:
+  return f"Выбери даты на {_month_name_ru_upper(month)} и нажми '🚀 Готово'."
+
+
 def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
   lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
   if selected_dates:
@@ -528,7 +550,7 @@ async def start_room_poll(message: Message, state: FSMContext) -> None:
     await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
     return
 
-  month = date.today().replace(day=1)
+  month = date(date.today().year, 6, 1)
   month_start, month_end = _month_bounds(month)
   async with SessionFactory() as session:
     selected = await PollVoteRepository(session).get_user_month_votes(
@@ -542,7 +564,7 @@ async def start_room_poll(message: Message, state: FSMContext) -> None:
     poll_selected=[item.isoformat() for item in selected],
   )
   await message.answer(
-    Text.user.POLL_CHOOSE_DATES.value,
+    _poll_choose_text(month),
     reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected),
   )
 
