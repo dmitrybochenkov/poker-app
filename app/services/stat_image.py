@@ -71,6 +71,14 @@ def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.Image
   return width
 
 
+def _line_height(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont) -> int:
+  text_bbox = draw.textbbox((0, 0), "M", font=text_font)
+  base_text_height = max(16, text_bbox[3] - text_bbox[1])
+  target_emoji_height = max(16, int(round(base_text_height * 1.25)))
+  has_emoji = any(_is_emoji_char(ch) for ch in text)
+  return max(base_text_height, target_emoji_height if has_emoji else 0)
+
+
 def _draw_line(
   image: Image.Image,
   draw: ImageDraw.ImageDraw,
@@ -129,15 +137,14 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
   draw = ImageDraw.Draw(probe)
 
   title_bbox = draw.textbbox((0, 0), title, font=title_font)
-  title_height = title_bbox[3] - title_bbox[1]
+  title_height = max(title_bbox[3] - title_bbox[1], _line_height(draw, title, title_font))
   title_width = _line_width(draw, title, title_font, title_emoji_font)
 
   line_heights: list[int] = []
   max_line_width = 0
   for line in lines:
-    bbox = draw.textbbox((0, 0), line, font=body_font)
     w = _line_width(draw, line, body_font, emoji_font)
-    h = bbox[3] - bbox[1]
+    h = _line_height(draw, line, body_font)
     max_line_width = max(max_line_width, w)
     line_heights.append(h)
 
