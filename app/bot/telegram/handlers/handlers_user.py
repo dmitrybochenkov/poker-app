@@ -1,7 +1,7 @@
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
@@ -63,6 +63,7 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
+from app.services.stat_image import render_stat_table_png
 
 router = Router()
 
@@ -760,7 +761,12 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         years=selected_years,
         sort_pic=selected[0].pic,
       )
-      await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
+      image_bytes = render_stat_table_png(title="Статистика покера", report=report)
+      await callback.message.answer_photo(
+        photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
+        caption="Статистика покера",
+        reply_markup=poker_keyboard,
+      )
       await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
       await callback.answer()
       return
@@ -888,7 +894,12 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
       years=selected_years,
       sort_pic=sort_pic,
     )
-  await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
+  image_bytes = render_stat_table_png(title="Статистика покера", report=report)
+  await callback.message.answer_photo(
+    photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
+    caption="Статистика покера",
+    reply_markup=poker_keyboard,
+  )
   await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
   await callback.answer()
 
@@ -1146,7 +1157,11 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         years=selected_years,
         sort_pic=selected[0].pic,
       )
-      await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
+      image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
+      await callback.message.answer_photo(
+        photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
+        caption="Статистика ставок",
+      )
       await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
       await callback.answer()
       return
@@ -1283,7 +1298,11 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
       years=selected_years,
       sort_pic=sort_pic,
     )
-  await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
+  image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
+  await callback.message.answer_photo(
+    photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
+    caption="Статистика ставок",
+  )
   await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
   await callback.answer()
 

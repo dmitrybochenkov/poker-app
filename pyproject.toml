@@ -16,6 +16,7 @@ dependencies = [
   "aiogram>=3.10.0",
   "vkbottle>=4.4.0",
   "greenlet>=3.0.3",
+  "Pillow>=10.0.0",
 ]
 
 [project.optional-dependencies]

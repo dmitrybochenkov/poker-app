@@ -58,6 +58,51 @@ async def send_vk_message(*, user_id: int, message: str, keyboard: str | None = 
     await vk_api_call("messages.send", **params)
 
 
+async def send_vk_photo(
+  *,
+  user_id: int,
+  image_bytes: bytes,
+  filename: str = "stat.png",
+  message: str = "",
+  keyboard: str | None = None,
+) -> None:
+  upload = await vk_api_call("photos.getMessagesUploadServer", peer_id=user_id)
+  upload_url = upload.get("response", {}).get("upload_url")
+  if not upload_url:
+    raise VkApiError(code=None, method="photos.getMessagesUploadServer", message="upload_url missing")
+
+  form = aiohttp.FormData()
+  form.add_field("photo", image_bytes, filename=filename, content_type="image/png")
+  async with aiohttp.ClientSession() as session:
+    async with session.post(upload_url, data=form) as response:
+      upload_result = await response.json()
+
+  saved = await vk_api_call(
+    "photos.saveMessagesPhoto",
+    photo=upload_result.get("photo"),
+    server=upload_result.get("server"),
+    hash=upload_result.get("hash"),
+  )
+  photo_list = saved.get("response", [])
+  if not photo_list:
+    raise VkApiError(code=None, method="photos.saveMessagesPhoto", message="empty response")
+  photo = photo_list[0]
+  owner_id = photo.get("owner_id")
+  media_id = photo.get("id")
+  if owner_id is None or media_id is None:
+    raise VkApiError(code=None, method="photos.saveMessagesPhoto", message="invalid photo ids")
+
+  params = {
+    "user_id": user_id,
+    "random_id": secrets.randbelow(2**31 - 1),
+    "attachment": f"photo{owner_id}_{media_id}",
+    "message": message,
+  }
+  if keyboard is not None:
+    params["keyboard"] = keyboard
+  await vk_api_call("messages.send", **params)
+
+
 async def send_vk_message_event_answer(
   *,
   event_id: str,
