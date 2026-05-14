@@ -1167,9 +1167,9 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.main.BETTING.value,
     Buttons.betting.TO_MAIN.value,
     Buttons.betting.CURRENT_TOURS.value,
-    Buttons.bettingCurrent.REG_TOURNAMENT.value,
-    Buttons.bettingCurrent.YEAR_TOURNAMENT.value,
-    Buttons.bettingCurrent.TO_MAIN.value,
+    Buttons.betting_current.REG_TOURNAMENT.value,
+    Buttons.betting_current.YEAR_TOURNAMENT.value,
+    Buttons.betting_current.TO_MAIN.value,
     Buttons.betting.BETTING_STAT.value,
     Buttons.betting.BETTING_INFO.value,
     Buttons.bettingInfo.BETTING_RULES.value,
@@ -1349,11 +1349,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     )
     return PlainTextResponse("ok")
 
-  if text in {Buttons.bettingCurrent.REG_TOURNAMENT.value, Buttons.bettingCurrent.YEAR_TOURNAMENT.value}:
+  if text in {Buttons.betting_current.REG_TOURNAMENT.value, Buttons.betting_current.YEAR_TOURNAMENT.value}:
     user_ctx = vk_user_contexts.setdefault(user_id, {})
     user_ctx["betstat_years"] = ""
     user_ctx["betstat_selected_ids"] = ""
-    user_ctx["betstat_mode"] = "regular" if text == Buttons.bettingCurrent.REG_TOURNAMENT.value else "year"
+    user_ctx["betstat_mode"] = "regular" if text == Buttons.betting_current.REG_TOURNAMENT.value else "year"
     user_ctx["betstat_sort_id"] = ""
     async with SessionFactory() as session:
       bets = await BetRepository(session).list_all()
@@ -1368,7 +1368,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.bettingCurrent.TO_MAIN.value:
+  if text == Buttons.betting_current.TO_MAIN.value:
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
     return PlainTextResponse("ok")
 

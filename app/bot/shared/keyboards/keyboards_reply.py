@@ -225,9 +225,9 @@ class ReplyKbs:
     return cls.make_tg(
       _button_labels(
         [
-          Buttons.bettingCurrent.REG_TOURNAMENT,
-          Buttons.bettingCurrent.YEAR_TOURNAMENT,
-          Buttons.bettingCurrent.TO_MAIN,
+          Buttons.betting_current.REG_TOURNAMENT,
+          Buttons.betting_current.YEAR_TOURNAMENT,
+          Buttons.betting_current.TO_MAIN,
         ]
       ),
       adjust=1,
@@ -238,9 +238,9 @@ class ReplyKbs:
     return cls.make_vk(
       _button_labels(
         [
-          Buttons.bettingCurrent.REG_TOURNAMENT,
-          Buttons.bettingCurrent.YEAR_TOURNAMENT,
-          Buttons.bettingCurrent.TO_MAIN,
+          Buttons.betting_current.REG_TOURNAMENT,
+          Buttons.betting_current.YEAR_TOURNAMENT,
+          Buttons.betting_current.TO_MAIN,
         ]
       ),
       adjust=1,

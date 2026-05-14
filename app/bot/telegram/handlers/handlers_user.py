@@ -937,21 +937,21 @@ async def _start_betting_stat_flow(*, message: Message, state: FSMContext, mode:
   )
 
 
-@router.message(F.text == Buttons.bettingCurrent.REG_TOURNAMENT.value)
+@router.message(F.text == Buttons.betting_current.REG_TOURNAMENT.value)
 async def show_regular_betting_tournament_stat(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
   await _start_betting_stat_flow(message=message, state=state, mode="regular")
 
 
-@router.message(F.text == Buttons.bettingCurrent.YEAR_TOURNAMENT.value)
+@router.message(F.text == Buttons.betting_current.YEAR_TOURNAMENT.value)
 async def show_year_betting_tournament_stat(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
   await _start_betting_stat_flow(message=message, state=state, mode="year")
 
 
-@router.message(F.text == Buttons.bettingCurrent.TO_MAIN.value)
+@router.message(F.text == Buttons.betting_current.TO_MAIN.value)
 async def back_to_betting_from_current_tournaments(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
