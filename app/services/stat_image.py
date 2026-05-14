@@ -28,10 +28,18 @@ def _load_emoji_font(size: int) -> ImageFont.ImageFont:
     "/System/Library/Fonts/AppleColorEmoji.ttc",
   ]
   for path in emoji_candidates:
-    try:
-      return ImageFont.truetype(path, size=size)
-    except Exception:
-      continue
+    # Noto Color Emoji has fixed bitmap strike sizes on many systems.
+    # Try requested size first, then common fallback sizes.
+    sizes = [size, 109, 128, 64, 32, 24, 20, 18, 16]
+    seen: set[int] = set()
+    for candidate_size in sizes:
+      if candidate_size in seen:
+        continue
+      seen.add(candidate_size)
+      try:
+        return ImageFont.truetype(path, size=candidate_size)
+      except Exception:
+        continue
   return _load_font(size=size)
 
 
@@ -66,8 +74,12 @@ def _draw_line(
 ) -> None:
   cursor_x = x
   for ch in text:
-    font = emoji_font if _is_emoji_char(ch) else text_font
-    draw.text((cursor_x, y), ch, font=font, fill=fill)
+    is_emoji = _is_emoji_char(ch)
+    font = emoji_font if is_emoji else text_font
+    if is_emoji:
+      draw.text((cursor_x, y), ch, font=font, embedded_color=True)
+    else:
+      draw.text((cursor_x, y), ch, font=font, fill=fill)
     bbox = draw.textbbox((0, 0), ch, font=font)
     cursor_x += bbox[2] - bbox[0]
 
@@ -109,7 +121,7 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
   height += sum(line_heights) + line_gap * max(0, len(line_heights) - 1)
   height += bottom_pad
 
-  image = Image.new("RGB", (width, height), "#ffffff")
+  image = Image.new("RGBA", (width, height), "#ffffff")
   draw = ImageDraw.Draw(image)
   _draw_line(draw, x=left_pad, y=top_pad, text=title, fill="#1f2937", text_font=title_font, emoji_font=title_emoji_font)
 
