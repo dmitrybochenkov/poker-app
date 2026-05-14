@@ -14,6 +14,7 @@ class InlineKbs:
   PAGE_SIZE = 5
   STAT_PAGE_SIZE = 4
   POLL_PAGE_SIZE = 9
+  POLL_PAGE_SIZE_VK = 4
 
   @staticmethod
   def _format_rub_from_kopecks(value_kopecks: int) -> str:
@@ -1334,15 +1335,12 @@ class InlineKbs:
         text=f"{mark}{item.day}",
         callback_data=f"poll_day:{item.isoformat()}:{page}",
       )
-    keyboard.button(text="◀️", callback_data=f"poll_month:{month.year}-{month.month:02d}:{page}:prev")
-    keyboard.button(text=f"{month:%m.%Y}", callback_data="poll_noop")
-    keyboard.button(text="▶️", callback_data=f"poll_month:{month.year}-{month.month:02d}:{page}:next")
     keyboard.button(text="⬅️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page - 1}")
     keyboard.button(text=f"{page + 1}/{max(1, (days_in_month + InlineKbs.POLL_PAGE_SIZE - 1) // InlineKbs.POLL_PAGE_SIZE)}", callback_data="poll_noop")
     keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
     keyboard.button(text="🚀 Готово", callback_data="poll_done")
     keyboard.button(text="❌ Отмена", callback_data="poll_cancel")
-    keyboard.adjust(3, 3, 3, 3, 3, 2)
+    keyboard.adjust(3, 3, 3, 3, 2)
     return keyboard.as_markup()
 
   @staticmethod
@@ -1355,13 +1353,13 @@ class InlineKbs:
     selected = {item.isoformat() for item in (selected_dates or [])}
     days_in_month = calendar.monthrange(month.year, month.month)[1]
     all_dates = [date(month.year, month.month, day) for day in range(1, days_in_month + 1)]
-    start = page * InlineKbs.POLL_PAGE_SIZE
-    end = start + InlineKbs.POLL_PAGE_SIZE
+    start = page * InlineKbs.POLL_PAGE_SIZE_VK
+    end = start + InlineKbs.POLL_PAGE_SIZE_VK
     batch = all_dates[start:end]
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
-    for index in range(0, len(batch), 3):
+    for index in range(0, len(batch), 2):
       row: list[dict[str, str | dict[str, int | str]]] = []
-      for item in batch[index:index + 3]:
+      for item in batch[index:index + 2]:
         mark = "✔ " if item.isoformat() in selected else ""
         row.append(
           {
@@ -1375,31 +1373,7 @@ class InlineKbs:
         )
       rows.append(row)
 
-    rows.append(
-      [
-        {
-          "action": {
-            "type": "callback",
-            "label": "◀️",
-            "payload": {"action": "poll_month", "month": f"{month.year}-{month.month:02d}", "page": page, "dir": "prev"},
-          },
-          "color": "secondary",
-        },
-        {
-          "action": {"type": "callback", "label": f"{month:%m.%Y}", "payload": {"action": "poll_noop"}},
-          "color": "secondary",
-        },
-        {
-          "action": {
-            "type": "callback",
-            "label": "▶️",
-            "payload": {"action": "poll_month", "month": f"{month.year}-{month.month:02d}", "page": page, "dir": "next"},
-          },
-          "color": "secondary",
-        },
-      ]
-    )
-    total_pages = max(1, (days_in_month + InlineKbs.POLL_PAGE_SIZE - 1) // InlineKbs.POLL_PAGE_SIZE)
+    total_pages = max(1, (days_in_month + InlineKbs.POLL_PAGE_SIZE_VK - 1) // InlineKbs.POLL_PAGE_SIZE_VK)
     rows.append(
       [
         {

@@ -82,13 +82,6 @@ def _month_bounds(month: date) -> tuple[date, date]:
   return first, (nxt.fromordinal(nxt.toordinal() - 1))
 
 
-def _shift_month(month: date, delta: int) -> date:
-  total = month.year * 12 + (month.month - 1) + delta
-  year = total // 12
-  mon = total % 12 + 1
-  return date(year, mon, 1)
-
-
 def _parse_month_key(value: str | None) -> date:
   if not value:
     today = date.today()
@@ -556,23 +549,6 @@ async def start_room_poll(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(F.data == "poll_noop")
 async def poll_noop(callback: CallbackQuery) -> None:
-  await callback.answer()
-
-
-@router.callback_query(F.data.startswith("poll_month:"))
-async def poll_month_nav(callback: CallbackQuery, state: FSMContext) -> None:
-  if not await _ensure_approved_telegram_callback_user(callback):
-    return
-  _, month_key, _, direction = str(callback.data).split(":")
-  month = _parse_month_key(month_key)
-  month = _shift_month(month, -1 if direction == "prev" else 1)
-  data = await state.get_data()
-  selected = _parse_iso_dates(data.get("poll_selected", []))
-  await state.update_data(poll_month=f"{month.year}-{month.month:02d}", poll_page=0)
-  if callback.message is not None:
-    await callback.message.edit_reply_markup(
-      reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected),
-    )
   await callback.answer()
 
 

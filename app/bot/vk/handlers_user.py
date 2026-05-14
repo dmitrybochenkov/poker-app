@@ -372,23 +372,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action == "poll_month":
-    month_key = callback_payload.get("month")
-    direction = callback_payload.get("dir")
-    if not isinstance(month_key, str) or direction not in {"prev", "next"}:
-      return PlainTextResponse("ok")
-    ctx = vk_user_contexts.setdefault(user_id, {})
-    month = _parse_month_key(month_key)
-    month = _shift_month(month, -1 if direction == "prev" else 1)
-    selected = _parse_iso_dates(ctx.get("poll_selected"))
-    ctx["poll_month"] = f"{month.year}-{month.month:02d}"
-    ctx["poll_page"] = "0"
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
-    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    await send_vk_message(
-      user_id=user_id,
-      message=Text.user.POLL_CHOOSE_DATES.value,
-      keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected),
-    )
     return PlainTextResponse("ok")
 
   if action == "poll_page":
@@ -398,7 +382,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       return PlainTextResponse("ok")
     month = _parse_month_key(month_key)
     days_in_month = _month_bounds(month)[1].day
-    max_page = max(0, (days_in_month - 1) // 9)
+    max_page = max(0, (days_in_month - 1) // 4)
     page = max(0, min(int(page), max_page))
     ctx = vk_user_contexts.setdefault(user_id, {})
     selected = _parse_iso_dates(ctx.get("poll_selected"))
