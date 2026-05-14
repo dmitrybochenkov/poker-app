@@ -32,13 +32,17 @@ class StatUseCases:
     *,
     indicators: list[StatIndicator],
     year: int | None = None,
+    years: list[int] | None = None,
     sort_pic: str | None = None,
   ) -> str:
     if self.poker_data_repository is None:
       return "Нет данных по покеру."
 
     rows = await self.poker_data_repository.list_all()
-    if year is not None:
+    year_set = {int(item) for item in years} if years else set()
+    if year_set:
+      rows = [item for item in rows if item.date is not None and int(item.date.year) in year_set]
+    elif year is not None:
       rows = [item for item in rows if item.date is not None and int(item.date.year) == int(year)]
     if not rows:
       return "Нет данных по покеру."
@@ -100,6 +104,7 @@ class StatUseCases:
     indicators: list[StatIndicator],
     mode: str = "all",
     year: int | None = None,
+    years: list[int] | None = None,
     sort_pic: str | None = None,
   ) -> str:
     if self.bet_tournament_param_repository is not None:
@@ -113,7 +118,10 @@ class StatUseCases:
         for item in params
       }
     bets = await self.bet_repository.list_all()
-    if year is not None:
+    year_set = {int(item) for item in years} if years else set()
+    if year_set:
+      bets = [bet for bet in bets if bet.date is not None and int(bet.date.year) in year_set]
+    elif year is not None:
       bets = [bet for bet in bets if bet.date is not None and int(bet.date.year) == int(year)]
     tournaments = await self._load_finished_tournaments()
     pokers_by_id = await self._load_pokers_by_id()

@@ -693,8 +693,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
   if action in {"betstatyear_toggle", "betstatyear_page", "betstatyear_done", "betstatyear_cancel"}:
     user_ctx = vk_user_contexts.setdefault(user_id, {})
     page = callback_payload.get("page", 0)
-    selected_year_raw = user_ctx.get("betstat_year")
-    selected_year = int(selected_year_raw) if selected_year_raw and selected_year_raw.isdigit() else None
+    selected_years = [int(x) for x in user_ctx.get("betstat_years", "").split(",") if x]
     async with SessionFactory() as session:
       bets = await BetRepository(session).list_all()
     years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
@@ -702,12 +701,17 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       year = callback_payload.get("year")
       if not isinstance(year, int):
         return PlainTextResponse("ok")
-      user_ctx["betstat_year"] = str(year)
+      selected_set = set(selected_years)
+      if year in selected_set:
+        selected_set.remove(year)
+      else:
+        selected_set.add(year)
+      selected_years = sorted(selected_set)
+      user_ctx["betstat_years"] = ",".join(str(x) for x in selected_years)
       user_ctx["betstat_selected_ids"] = ""
       user_ctx["betstat_mode"] = "all"
-      selected_year = year
     if action == "betstatyear_done":
-      if selected_year is None:
+      if not selected_years:
         await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Выбери год.")
         return PlainTextResponse("ok")
       user_ctx["betstat_selected_ids"] = ""
@@ -726,7 +730,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message(
       user_id=user_id,
       message="Выбери год:",
-      keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_year=selected_year, page=int(page) if isinstance(page, int) else 0),
+      keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_years=selected_years, page=int(page) if isinstance(page, int) else 0),
     )
     return PlainTextResponse("ok")
 
@@ -855,8 +859,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
 
   if action == "pokerstat_sort_done":
     selected_ids = {int(x) for x in vk_user_contexts.get(user_id, {}).get("pokerstat_selected_ids", "").split(",") if x}
-    selected_year_raw = vk_user_contexts.get(user_id, {}).get("pokerstat_year")
-    selected_year = int(selected_year_raw) if selected_year_raw and selected_year_raw.isdigit() else None
+    selected_years = [int(x) for x in vk_user_contexts.get(user_id, {}).get("pokerstat_years", "").split(",") if x]
     sort_id_raw = vk_user_contexts.get(user_id, {}).get("pokerstat_sort_id")
     sort_id = int(sort_id_raw) if isinstance(sort_id_raw, str) and sort_id_raw.isdigit() else None
     async with SessionFactory() as session:
@@ -871,7 +874,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         bet_tournament_repository=BetTournamentRepository(session),
         bet_tournament_param_repository=BetTournamentParamRepository(session),
         poker_repository=PokerRepository(session),
-      ).get_poker_stat(indicators=selected, year=selected_year, sort_pic=sort_pic)
+      ).get_poker_stat(indicators=selected, years=selected_years, sort_pic=sort_pic)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_STAT_REPORT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.POKER_STAT_REPORT.value.format(report=report), keyboard=poker_keyboard)
@@ -887,8 +890,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
   if action in {"pokerstatyear_toggle", "pokerstatyear_page", "pokerstatyear_done", "pokerstatyear_cancel"}:
     user_ctx = vk_user_contexts.setdefault(user_id, {})
     page = callback_payload.get("page", 0)
-    selected_year_raw = user_ctx.get("pokerstat_year")
-    selected_year = int(selected_year_raw) if selected_year_raw and selected_year_raw.isdigit() else None
+    selected_years = [int(x) for x in user_ctx.get("pokerstat_years", "").split(",") if x]
     async with SessionFactory() as session:
       rows = await PokerDataRepository(session).list_all()
     years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
@@ -896,11 +898,16 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       year = callback_payload.get("year")
       if not isinstance(year, int):
         return PlainTextResponse("ok")
-      user_ctx["pokerstat_year"] = str(year)
+      selected_set = set(selected_years)
+      if year in selected_set:
+        selected_set.remove(year)
+      else:
+        selected_set.add(year)
+      selected_years = sorted(selected_set)
+      user_ctx["pokerstat_years"] = ",".join(str(x) for x in selected_years)
       user_ctx["pokerstat_selected_ids"] = ""
-      selected_year = year
     if action == "pokerstatyear_done":
-      if selected_year is None:
+      if not selected_years:
         await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Выбери год.")
         return PlainTextResponse("ok")
       user_ctx["pokerstat_selected_ids"] = ""
@@ -924,7 +931,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message(
       user_id=user_id,
       message="Выбери год:",
-      keyboard=stat_year_keyboard(action="pokerstatyear", years=years, selected_year=selected_year, page=int(page) if isinstance(page, int) else 0),
+      keyboard=stat_year_keyboard(action="pokerstatyear", years=years, selected_years=selected_years, page=int(page) if isinstance(page, int) else 0),
     )
     return PlainTextResponse("ok")
 
@@ -1034,8 +1041,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     user_ctx = vk_user_contexts.get(user_id, {})
     mode = user_ctx.get("betstat_mode", "all")
     selected_ids = {int(x) for x in user_ctx.get("betstat_selected_ids", "").split(",") if x}
-    selected_year_raw = user_ctx.get("betstat_year")
-    selected_year = int(selected_year_raw) if selected_year_raw and selected_year_raw.isdigit() else None
+    selected_years = [int(x) for x in user_ctx.get("betstat_years", "").split(",") if x]
     sort_id_raw = user_ctx.get("betstat_sort_id")
     sort_id = int(sort_id_raw) if isinstance(sort_id_raw, str) and sort_id_raw.isdigit() else None
     async with SessionFactory() as session:
@@ -1051,7 +1057,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         bet_tournament_repository=BetTournamentRepository(session),
         bet_tournament_param_repository=BetTournamentParamRepository(session),
         poker_repository=PokerRepository(session),
-      ).get_betting_stat(indicators=selected, mode=mode, year=selected_year, sort_pic=sort_pic)
+      ).get_betting_stat(indicators=selected, mode=mode, years=selected_years, sort_pic=sort_pic)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_STAT_REPORT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_STAT_REPORT.value.format(report=report))
@@ -1223,7 +1229,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(
       user_id=user_id,
       message="Выбери год:",
-      keyboard=stat_year_keyboard(action="pokerstatyear", years=years, selected_year=None, page=0),
+      keyboard=stat_year_keyboard(action="pokerstatyear", years=years, selected_years=[], page=0),
     )
     return PlainTextResponse("ok")
 
@@ -1267,7 +1273,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(
       user_id=user_id,
       message="Выбери год:",
-      keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_year=None, page=0),
+      keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_years=[], page=0),
     )
     return PlainTextResponse("ok")
 

@@ -1146,15 +1146,16 @@ class InlineKbs:
     *,
     prefix: str,
     years: list[int],
-    selected_year: int | None = None,
+    selected_years: list[int] | None = None,
     page: int = 0,
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
+    selected = {int(item) for item in (selected_years or [])}
     start = page * InlineKbs.PAGE_SIZE
     end = start + InlineKbs.PAGE_SIZE
     batch = years[start:end]
     for year in batch:
-      mark = "✔ " if selected_year is not None and int(selected_year) == int(year) else ""
+      mark = "✔ " if int(year) in selected else ""
       keyboard.button(text=f"{mark}{year}", callback_data=f"{prefix}_toggle:{year}:{page}")
     if page > 0:
       keyboard.button(text="⬅️", callback_data=f"{prefix}_page:{page - 1}")
@@ -1175,15 +1176,16 @@ class InlineKbs:
     *,
     action: str,
     years: list[int],
-    selected_year: int | None = None,
+    selected_years: list[int] | None = None,
     page: int = 0,
   ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    selected = {int(item) for item in (selected_years or [])}
     start = page * InlineKbs.PAGE_SIZE
     end = start + InlineKbs.PAGE_SIZE
     batch = years[start:end]
     for year in batch:
-      mark = "✔ " if selected_year is not None and int(selected_year) == int(year) else ""
+      mark = "✔ " if int(year) in selected else ""
       rows.append([
         {
           "action": {"type": "callback", "label": f"{mark}{year}", "payload": {"action": f"{action}_toggle", "year": int(year), "page": page}},

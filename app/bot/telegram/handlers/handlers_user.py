@@ -583,7 +583,7 @@ async def show_poker_stat_indicators(message: Message, state: FSMContext) -> Non
     return
   await message.answer(
     "Выбери год:",
-    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years, selected_year=None, page=0),
+    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years, selected_years=[], page=0),
   )
 
 
@@ -596,13 +596,13 @@ async def poker_stat_year_page(callback: CallbackQuery, state: FSMContext) -> No
     return
   page = int(callback.data.split(":", 1)[1])
   data = await state.get_data()
-  selected_year = data.get("pokerstat_year")
+  selected_years: list[int] = data.get("pokerstat_years", [])
   async with SessionFactory() as session:
     rows = await PokerDataRepository(session).list_all()
   years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
   await callback.message.edit_text(
     "Выбери год:",
-    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years, selected_year=int(selected_year) if selected_year is not None else None, page=page),
+    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years, selected_years=selected_years, page=page),
   )
   await callback.answer()
 
@@ -617,13 +617,19 @@ async def poker_stat_year_toggle(callback: CallbackQuery, state: FSMContext) -> 
   _, year_raw, page_raw = callback.data.split(":")
   year = int(year_raw)
   page = int(page_raw)
-  await state.update_data(pokerstat_year=year, pokerstat_selected_ids=[])
+  data = await state.get_data()
+  selected_years = set(data.get("pokerstat_years", []))
+  if year in selected_years:
+    selected_years.remove(year)
+  else:
+    selected_years.add(year)
+  await state.update_data(pokerstat_years=sorted(selected_years), pokerstat_selected_ids=[])
   async with SessionFactory() as session:
     rows = await PokerDataRepository(session).list_all()
   years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
   await callback.message.edit_text(
     "Выбери год:",
-    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years, selected_year=year, page=page),
+    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years, selected_years=sorted(selected_years), page=page),
   )
   await callback.answer()
 
@@ -635,7 +641,7 @@ async def poker_stat_year_cancel(callback: CallbackQuery, state: FSMContext) -> 
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(pokerstat_year=None, pokerstat_selected_ids=[])
+  await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[])
   await callback.message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
   await callback.answer()
 
@@ -648,8 +654,8 @@ async def poker_stat_year_done(callback: CallbackQuery, state: FSMContext) -> No
   if not await _ensure_approved_telegram_callback_user(callback):
     return
   data = await state.get_data()
-  selected_year = data.get("pokerstat_year")
-  if selected_year is None:
+  selected_years: list[int] = data.get("pokerstat_years", [])
+  if not selected_years:
     await callback.answer("Выбери год.", show_alert=True)
     return
   async with SessionFactory() as session:
@@ -830,7 +836,7 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
     return
   data = await state.get_data()
   selected_ids: list[int] = data.get("pokerstat_selected_ids", [])
-  selected_year = data.get("pokerstat_year")
+  selected_years: list[int] = data.get("pokerstat_years", [])
   sort_id = data.get("pokerstat_sort_id")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
@@ -846,7 +852,7 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
       poker_repository=PokerRepository(session),
     ).get_poker_stat(
       indicators=selected,
-      year=int(selected_year) if selected_year is not None else None,
+      years=selected_years,
       sort_pic=sort_pic,
     )
   await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
@@ -900,7 +906,7 @@ async def show_betting_stat_indicators(message: Message, state: FSMContext) -> N
     return
   await message.answer(
     "Выбери год:",
-    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_year=None, page=0),
+    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_years=[], page=0),
   )
 
 
@@ -913,13 +919,13 @@ async def betting_stat_year_page(callback: CallbackQuery, state: FSMContext) -> 
     return
   page = int(callback.data.split(":", 1)[1])
   data = await state.get_data()
-  selected_year = data.get("betstat_year")
+  selected_years: list[int] = data.get("betstat_years", [])
   async with SessionFactory() as session:
     bets = await BetRepository(session).list_all()
   years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
   await callback.message.edit_text(
     "Выбери год:",
-    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_year=int(selected_year) if selected_year is not None else None, page=page),
+    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_years=selected_years, page=page),
   )
   await callback.answer()
 
@@ -934,13 +940,19 @@ async def betting_stat_year_toggle(callback: CallbackQuery, state: FSMContext) -
   _, year_raw, page_raw = callback.data.split(":")
   year = int(year_raw)
   page = int(page_raw)
-  await state.update_data(betstat_year=year, betstat_selected_ids=[], betstat_mode="all")
+  data = await state.get_data()
+  selected_years = set(data.get("betstat_years", []))
+  if year in selected_years:
+    selected_years.remove(year)
+  else:
+    selected_years.add(year)
+  await state.update_data(betstat_years=sorted(selected_years), betstat_selected_ids=[], betstat_mode="all")
   async with SessionFactory() as session:
     bets = await BetRepository(session).list_all()
   years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
   await callback.message.edit_text(
     "Выбери год:",
-    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_year=year, page=page),
+    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_years=sorted(selected_years), page=page),
   )
   await callback.answer()
 
@@ -952,7 +964,7 @@ async def betting_stat_year_cancel(callback: CallbackQuery, state: FSMContext) -
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(betstat_year=None, betstat_selected_ids=[], betstat_mode="all")
+  await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all")
   await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
   await callback.answer()
 
@@ -965,8 +977,8 @@ async def betting_stat_year_done(callback: CallbackQuery, state: FSMContext) -> 
   if not await _ensure_approved_telegram_callback_user(callback):
     return
   data = await state.get_data()
-  selected_year = data.get("betstat_year")
-  if selected_year is None:
+  selected_years: list[int] = data.get("betstat_years", [])
+  if not selected_years:
     await callback.answer("Выбери год.", show_alert=True)
     return
   await callback.message.edit_text(
@@ -1182,7 +1194,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
   data = await state.get_data()
   selected_ids: list[int] = data.get("betstat_selected_ids", [])
   mode = data.get("betstat_mode", "all")
-  selected_year = data.get("betstat_year")
+  selected_years: list[int] = data.get("betstat_years", [])
   sort_id = data.get("betstat_sort_id")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
@@ -1200,7 +1212,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
     ).get_betting_stat(
       indicators=selected,
       mode=mode,
-      year=int(selected_year) if selected_year is not None else None,
+      years=selected_years,
       sort_pic=sort_pic,
     )
   await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
