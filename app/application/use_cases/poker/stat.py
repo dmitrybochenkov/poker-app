@@ -182,6 +182,14 @@ class StatUseCases:
         row["🌟"] = "👮" if len([bet for bet in user_bets if not bool(bet.is_paid)]) == 0 else ""
       rows.append(row)
 
+    # Hide users with no values across all selected betting indicators.
+    rows = [
+      row for row in rows
+      if self._has_any_selected_metric_value(row=row, metric_pics=selected_pics)
+    ]
+    if not rows:
+      return "Нет данных по ставкам."
+
     sort_metric = sort_pic if sort_pic in selected_pics else selected_pics[0]
     rows.sort(key=lambda item: item.get(sort_metric, 0), reverse=True)
     if mode == "all":
@@ -508,6 +516,19 @@ class StatUseCases:
       f"🥈: {second_rub:.2f} ₽\n"
       f"🥉: {third_rub:.2f} ₽"
     )
+
+  @staticmethod
+  def _has_any_selected_metric_value(*, row: dict[str, str | int | float], metric_pics: list[str]) -> bool:
+    for pic in metric_pics:
+      value = row.get(pic, 0)
+      if isinstance(value, (int, float)):
+        if float(value) != 0.0:
+          return True
+        continue
+      text_value = str(value).strip()
+      if text_value and text_value not in {"0", "0.0", "0.00"}:
+        return True
+    return False
 
   def _count_tournament_titles(self, *, user: str, tournaments: list, tournament_type: str) -> int:
     count = 0

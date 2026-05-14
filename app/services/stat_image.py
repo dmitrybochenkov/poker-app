@@ -96,9 +96,28 @@ def _draw_line(
         temp_draw = ImageDraw.Draw(temp)
         temp_draw.text((-bbox[0], -bbox[1]), ch, font=font, embedded_color=True)
         scaled_w = max(1, int(round(glyph_w * (target_emoji_height / glyph_h))))
+        # Do not let emoji overflow into neighbouring cell.
+        max_cell_w = max(1, int(round(cell_w * 0.95)))
+        if scaled_w > max_cell_w:
+          scaled_w = max_cell_w
         resized = temp.resize((scaled_w, target_emoji_height), Image.Resampling.LANCZOS)
         paste_x = cursor_x + max(0, (cell_w - scaled_w) // 2)
         paste_y = y + max(0, (line_h - target_emoji_height) // 2)
+        image.paste(resized, (paste_x, paste_y), resized)
+        cursor_x += cell_w
+        continue
+      if glyph_w > cell_w:
+        # Render & shrink even if height is already close enough.
+        temp = Image.new("RGBA", (glyph_w, glyph_h), (255, 255, 255, 0))
+        temp_draw = ImageDraw.Draw(temp)
+        temp_draw.text((-bbox[0], -bbox[1]), ch, font=font, embedded_color=True)
+        max_cell_w = max(1, int(round(cell_w * 0.95)))
+        scale = min(max_cell_w / glyph_w, target_emoji_height / glyph_h)
+        scaled_w = max(1, int(round(glyph_w * scale)))
+        scaled_h = max(1, int(round(glyph_h * scale)))
+        resized = temp.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+        paste_x = cursor_x + max(0, (cell_w - scaled_w) // 2)
+        paste_y = y + max(0, (line_h - scaled_h) // 2)
         image.paste(resized, (paste_x, paste_y), resized)
         cursor_x += cell_w
         continue
