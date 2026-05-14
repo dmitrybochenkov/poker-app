@@ -625,6 +625,9 @@ class StatUseCases:
             continue
           if role == "winner" and user not in winners:
             continue
+          if role == "winner" and bet.better_name == user and bet.winner_name == user:
+            # Do not count money won via bets on own victory for this metric.
+            continue
 
           # If both winner and loser were guessed correctly, split combo score in half
           # so role-specific metrics get only their own contribution.

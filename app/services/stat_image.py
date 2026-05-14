@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 EMOJI_SCALE = 1.35
 EMOJI_MAX_CELL_RATIO = 1.35
+EMOJI_PAIR_GAP_RATIO = 0.35
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
@@ -59,7 +60,16 @@ def _is_emoji_char(ch: str) -> bool:
 def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont, emoji_font: ImageFont.ImageFont) -> int:
   cell_bbox = draw.textbbox((0, 0), "M", font=text_font)
   cell_w = max(1, cell_bbox[2] - cell_bbox[0])
-  return len(text) * cell_w
+  width = len(text) * cell_w
+  emoji_pairs = 0
+  prev_emoji = False
+  for ch in text:
+    is_emoji = _is_emoji_char(ch)
+    if is_emoji and prev_emoji:
+      emoji_pairs += 1
+    prev_emoji = is_emoji
+  width += emoji_pairs * max(1, int(round(cell_w * EMOJI_PAIR_GAP_RATIO)))
+  return width
 
 
 def _line_height(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont) -> int:
@@ -86,8 +96,12 @@ def _draw_line(
   target_emoji_height = max(16, int(round((text_bbox[3] - text_bbox[1]) * EMOJI_SCALE)))
   line_h = _line_height(draw, text, text_font)
   cursor_x = x
+  prev_was_emoji = False
   for ch in text:
     is_emoji = _is_emoji_char(ch)
+    if is_emoji and prev_was_emoji:
+      # Add visible spacing between adjacent emoji clusters in headers/tables.
+      cursor_x += max(1, int(round(cell_w * EMOJI_PAIR_GAP_RATIO)))
     font = emoji_font if is_emoji else text_font
     if is_emoji:
       bbox = draw.textbbox((0, 0), ch, font=font)
@@ -130,12 +144,14 @@ def _draw_line(
       draw_y = y + max(0, (line_h - glyph_h) // 2)
       draw.text((draw_x, draw_y), ch, font=font, embedded_color=True)
       cursor_x += cell_w
+      prev_was_emoji = True
       continue
 
     # Keep normal text rendering unchanged so names stay visually correct.
     draw.text((cursor_x, y), ch, font=font, fill=fill)
     bbox = draw.textbbox((0, 0), ch, font=font)
     cursor_x += bbox[2] - bbox[0]
+    prev_was_emoji = False
 
 
 def render_stat_table_png(*, title: str, report: str) -> bytes:

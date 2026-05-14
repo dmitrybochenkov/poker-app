@@ -933,6 +933,18 @@ async def _start_betting_stat_flow(*, message: Message, state: FSMContext, mode:
     betstat_mode=mode,
     betstat_sort_id=None,
   )
+  if mode in {"regular", "year"}:
+    async with SessionFactory() as session:
+      indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
+    if not indicators:
+      await message.answer(Text.user.BETTING_CURRENT_EMPTY.value)
+      return
+    await message.answer(
+      Text.user.STAT_CHOOSE_PARAMS.value,
+      reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
+    )
+    return
   async with SessionFactory() as session:
     bets = await BetRepository(session).list_all()
   years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)

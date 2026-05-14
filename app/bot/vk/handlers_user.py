@@ -1362,15 +1362,15 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     user_ctx["betstat_mode"] = "regular" if text == Buttons.betting_current.REG_TOURNAMENT.value else "year"
     user_ctx["betstat_sort_id"] = ""
     async with SessionFactory() as session:
-      bets = await BetRepository(session).list_all()
-    years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
-    if not years:
-      await send_vk_message(user_id=user_id, message="Нет данных по ставкам.")
+      indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=user_ctx["betstat_mode"])
+    if not indicators:
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_CURRENT_EMPTY.value)
       return PlainTextResponse("ok")
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.STAT_CHOOSE_YEAR.value,
-      keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_years=[], page=0),
+      message=Text.user.STAT_CHOOSE_PARAMS.value,
+      keyboard=betting_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
     )
     return PlainTextResponse("ok")
 
