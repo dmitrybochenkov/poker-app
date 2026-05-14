@@ -9,6 +9,7 @@ from app.db.models.user import User
 
 class InlineKbs:
   PAGE_SIZE = 5
+  STAT_PAGE_SIZE = 4
 
   @staticmethod
   def _format_rub_from_kopecks(value_kopecks: int) -> str:
@@ -981,8 +982,8 @@ class InlineKbs:
   def betting_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
       mark = "✔ " if int(indicator.row_id) in selected else ""
@@ -1005,8 +1006,8 @@ class InlineKbs:
   def betting_stat_indicators_vk(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     selected = set(selected_ids or [])
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
       mark = "✔ " if int(indicator.row_id) in selected else ""
@@ -1077,8 +1078,8 @@ class InlineKbs:
   def poker_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
       mark = "✔ " if int(indicator.row_id) in selected else ""
@@ -1101,8 +1102,8 @@ class InlineKbs:
   def poker_stat_indicators_vk(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     selected = set(selected_ids or [])
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
       mark = "✔ " if int(indicator.row_id) in selected else ""
@@ -1151,8 +1152,8 @@ class InlineKbs:
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = {int(item) for item in (selected_years or [])}
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = years[start:end]
     for year in batch:
       mark = "✔ " if int(year) in selected else ""
@@ -1181,8 +1182,8 @@ class InlineKbs:
   ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     selected = {int(item) for item in (selected_years or [])}
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = years[start:end]
     for year in batch:
       mark = "✔ " if int(year) in selected else ""
@@ -1217,8 +1218,8 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     selected = {int(x) for x in selected_ids}
     filtered = [indicator for indicator in indicators if int(indicator.row_id) in selected]
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = filtered[start:end]
     for indicator in batch:
       mark = "✔ " if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
@@ -1252,8 +1253,8 @@ class InlineKbs:
     selected = {int(x) for x in selected_ids}
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     filtered = [indicator for indicator in indicators if int(indicator.row_id) in selected]
-    start = page * InlineKbs.PAGE_SIZE
-    end = start + InlineKbs.PAGE_SIZE
+    start = page * InlineKbs.STAT_PAGE_SIZE
+    end = start + InlineKbs.STAT_PAGE_SIZE
     batch = filtered[start:end]
     for indicator in batch:
       mark = "✔ " if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""

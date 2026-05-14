@@ -574,7 +574,11 @@ async def show_poker_achievement_info(message: Message) -> None:
 async def show_poker_stat_indicators(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await state.update_data(pokerstat_selected_ids=[])
+  await state.update_data(
+    pokerstat_years=[],
+    pokerstat_selected_ids=[],
+    pokerstat_sort_id=None,
+  )
   async with SessionFactory() as session:
     rows = await PokerDataRepository(session).list_all()
   years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
@@ -641,7 +645,7 @@ async def poker_stat_year_cancel(callback: CallbackQuery, state: FSMContext) -> 
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[])
+  await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
   await callback.message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
   await callback.answer()
 
@@ -752,7 +756,7 @@ async def poker_stat_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(pokerstat_selected_ids=[])
+  await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
   await callback.message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
   await callback.answer()
 
@@ -822,7 +826,7 @@ async def poker_stat_sort_cancel(callback: CallbackQuery, state: FSMContext) -> 
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(pokerstat_sort_id=None)
+  await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
   await callback.message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
   await callback.answer()
 
@@ -856,6 +860,7 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
       sort_pic=sort_pic,
     )
   await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
+  await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
   await callback.answer()
 
 
@@ -897,7 +902,12 @@ async def show_current_betting_tournaments(message: Message) -> None:
 async def show_betting_stat_indicators(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await state.update_data(betstat_selected_ids=[], betstat_mode="all")
+  await state.update_data(
+    betstat_years=[],
+    betstat_selected_ids=[],
+    betstat_mode="all",
+    betstat_sort_id=None,
+  )
   async with SessionFactory() as session:
     bets = await BetRepository(session).list_all()
   years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
@@ -964,7 +974,7 @@ async def betting_stat_year_cancel(callback: CallbackQuery, state: FSMContext) -
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all")
+  await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
   await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
   await callback.answer()
 
@@ -1103,7 +1113,7 @@ async def betting_stat_cancel(callback: CallbackQuery, state: FSMContext) -> Non
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(betstat_selected_ids=[])
+  await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
   await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
   await callback.answer()
 
@@ -1179,7 +1189,7 @@ async def betting_stat_sort_cancel(callback: CallbackQuery, state: FSMContext) -
     return
   if not await _ensure_approved_telegram_callback_user(callback):
     return
-  await state.update_data(betstat_sort_id=None)
+  await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
   await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
   await callback.answer()
 
@@ -1216,6 +1226,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
       sort_pic=sort_pic,
     )
   await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
+  await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
   await callback.answer()
 
 

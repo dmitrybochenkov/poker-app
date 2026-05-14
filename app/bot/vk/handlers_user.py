@@ -721,6 +721,10 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_STAT_MODE.value, keyboard=betting_stat_mode_keyboard())
       return PlainTextResponse("ok")
     if action == "betstatyear_cancel":
+      user_ctx["betstat_years"] = ""
+      user_ctx["betstat_selected_ids"] = ""
+      user_ctx["betstat_mode"] = "all"
+      user_ctx["betstat_sort_id"] = ""
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_MENU.value)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
@@ -878,9 +882,14 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_STAT_REPORT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.POKER_STAT_REPORT.value.format(report=report), keyboard=poker_keyboard)
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_years"] = ""
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_selected_ids"] = ""
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_sort_id"] = ""
     return PlainTextResponse("ok")
 
   if action == "pokerstat_sort_cancel":
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_years"] = ""
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_selected_ids"] = ""
     vk_user_contexts.setdefault(user_id, {})["pokerstat_sort_id"] = ""
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_MENU.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
@@ -922,6 +931,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       )
       return PlainTextResponse("ok")
     if action == "pokerstatyear_cancel":
+      user_ctx["pokerstat_years"] = ""
+      user_ctx["pokerstat_selected_ids"] = ""
+      user_ctx["pokerstat_sort_id"] = ""
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_MENU.value)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
       await send_vk_message(user_id=user_id, message=Text.user.POKER_MENU.value, keyboard=poker_keyboard)
@@ -936,6 +948,9 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action == "pokerstat_cancel":
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_years"] = ""
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_selected_ids"] = ""
+    vk_user_contexts.setdefault(user_id, {})["pokerstat_sort_id"] = ""
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_MENU.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.POKER_MENU.value, keyboard=poker_keyboard)
@@ -1061,9 +1076,16 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_STAT_REPORT.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_STAT_REPORT.value.format(report=report))
+    vk_user_contexts.setdefault(user_id, {})["betstat_years"] = ""
+    vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""
+    vk_user_contexts.setdefault(user_id, {})["betstat_mode"] = "all"
+    vk_user_contexts.setdefault(user_id, {})["betstat_sort_id"] = ""
     return PlainTextResponse("ok")
 
   if action == "betstat_sort_cancel":
+    vk_user_contexts.setdefault(user_id, {})["betstat_years"] = ""
+    vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""
+    vk_user_contexts.setdefault(user_id, {})["betstat_mode"] = "all"
     vk_user_contexts.setdefault(user_id, {})["betstat_sort_id"] = ""
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_MENU.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
@@ -1071,6 +1093,10 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return PlainTextResponse("ok")
 
   if action == "betstat_cancel":
+    vk_user_contexts.setdefault(user_id, {})["betstat_years"] = ""
+    vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""
+    vk_user_contexts.setdefault(user_id, {})["betstat_mode"] = "all"
+    vk_user_contexts.setdefault(user_id, {})["betstat_sort_id"] = ""
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_MENU.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
@@ -1219,7 +1245,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.POKER_STAT.value:
-    vk_user_contexts.setdefault(user_id, {})["pokerstat_selected_ids"] = ""
+    user_ctx = vk_user_contexts.setdefault(user_id, {})
+    user_ctx["pokerstat_years"] = ""
+    user_ctx["pokerstat_selected_ids"] = ""
+    user_ctx["pokerstat_sort_id"] = ""
     async with SessionFactory() as session:
       rows = await PokerDataRepository(session).list_all()
     years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
@@ -1262,8 +1291,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.BETTING_STAT.value:
-    vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""
-    vk_user_contexts.setdefault(user_id, {})["betstat_mode"] = "all"
+    user_ctx = vk_user_contexts.setdefault(user_id, {})
+    user_ctx["betstat_years"] = ""
+    user_ctx["betstat_selected_ids"] = ""
+    user_ctx["betstat_mode"] = "all"
+    user_ctx["betstat_sort_id"] = ""
     async with SessionFactory() as session:
       bets = await BetRepository(session).list_all()
     years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
