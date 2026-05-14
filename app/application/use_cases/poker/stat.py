@@ -233,6 +233,7 @@ class StatUseCases:
     rows = [
       row for row in rows
       if self._has_any_selected_metric_value(row=row, metric_pics=selected_pics)
+      or bool(str(row.get("🌟", "")).strip())
     ]
     if not rows:
       return "Нет данных по ставкам."
