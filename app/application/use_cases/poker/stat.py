@@ -27,11 +27,19 @@ class StatUseCases:
     self.bet_tournament_param_repository = bet_tournament_param_repository
     self.poker_repository = poker_repository
 
-  async def get_poker_stat(self, *, indicators: list[StatIndicator]) -> str:
+  async def get_poker_stat(
+    self,
+    *,
+    indicators: list[StatIndicator],
+    year: int | None = None,
+    sort_pic: str | None = None,
+  ) -> str:
     if self.poker_data_repository is None:
       return "Нет данных по покеру."
 
     rows = await self.poker_data_repository.list_all()
+    if year is not None:
+      rows = [item for item in rows if item.date is not None and int(item.date.year) == int(year)]
     if not rows:
       return "Нет данных по покеру."
 
@@ -77,16 +85,23 @@ class StatUseCases:
         )
       result_rows.append(metric_row)
 
-    sort_pic = selected_pics[0]
-    result_rows.sort(key=lambda item: item.get(sort_pic, 0), reverse=True)
+    sort_metric = sort_pic if sort_pic in selected_pics else selected_pics[0]
+    result_rows.sort(key=lambda item: item.get(sort_metric, 0), reverse=True)
     result_rows = await self._apply_achievements(
       rows=result_rows,
       indicator_id_to_pic={int(ind.row_id): ind.pic for ind in selected},
       achievement_type="poker",
     )
-    return self._to_markdown_table(rows=result_rows, headers=["👨"] + selected_pics)
+    return self._to_text_table(rows=result_rows, headers=["👨"] + selected_pics)
 
-  async def get_betting_stat(self, *, indicators: list[StatIndicator], mode: str = "all") -> str:
+  async def get_betting_stat(
+    self,
+    *,
+    indicators: list[StatIndicator],
+    mode: str = "all",
+    year: int | None = None,
+    sort_pic: str | None = None,
+  ) -> str:
     if self.bet_tournament_param_repository is not None:
       params = await self.bet_tournament_param_repository.list_all()
       self._tournament_percents_cache = {
@@ -98,6 +113,8 @@ class StatUseCases:
         for item in params
       }
     bets = await self.bet_repository.list_all()
+    if year is not None:
+      bets = [bet for bet in bets if bet.date is not None and int(bet.date.year) == int(year)]
     tournaments = await self._load_finished_tournaments()
     pokers_by_id = await self._load_pokers_by_id()
 
@@ -138,25 +155,36 @@ class StatUseCases:
         )
       rows.append(row)
 
-    sort_pic = selected_pics[0]
-    rows.sort(key=lambda item: item.get(sort_pic, 0), reverse=True)
+    sort_metric = sort_pic if sort_pic in selected_pics else selected_pics[0]
+    rows.sort(key=lambda item: item.get(sort_metric, 0), reverse=True)
     rows = await self._apply_achievements(
       rows=rows,
       indicator_id_to_pic={int(ind.row_id): ind.pic for ind in selected},
       achievement_type="betting",
     )
 
-    return self._to_markdown_table(rows=rows, headers=["👨"] + selected_pics)
+    return self._to_text_table(rows=rows, headers=["👨"] + selected_pics)
 
   @staticmethod
-  def _to_markdown_table(*, rows: list[dict[str, str | int | float]], headers: list[str]) -> str:
+  def _to_text_table(*, rows: list[dict[str, str | int | float]], headers: list[str]) -> str:
     has_ach = any(str(row.get("🌟", "")).strip() for row in rows)
     if has_ach and "🌟" not in headers:
       headers = headers + ["🌟"]
-    lines = [" | ".join(headers), " | ".join(["---"] * len(headers))]
+    widths: dict[str, int] = {column: len(column) for column in headers}
+    for row in rows:
+      for column in headers:
+        widths[column] = max(widths[column], len(str(row.get(column, ""))))
+
+    def fmt_line(values: list[str]) -> str:
+      return " | ".join(value.ljust(widths[headers[idx]]) for idx, value in enumerate(values))
+
+    lines = [
+      fmt_line(headers),
+      "-+-".join("-" * widths[column] for column in headers),
+    ]
     for row in rows:
       values = [str(row.get(column, "")) for column in headers]
-      lines.append(" | ".join(values))
+      lines.append(fmt_line(values))
     return "\n".join(lines)
 
   async def _apply_achievements(

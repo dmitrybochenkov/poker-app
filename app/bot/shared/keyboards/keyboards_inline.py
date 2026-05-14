@@ -1128,6 +1128,59 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
+  def stat_year_tg(*, prefix: str, years: list[int]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for year in years:
+      keyboard.button(text=str(year), callback_data=f"{prefix}:{year}")
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def stat_year_vk(*, action: str, years: list[int]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for year in years:
+      rows.append([
+        {
+          "action": {"type": "callback", "label": str(year), "payload": {"action": action, "year": int(year)}},
+          "color": "primary",
+        }
+      ])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def stat_sort_tg(*, prefix: str, indicators: list, selected_ids: list[int]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    selected = {int(x) for x in selected_ids}
+    for indicator in indicators:
+      if int(indicator.row_id) not in selected:
+        continue
+      keyboard.button(
+        text=f"{indicator.pic} {indicator.description}"[:64],
+        callback_data=f"{prefix}:{int(indicator.row_id)}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def stat_sort_vk(*, action: str, indicators: list, selected_ids: list[int]) -> str:
+    selected = {int(x) for x in selected_ids}
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for indicator in indicators:
+      if int(indicator.row_id) not in selected:
+        continue
+      rows.append([
+        {
+          "action": {
+            "type": "callback",
+            "label": f"{indicator.pic} {indicator.description}"[:40],
+            "payload": {"action": action, "indicator_id": int(indicator.row_id)},
+          },
+          "color": "primary",
+        }
+      ])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
     return InlineKbs.link_candidates_vk_page(pending_row_id=pending_row_id, users=users, page=0)
 

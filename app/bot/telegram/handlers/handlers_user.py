@@ -33,6 +33,8 @@ from app.bot.telegram.keyboards import (
   betting_stat_mode_keyboard,
   betting_stat_indicators_keyboard,
   poker_stat_indicators_keyboard,
+  stat_year_keyboard,
+  stat_sort_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_candidates_page_keyboard,
@@ -513,7 +515,7 @@ async def show_betting_info(message: Message) -> None:
 async def show_betting_rules(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.BET_RULES.value, reply_markup=betting_info_keyboard)
+  await message.answer(Text.user.BET_RULES.value, reply_markup=betting_info_keyboard, parse_mode="HTML")
 
 
 @router.message(F.text == Buttons.bettingInfo.BETTING_STAT_INFO.value)
@@ -522,7 +524,7 @@ async def show_betting_stat_info(message: Message) -> None:
     return
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-  await message.answer(_format_stat_info_report(indicators), reply_markup=betting_info_keyboard)
+  await message.answer(_format_stat_info_report(indicators), reply_markup=betting_info_keyboard, parse_mode="HTML")
 
 
 @router.message(F.text == Buttons.bettingInfo.BETTING_ACH_INFO.value)
@@ -538,6 +540,7 @@ async def show_betting_achievement_info(message: Message) -> None:
   await message.answer(
     _format_achievement_info_report(achievements, indicators_by_id),
     reply_markup=betting_info_keyboard,
+    parse_mode="HTML",
   )
 
 
@@ -547,7 +550,7 @@ async def show_poker_stat_info(message: Message) -> None:
     return
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
-  await message.answer(_format_stat_info_report(indicators), reply_markup=poker_info_keyboard)
+  await message.answer(_format_stat_info_report(indicators), reply_markup=poker_info_keyboard, parse_mode="HTML")
 
 
 @router.message(F.text == Buttons.pokerInfo.POKER_ACH_INFO.value)
@@ -563,6 +566,7 @@ async def show_poker_achievement_info(message: Message) -> None:
   await message.answer(
     _format_achievement_info_report(achievements, indicators_by_id),
     reply_markup=poker_info_keyboard,
+    parse_mode="HTML",
   )
 
 
@@ -572,14 +576,37 @@ async def show_poker_stat_indicators(message: Message, state: FSMContext) -> Non
     return
   await state.update_data(pokerstat_selected_ids=[])
   async with SessionFactory() as session:
-    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
-  if not indicators:
+    rows = await PokerDataRepository(session).list_all()
+  years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
+  if not years:
     await message.answer(Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру."))
     return
   await message.answer(
+    "Выбери год:",
+    reply_markup=stat_year_keyboard(prefix="pokerstatyear", years=years),
+  )
+
+
+@router.callback_query(F.data.startswith("pokerstatyear:"))
+async def poker_stat_year_selected(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  year = int(callback.data.split(":", 1)[1])
+  await state.update_data(pokerstat_year=year, pokerstat_selected_ids=[])
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+  if not indicators:
+    await callback.message.edit_text(Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру."))
+    await callback.answer()
+    return
+  await callback.message.edit_text(
     Text.user.POKER_STAT_INDICATORS.value,
     reply_markup=poker_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
   )
+  await callback.answer()
 
 
 @router.callback_query(F.data.startswith("pokerstat_page:"))
@@ -636,9 +663,35 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
     return
   data = await state.get_data()
   selected_ids: list[int] = data.get("pokerstat_selected_ids", [])
+  if not selected_ids:
+    await callback.answer("Выбери хотя бы один показатель.", show_alert=True)
+    return
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
+  await callback.message.edit_text(
+    "Выбери показатель сортировки:",
+    reply_markup=stat_sort_keyboard(prefix="pokerstatsort", indicators=selected, selected_ids=selected_ids),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pokerstatsort:"))
+async def poker_stat_sort_selected(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  indicator_id = int(callback.data.split(":", 1)[1])
+  data = await state.get_data()
+  selected_ids: list[int] = data.get("pokerstat_selected_ids", [])
+  selected_year = data.get("pokerstat_year")
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
+    selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
+    sort_indicator = next((item for item in selected if int(item.row_id) == indicator_id), None)
+    sort_pic = sort_indicator.pic if sort_indicator is not None else None
     report = await StatUseCases(
       bet_repository=BetRepository(session),
       poker_data_repository=PokerDataRepository(session),
@@ -646,7 +699,11 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
       bet_tournament_repository=BetTournamentRepository(session),
       bet_tournament_param_repository=BetTournamentParamRepository(session),
       poker_repository=PokerRepository(session),
-    ).get_poker_stat(indicators=selected)
+    ).get_poker_stat(
+      indicators=selected,
+      year=int(selected_year) if selected_year is not None else None,
+      sort_pic=sort_pic,
+    )
   await callback.message.answer(Text.user.POKER_STAT_REPORT.value.format(report=report), reply_markup=poker_keyboard)
   await callback.answer()
 
@@ -690,10 +747,32 @@ async def show_betting_stat_indicators(message: Message, state: FSMContext) -> N
   if not await _ensure_approved_telegram_user(message):
     return
   await state.update_data(betstat_selected_ids=[], betstat_mode="all")
+  async with SessionFactory() as session:
+    bets = await BetRepository(session).list_all()
+  years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
+  if not years:
+    await message.answer("Нет данных по ставкам.")
+    return
   await message.answer(
+    "Выбери год:",
+    reply_markup=stat_year_keyboard(prefix="betstatyear", years=years),
+  )
+
+
+@router.callback_query(F.data.startswith("betstatyear:"))
+async def betting_stat_year_selected(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  year = int(callback.data.split(":", 1)[1])
+  await state.update_data(betstat_year=year, betstat_selected_ids=[], betstat_mode="all")
+  await callback.message.edit_text(
     Text.user.BETTING_STAT_MODE.value,
     reply_markup=betting_stat_mode_keyboard(),
   )
+  await callback.answer()
 
 
 @router.callback_query(F.data.startswith("betstatmode:"))
@@ -781,19 +860,53 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
     return
   data = await state.get_data()
   selected_ids: list[int] = data.get("betstat_selected_ids", [])
+  if not selected_ids:
+    await callback.answer("Выбери хотя бы один показатель.", show_alert=True)
+    return
   mode = data.get("betstat_mode", "all")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
     if mode != "all":
       indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
+  await callback.message.edit_text(
+    "Выбери показатель сортировки:",
+    reply_markup=stat_sort_keyboard(prefix="betstatsort", indicators=selected, selected_ids=selected_ids),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("betstatsort:"))
+async def betting_stat_sort_selected(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  indicator_id = int(callback.data.split(":", 1)[1])
+  data = await state.get_data()
+  selected_ids: list[int] = data.get("betstat_selected_ids", [])
+  mode = data.get("betstat_mode", "all")
+  selected_year = data.get("betstat_year")
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+    if mode != "all":
+      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
+    sort_indicator = next((item for item in selected if int(item.row_id) == indicator_id), None)
+    sort_pic = sort_indicator.pic if sort_indicator is not None else None
     report = await StatUseCases(
       bet_repository=BetRepository(session),
       achievement_repository=AchievementRepository(session),
       bet_tournament_repository=BetTournamentRepository(session),
       bet_tournament_param_repository=BetTournamentParamRepository(session),
       poker_repository=PokerRepository(session),
-    ).get_betting_stat(indicators=selected, mode=mode)
+    ).get_betting_stat(
+      indicators=selected,
+      mode=mode,
+      year=int(selected_year) if selected_year is not None else None,
+      sort_pic=sort_pic,
+    )
   await callback.message.answer(Text.user.BETTING_STAT_REPORT.value.format(report=report))
   await callback.answer()
 
