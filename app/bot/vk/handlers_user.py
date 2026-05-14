@@ -1,5 +1,5 @@
 from fastapi.responses import PlainTextResponse
-from datetime import datetime
+from datetime import date, datetime
 
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
@@ -34,6 +34,7 @@ from app.bot.vk.keyboards import (
   poker_stat_indicators_keyboard,
   stat_year_keyboard,
   stat_sort_keyboard,
+  poll_month_keyboard,
   main_keyboard,
   main_admin_entry_keyboard,
   new_user_keyboard,
@@ -68,12 +69,65 @@ from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 STAT_SNACKBAR = "Обновлено"
+
+
+def _month_bounds(month: date) -> tuple[date, date]:
+  first = date(month.year, month.month, 1)
+  if month.month == 12:
+    nxt = date(month.year + 1, 1, 1)
+  else:
+    nxt = date(month.year, month.month + 1, 1)
+  return first, (nxt.fromordinal(nxt.toordinal() - 1))
+
+
+def _shift_month(month: date, delta: int) -> date:
+  total = month.year * 12 + (month.month - 1) + delta
+  year = total // 12
+  mon = total % 12 + 1
+  return date(year, mon, 1)
+
+
+def _parse_month_key(value: str | None) -> date:
+  if not value:
+    today = date.today()
+    return date(today.year, today.month, 1)
+  year_s, mon_s = str(value).split("-")
+  return date(int(year_s), int(mon_s), 1)
+
+
+def _parse_iso_dates(values: str | None) -> list[date]:
+  if not values:
+    return []
+  result: list[date] = []
+  for item in str(values).split("|"):
+    if not item:
+      continue
+    try:
+      result.append(date.fromisoformat(item))
+    except Exception:
+      continue
+  return sorted(set(result))
+
+
+def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
+  lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
+  if selected_dates:
+    lines.append("Твои даты: " + ", ".join(str(item.day) for item in selected_dates))
+  else:
+    lines.append("Твои даты: не выбраны")
+  if month_counts:
+    lines.append("")
+    lines.append("Общий итог:")
+    for day, count in month_counts:
+      lines.append(f"{day.day:02d}.{day.month:02d}: {count}")
+  return "\n".join(lines)
 
 
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
@@ -311,6 +365,118 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
   callback_payload = event_object.get("payload") or {}
   action = callback_payload.get("action")
   if not user_id or not peer_id or not event_id:
+    return PlainTextResponse("ok")
+
+  if action == "poll_noop":
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    return PlainTextResponse("ok")
+
+  if action == "poll_month":
+    month_key = callback_payload.get("month")
+    direction = callback_payload.get("dir")
+    if not isinstance(month_key, str) or direction not in {"prev", "next"}:
+      return PlainTextResponse("ok")
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    month = _parse_month_key(month_key)
+    month = _shift_month(month, -1 if direction == "prev" else 1)
+    selected = _parse_iso_dates(ctx.get("poll_selected"))
+    ctx["poll_month"] = f"{month.year}-{month.month:02d}"
+    ctx["poll_page"] = "0"
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.POLL_CHOOSE_DATES.value,
+      keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected),
+    )
+    return PlainTextResponse("ok")
+
+  if action == "poll_page":
+    month_key = callback_payload.get("month")
+    page = callback_payload.get("page")
+    if not isinstance(month_key, str) or not isinstance(page, int):
+      return PlainTextResponse("ok")
+    month = _parse_month_key(month_key)
+    days_in_month = _month_bounds(month)[1].day
+    max_page = max(0, (days_in_month - 1) // 9)
+    page = max(0, min(int(page), max_page))
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    selected = _parse_iso_dates(ctx.get("poll_selected"))
+    ctx["poll_month"] = month_key
+    ctx["poll_page"] = str(page)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.POLL_CHOOSE_DATES.value,
+      keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected),
+    )
+    return PlainTextResponse("ok")
+
+  if action == "poll_day":
+    day_iso = callback_payload.get("date")
+    page = callback_payload.get("page")
+    if not isinstance(day_iso, str) or not isinstance(page, int):
+      return PlainTextResponse("ok")
+    try:
+      day = date.fromisoformat(day_iso)
+    except Exception:
+      return PlainTextResponse("ok")
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    selected = set(item.isoformat() for item in _parse_iso_dates(ctx.get("poll_selected")))
+    if day_iso in selected:
+      selected.remove(day_iso)
+    else:
+      selected.add(day_iso)
+    selected_dates = _parse_iso_dates("|".join(sorted(selected)))
+    month = date(day.year, day.month, 1)
+    ctx["poll_month"] = f"{day.year}-{day.month:02d}"
+    ctx["poll_page"] = str(page)
+    ctx["poll_selected"] = "|".join(item.isoformat() for item in selected_dates)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.POLL_CHOOSE_DATES.value,
+      keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected_dates),
+    )
+    return PlainTextResponse("ok")
+
+  if action == "poll_done":
+    user = await _get_vk_user(user_id)
+    if user is None or not user.is_approved:
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STATUS_NEED_REGISTRATION.value)
+      return PlainTextResponse("ok")
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    month = _parse_month_key(ctx.get("poll_month"))
+    month_start, month_end = _month_bounds(month)
+    selected = [item for item in _parse_iso_dates(ctx.get("poll_selected")) if month_start <= item <= month_end]
+    async with SessionFactory() as session:
+      repository = PollVoteRepository(session)
+      await repository.replace_user_month_votes(
+        player_row_id=int(user.row_id),
+        month_start=month_start,
+        month_end=month_end,
+        selected_dates=selected,
+      )
+      month_counts = await repository.get_month_counts(month_start=month_start, month_end=month_end)
+      await session.commit()
+    ctx.pop("poll_month", None)
+    ctx.pop("poll_page", None)
+    ctx.pop("poll_selected", None)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=user_id, message=_format_poll_summary(month=month, selected_dates=selected, month_counts=month_counts))
+    return PlainTextResponse("ok")
+
+  if action == "poll_cancel":
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    ctx.pop("poll_month", None)
+    ctx.pop("poll_page", None)
+    ctx.pop("poll_selected", None)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=user_id, message=Text.user.POLL_CANCELED.value)
     return PlainTextResponse("ok")
 
   if action == "registration_existing":
@@ -1526,6 +1692,33 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value, keyboard=room_keyboard)
       return PlainTextResponse("ok")
     await send_vk_message(user_id=user_id, message="Покер админ панель.", keyboard=admin_room_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.poker.POLL.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    month = date.today().replace(day=1)
+    month_start, month_end = _month_bounds(month)
+    async with SessionFactory() as session:
+      selected = await PollVoteRepository(session).get_user_month_votes(
+        player_row_id=int(user.row_id),
+        month_start=month_start,
+        month_end=month_end,
+      )
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    ctx["poll_month"] = f"{month.year}-{month.month:02d}"
+    ctx["poll_page"] = "0"
+    ctx["poll_selected"] = "|".join(item.isoformat() for item in selected)
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.POLL_CHOOSE_DATES.value,
+      keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected),
+    )
     return PlainTextResponse("ok")
 
   if text == Buttons.room.STATUS.value:

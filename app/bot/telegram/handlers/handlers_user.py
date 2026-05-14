@@ -1,3 +1,5 @@
+from datetime import date
+
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
@@ -36,6 +38,7 @@ from app.bot.telegram.keyboards import (
   poker_stat_indicators_keyboard,
   stat_year_keyboard,
   stat_sort_keyboard,
+  poll_month_keyboard,
   played_before_keyboard,
   registration_candidates_keyboard,
   registration_candidates_page_keyboard,
@@ -61,12 +64,63 @@ from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 router = Router()
+
+
+def _month_bounds(month: date) -> tuple[date, date]:
+  first = date(month.year, month.month, 1)
+  if month.month == 12:
+    nxt = date(month.year + 1, 1, 1)
+  else:
+    nxt = date(month.year, month.month + 1, 1)
+  return first, (nxt.fromordinal(nxt.toordinal() - 1))
+
+
+def _shift_month(month: date, delta: int) -> date:
+  total = month.year * 12 + (month.month - 1) + delta
+  year = total // 12
+  mon = total % 12 + 1
+  return date(year, mon, 1)
+
+
+def _parse_month_key(value: str | None) -> date:
+  if not value:
+    today = date.today()
+    return date(today.year, today.month, 1)
+  year_s, mon_s = str(value).split("-")
+  return date(int(year_s), int(mon_s), 1)
+
+
+def _parse_iso_dates(values: list[str] | None) -> list[date]:
+  if not values:
+    return []
+  result: list[date] = []
+  for item in values:
+    try:
+      result.append(date.fromisoformat(str(item)))
+    except Exception:
+      continue
+  return sorted(set(result))
+
+
+def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
+  lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
+  if selected_dates:
+    lines.append("Твои даты: " + ", ".join(str(item.day) for item in selected_dates))
+  else:
+    lines.append("Твои даты: не выбраны")
+  if month_counts:
+    lines.append("")
+    lines.append("Общий итог:")
+    for day, count in month_counts:
+      lines.append(f"{day.day:02d}.{day.month:02d}: {count}")
+  return "\n".join(lines)
 
 
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
@@ -466,6 +520,143 @@ async def open_room_admin_panel(message: Message) -> None:
     await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=room_keyboard)
     return
   await message.answer("Покер админ панель.", reply_markup=admin_room_keyboard)
+
+
+@router.message(F.text == Buttons.poker.POLL.value)
+async def start_room_poll(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return
+
+  month = date.today().replace(day=1)
+  month_start, month_end = _month_bounds(month)
+  async with SessionFactory() as session:
+    selected = await PollVoteRepository(session).get_user_month_votes(
+      player_row_id=int(user.row_id),
+      month_start=month_start,
+      month_end=month_end,
+    )
+  await state.update_data(
+    poll_month=f"{month.year}-{month.month:02d}",
+    poll_page=0,
+    poll_selected=[item.isoformat() for item in selected],
+  )
+  await message.answer(
+    Text.user.POLL_CHOOSE_DATES.value,
+    reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected),
+  )
+
+
+@router.callback_query(F.data == "poll_noop")
+async def poll_noop(callback: CallbackQuery) -> None:
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("poll_month:"))
+async def poll_month_nav(callback: CallbackQuery, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  _, month_key, _, direction = str(callback.data).split(":")
+  month = _parse_month_key(month_key)
+  month = _shift_month(month, -1 if direction == "prev" else 1)
+  data = await state.get_data()
+  selected = _parse_iso_dates(data.get("poll_selected", []))
+  await state.update_data(poll_month=f"{month.year}-{month.month:02d}", poll_page=0)
+  if callback.message is not None:
+    await callback.message.edit_reply_markup(
+      reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected),
+    )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("poll_page:"))
+async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  _, month_key, page_s = str(callback.data).split(":")
+  month = _parse_month_key(month_key)
+  days_in_month = _month_bounds(month)[1].day
+  max_page = max(0, (days_in_month - 1) // 9)
+  page = max(0, min(int(page_s), max_page))
+  data = await state.get_data()
+  selected = _parse_iso_dates(data.get("poll_selected", []))
+  await state.update_data(poll_month=f"{month.year}-{month.month:02d}", poll_page=page)
+  if callback.message is not None:
+    await callback.message.edit_reply_markup(
+      reply_markup=poll_month_keyboard(month=month, page=page, selected_dates=selected),
+    )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("poll_day:"))
+async def poll_day_toggle(callback: CallbackQuery, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  _, day_iso, page_s = str(callback.data).split(":")
+  day = date.fromisoformat(day_iso)
+  data = await state.get_data()
+  selected_set = set(data.get("poll_selected", []))
+  if day_iso in selected_set:
+    selected_set.remove(day_iso)
+  else:
+    selected_set.add(day_iso)
+  selected = _parse_iso_dates(list(selected_set))
+  await state.update_data(
+    poll_month=f"{day.year}-{day.month:02d}",
+    poll_page=int(page_s),
+    poll_selected=[item.isoformat() for item in selected],
+  )
+  if callback.message is not None:
+    await callback.message.edit_reply_markup(
+      reply_markup=poll_month_keyboard(month=date(day.year, day.month, 1), page=int(page_s), selected_dates=selected),
+    )
+  await callback.answer()
+
+
+@router.callback_query(F.data == "poll_done")
+async def poll_done(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.from_user is None:
+    await callback.answer()
+    return
+  user = await _get_telegram_user(callback.from_user.id)
+  if user is None or not user.is_approved:
+    await callback.answer(Text.user.STATUS_NEED_REGISTRATION.value, show_alert=True)
+    return
+  data = await state.get_data()
+  month = _parse_month_key(data.get("poll_month"))
+  month_start, month_end = _month_bounds(month)
+  selected = [item for item in _parse_iso_dates(data.get("poll_selected", [])) if month_start <= item <= month_end]
+  async with SessionFactory() as session:
+    repository = PollVoteRepository(session)
+    await repository.replace_user_month_votes(
+      player_row_id=int(user.row_id),
+      month_start=month_start,
+      month_end=month_end,
+      selected_dates=selected,
+    )
+    month_counts = await repository.get_month_counts(month_start=month_start, month_end=month_end)
+    await session.commit()
+  await state.clear()
+  await _delete_message_if_possible(callback)
+  if callback.message is not None:
+    await callback.message.answer(_format_poll_summary(month=month, selected_dates=selected, month_counts=month_counts))
+  await callback.answer()
+
+
+@router.callback_query(F.data == "poll_cancel")
+async def poll_cancel(callback: CallbackQuery, state: FSMContext) -> None:
+  await state.clear()
+  await _delete_message_if_possible(callback)
+  if callback.message is not None:
+    await callback.message.answer(Text.user.POLL_CANCELED.value)
+  await callback.answer()
 
 
 @router.message(F.text == Buttons.main.BETTING.value)

@@ -109,9 +109,60 @@ class BetUseCases:
       loser_name=loser_name,
       is_paid=False,
     )
-    # Temporary: bank top-up is disabled until historical schema sync is finalized.
+    await self._add_bet_to_current_tournament_banks(
+      poker_date=poker.date,
+      params_id=int(params_id),
+      amount_kopecks=int(amount_kopecks),
+    )
     await self.bet_repository.session.commit()
     return created, "ok"
+
+  async def _add_bet_to_current_tournament_banks(
+    self,
+    *,
+    poker_date,
+    params_id: int,
+    amount_kopecks: int,
+  ) -> None:
+    if amount_kopecks <= 0:
+      return
+    tournaments = await self.bet_tournament_repository.list_active()
+    current = [
+      item for item in tournaments
+      if item.start_date is not None
+      and item.end_date is not None
+      and item.start_date <= poker_date <= item.end_date
+    ]
+    if not current:
+      return
+
+    if len(current) == 1:
+      current[0].current_bank_kopecks = int(current[0].current_bank_kopecks or 0) + int(amount_kopecks)
+      await self.bet_repository.session.flush()
+      return
+
+    params = await self.bet_param_repository.get_by_id(row_id=int(params_id))
+    regular_percent = int(params.percent_to_regular_bank_if_it_is_going or 0) if params is not None else 80
+    regular_percent = max(0, min(100, regular_percent))
+
+    regular_tournament = next((item for item in current if item.tournament_type == self.TOURNAMENT_REGULAR), None)
+    other_tournament = next((item for item in current if item.tournament_type != self.TOURNAMENT_REGULAR), None)
+
+    if regular_tournament is None or other_tournament is None:
+      # Fallback: split equally between all currently running tournaments.
+      base = int(amount_kopecks) // len(current)
+      remainder = int(amount_kopecks) - base * len(current)
+      for index, item in enumerate(current):
+        bonus = 1 if index < remainder else 0
+        item.current_bank_kopecks = int(item.current_bank_kopecks or 0) + base + bonus
+      await self.bet_repository.session.flush()
+      return
+
+    regular_amount = (int(amount_kopecks) * regular_percent) // 100
+    other_amount = int(amount_kopecks) - regular_amount
+    regular_tournament.current_bank_kopecks = int(regular_tournament.current_bank_kopecks or 0) + regular_amount
+    other_tournament.current_bank_kopecks = int(other_tournament.current_bank_kopecks or 0) + other_amount
+    await self.bet_repository.session.flush()
 
   async def get_bet_draft_data(self, *, better_id: int, tournament_type: str) -> tuple[BetParam | None, list[PokerData], str]:
     poker = await self.get_active_bettable_poker()

@@ -41,6 +41,9 @@ class UserText(Enum):
   STATUS_BUYINS = "🏦 Закупы: {buyins}"
   ROOM_JOINED = "Добро пожаловать в покер рум!"
   ROOM_ALREADY_JOINED = "Ты уже добавлен в покер рум."
+  POLL_CHOOSE_DATES = "Выбери даты на месяц и нажми '🚀 Готово'."
+  POLL_SAVED = "Опрос сохранен."
+  POLL_CANCELED = "Опрос отменен."
   MAIN_MENU = "Главное меню."
   BETTING_MENU = "Раздел ставок."
   BET_RULES = (

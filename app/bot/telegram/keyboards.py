@@ -22,6 +22,7 @@ betting_stat_mode_keyboard = InlineKbs.betting_stat_mode_tg
 poker_stat_indicators_keyboard = InlineKbs.poker_stat_indicators_tg
 stat_year_keyboard = InlineKbs.stat_year_tg
 stat_sort_keyboard = InlineKbs.stat_sort_tg
+poll_month_keyboard = InlineKbs.poll_month_tg
 registration_optional_details_keyboard = InlineKbs.registration_optional_details_tg
 registration_platform_keyboard = InlineKbs.registration_platform_tg
 registration_review_keyboard = InlineKbs.registration_review_tg
