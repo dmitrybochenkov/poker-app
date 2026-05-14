@@ -13,8 +13,21 @@ from app.db.models.user import User
 class InlineKbs:
   PAGE_SIZE = 5
   STAT_PAGE_SIZE = 4
-  POLL_PAGE_SIZE = 9
-  POLL_PAGE_SIZE_VK = 4
+  POLL_PAGE_SIZE = 6
+  POLL_PAGE_SIZE_VK = 6
+
+  @staticmethod
+  def _weekday_ru(value: date) -> str:
+    names = [
+      "понедельник",
+      "вторник",
+      "среда",
+      "четверг",
+      "пятница",
+      "суббота",
+      "воскресенье",
+    ]
+    return names[value.weekday()]
 
   @staticmethod
   def _format_rub_from_kopecks(value_kopecks: int) -> str:
@@ -1332,15 +1345,14 @@ class InlineKbs:
     for item in batch:
       mark = "✔ " if item.isoformat() in selected else ""
       keyboard.button(
-        text=f"{mark}{item.day}",
+        text=f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}",
         callback_data=f"poll_day:{item.isoformat()}:{page}",
       )
     keyboard.button(text="⬅️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page - 1}")
-    keyboard.button(text=f"{page + 1}/{max(1, (days_in_month + InlineKbs.POLL_PAGE_SIZE - 1) // InlineKbs.POLL_PAGE_SIZE)}", callback_data="poll_noop")
-    keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
     keyboard.button(text="🚀 Готово", callback_data="poll_done")
     keyboard.button(text="❌ Отмена", callback_data="poll_cancel")
-    keyboard.adjust(3, 3, 3, 3, 2)
+    keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
+    keyboard.adjust(2, 2, 2, 4)
     return keyboard.as_markup()
 
   @staticmethod
@@ -1365,7 +1377,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": f"{mark}{item.day}",
+              "label": f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}"[:40],
               "payload": {"action": "poll_day", "date": item.isoformat(), "page": page},
             },
             "color": "primary",
@@ -1373,7 +1385,6 @@ class InlineKbs:
         )
       rows.append(row)
 
-    total_pages = max(1, (days_in_month + InlineKbs.POLL_PAGE_SIZE_VK - 1) // InlineKbs.POLL_PAGE_SIZE_VK)
     rows.append(
       [
         {
@@ -1385,8 +1396,12 @@ class InlineKbs:
           "color": "secondary",
         },
         {
-          "action": {"type": "callback", "label": f"{page + 1}/{total_pages}", "payload": {"action": "poll_noop"}},
-          "color": "secondary",
+          "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "poll_done"}},
+          "color": "positive",
+        },
+        {
+          "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "poll_cancel"}},
+          "color": "negative",
         },
         {
           "action": {
@@ -1395,18 +1410,6 @@ class InlineKbs:
             "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1},
           },
           "color": "secondary",
-        },
-      ]
-    )
-    rows.append(
-      [
-        {
-          "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "poll_done"}},
-          "color": "positive",
-        },
-        {
-          "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "poll_cancel"}},
-          "color": "negative",
         },
       ]
     )

@@ -559,7 +559,7 @@ async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
   _, month_key, page_s = str(callback.data).split(":")
   month = _parse_month_key(month_key)
   days_in_month = _month_bounds(month)[1].day
-  max_page = max(0, (days_in_month - 1) // 9)
+  max_page = max(0, (days_in_month - 1) // 6)
   page = max(0, min(int(page_s), max_page))
   data = await state.get_data()
   selected = _parse_iso_dates(data.get("poll_selected", []))

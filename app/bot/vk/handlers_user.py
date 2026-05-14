@@ -382,7 +382,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       return PlainTextResponse("ok")
     month = _parse_month_key(month_key)
     days_in_month = _month_bounds(month)[1].day
-    max_page = max(0, (days_in_month - 1) // 4)
+    max_page = max(0, (days_in_month - 1) // 6)
     page = max(0, min(int(page), max_page))
     ctx = vk_user_contexts.setdefault(user_id, {})
     selected = _parse_iso_dates(ctx.get("poll_selected"))
