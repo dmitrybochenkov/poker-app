@@ -54,15 +54,25 @@ def _is_emoji_char(ch: str) -> bool:
 
 
 def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont, emoji_font: ImageFont.ImageFont) -> int:
+  text_bbox = draw.textbbox((0, 0), "M", font=text_font)
+  target_emoji_height = max(16, text_bbox[3] - text_bbox[1])
   width = 0
   for ch in text:
-    font = emoji_font if _is_emoji_char(ch) else text_font
-    bbox = draw.textbbox((0, 0), ch, font=font)
+    if _is_emoji_char(ch):
+      bbox = draw.textbbox((0, 0), ch, font=emoji_font)
+      glyph_w = max(1, bbox[2] - bbox[0])
+      glyph_h = max(1, bbox[3] - bbox[1])
+      if glyph_h > int(target_emoji_height * 1.35):
+        glyph_w = max(1, int(round(glyph_w * (target_emoji_height / glyph_h))))
+      width += glyph_w
+      continue
+    bbox = draw.textbbox((0, 0), ch, font=text_font)
     width += bbox[2] - bbox[0]
   return width
 
 
 def _draw_line(
+  image: Image.Image,
   draw: ImageDraw.ImageDraw,
   *,
   x: int,
@@ -72,11 +82,26 @@ def _draw_line(
   text_font: ImageFont.ImageFont,
   emoji_font: ImageFont.ImageFont,
 ) -> None:
+  text_bbox = draw.textbbox((0, 0), "M", font=text_font)
+  target_emoji_height = max(16, text_bbox[3] - text_bbox[1])
   cursor_x = x
   for ch in text:
     is_emoji = _is_emoji_char(ch)
     font = emoji_font if is_emoji else text_font
     if is_emoji:
+      bbox = draw.textbbox((0, 0), ch, font=font)
+      glyph_w = max(1, bbox[2] - bbox[0])
+      glyph_h = max(1, bbox[3] - bbox[1])
+      if glyph_h > int(target_emoji_height * 1.35):
+        # Render large color-emoji glyph to temp image and scale down to text row height.
+        temp = Image.new("RGBA", (glyph_w, glyph_h), (255, 255, 255, 0))
+        temp_draw = ImageDraw.Draw(temp)
+        temp_draw.text((-bbox[0], -bbox[1]), ch, font=font, embedded_color=True)
+        scaled_w = max(1, int(round(glyph_w * (target_emoji_height / glyph_h))))
+        resized = temp.resize((scaled_w, target_emoji_height), Image.Resampling.LANCZOS)
+        image.paste(resized, (cursor_x, y), resized)
+        cursor_x += scaled_w
+        continue
       draw.text((cursor_x, y), ch, font=font, embedded_color=True)
     else:
       draw.text((cursor_x, y), ch, font=font, fill=fill)
@@ -123,11 +148,11 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
 
   image = Image.new("RGBA", (width, height), "#ffffff")
   draw = ImageDraw.Draw(image)
-  _draw_line(draw, x=left_pad, y=top_pad, text=title, fill="#1f2937", text_font=title_font, emoji_font=title_emoji_font)
+  _draw_line(image, draw, x=left_pad, y=top_pad, text=title, fill="#1f2937", text_font=title_font, emoji_font=title_emoji_font)
 
   y = top_pad + title_height + section_gap
   for i, line in enumerate(lines):
-    _draw_line(draw, x=left_pad, y=y, text=line, fill="#111827", text_font=body_font, emoji_font=emoji_font)
+    _draw_line(image, draw, x=left_pad, y=y, text=line, fill="#111827", text_font=body_font, emoji_font=emoji_font)
     y += line_heights[i] + line_gap
 
   output = BytesIO()
