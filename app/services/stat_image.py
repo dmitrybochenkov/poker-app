@@ -104,7 +104,7 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
     max_line_width = max(max_line_width, w)
     line_heights.append(h)
 
-  width = max(900, left_pad + max(title_width, max_line_width) + right_pad)
+  width = max(480, left_pad + max(title_width, max_line_width) + right_pad)
   height = top_pad + title_height + section_gap
   height += sum(line_heights) + line_gap * max(0, len(line_heights) - 1)
   height += bottom_pad
