@@ -985,18 +985,19 @@ class InlineKbs:
     end = start + InlineKbs.PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✅ " if int(indicator.row_id) in selected else ""
+      mark = "✔ " if int(indicator.row_id) in selected else ""
       keyboard.button(text=f"{mark}{indicator.pic} {indicator.description}"[:64], callback_data=f"betstat_toggle:{indicator.row_id}:{page}")
     if page > 0:
       keyboard.button(text="⬅️", callback_data=f"betstat_page:{page - 1}")
     if end < len(indicators):
       keyboard.button(text="➡️", callback_data=f"betstat_page:{page + 1}")
-    keyboard.button(text="✅ Готово", callback_data="betstat_done")
+    keyboard.button(text="🚀 Готово", callback_data="betstat_done")
+    keyboard.button(text="❌ Отмена", callback_data="betstat_cancel")
     sizes = [1] * len(batch)
     nav_count = int(page > 0) + int(end < len(indicators))
     if nav_count:
       sizes.append(nav_count)
-    sizes.append(1)
+    sizes.append(2)
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
@@ -1008,7 +1009,7 @@ class InlineKbs:
     end = start + InlineKbs.PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✅ " if int(indicator.row_id) in selected else ""
+      mark = "✔ " if int(indicator.row_id) in selected else ""
       rows.append([
         {
           "action": {
@@ -1032,10 +1033,16 @@ class InlineKbs:
       })
     if nav_row:
       rows.append(nav_row)
-    rows.append([{
-      "action": {"type": "callback", "label": "✅ Готово", "payload": {"action": "betstat_done"}},
-      "color": "positive",
-    }])
+    rows.append([
+      {
+        "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "betstat_done"}},
+        "color": "positive",
+      },
+      {
+        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "betstat_cancel"}},
+        "color": "negative",
+      },
+    ])
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
@@ -1074,18 +1081,19 @@ class InlineKbs:
     end = start + InlineKbs.PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✅ " if int(indicator.row_id) in selected else ""
+      mark = "✔ " if int(indicator.row_id) in selected else ""
       keyboard.button(text=f"{mark}{indicator.pic} {indicator.description}"[:64], callback_data=f"pokerstat_toggle:{indicator.row_id}:{page}")
     if page > 0:
       keyboard.button(text="⬅️", callback_data=f"pokerstat_page:{page - 1}")
     if end < len(indicators):
       keyboard.button(text="➡️", callback_data=f"pokerstat_page:{page + 1}")
-    keyboard.button(text="✅ Готово", callback_data="pokerstat_done")
+    keyboard.button(text="🚀 Готово", callback_data="pokerstat_done")
+    keyboard.button(text="❌ Отмена", callback_data="pokerstat_cancel")
     sizes = [1] * len(batch)
     nav_count = int(page > 0) + int(end < len(indicators))
     if nav_count:
       sizes.append(nav_count)
-    sizes.append(1)
+    sizes.append(2)
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
@@ -1097,7 +1105,7 @@ class InlineKbs:
     end = start + InlineKbs.PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✅ " if int(indicator.row_id) in selected else ""
+      mark = "✔ " if int(indicator.row_id) in selected else ""
       rows.append([
         {
           "action": {
@@ -1121,63 +1129,165 @@ class InlineKbs:
       })
     if nav_row:
       rows.append(nav_row)
-    rows.append([{
-      "action": {"type": "callback", "label": "✅ Готово", "payload": {"action": "pokerstat_done"}},
-      "color": "positive",
-    }])
+    rows.append([
+      {
+        "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "pokerstat_done"}},
+        "color": "positive",
+      },
+      {
+        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "pokerstat_cancel"}},
+        "color": "negative",
+      },
+    ])
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
-  def stat_year_tg(*, prefix: str, years: list[int]) -> InlineKeyboardMarkup:
+  def stat_year_tg(
+    *,
+    prefix: str,
+    years: list[int],
+    selected_year: int | None = None,
+    page: int = 0,
+  ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
-    for year in years:
-      keyboard.button(text=str(year), callback_data=f"{prefix}:{year}")
-    keyboard.adjust(2)
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = years[start:end]
+    for year in batch:
+      mark = "✔ " if selected_year is not None and int(selected_year) == int(year) else ""
+      keyboard.button(text=f"{mark}{year}", callback_data=f"{prefix}_toggle:{year}:{page}")
+    if page > 0:
+      keyboard.button(text="⬅️", callback_data=f"{prefix}_page:{page - 1}")
+    if end < len(years):
+      keyboard.button(text="➡️", callback_data=f"{prefix}_page:{page + 1}")
+    keyboard.button(text="🚀 Готово", callback_data=f"{prefix}_done")
+    keyboard.button(text="❌ Отмена", callback_data=f"{prefix}_cancel")
+    sizes = [1] * len(batch)
+    nav_count = int(page > 0) + int(end < len(years))
+    if nav_count:
+      sizes.append(nav_count)
+    sizes.append(2)
+    keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
   @staticmethod
-  def stat_year_vk(*, action: str, years: list[int]) -> str:
+  def stat_year_vk(
+    *,
+    action: str,
+    years: list[int],
+    selected_year: int | None = None,
+    page: int = 0,
+  ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
-    for year in years:
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = years[start:end]
+    for year in batch:
+      mark = "✔ " if selected_year is not None and int(selected_year) == int(year) else ""
       rows.append([
         {
-          "action": {"type": "callback", "label": str(year), "payload": {"action": action, "year": int(year)}},
+          "action": {"type": "callback", "label": f"{mark}{year}", "payload": {"action": f"{action}_toggle", "year": int(year), "page": page}},
           "color": "primary",
         }
       ])
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
+    if page > 0:
+      nav_row.append({"action": {"type": "callback", "label": "⬅️", "payload": {"action": f"{action}_page", "page": page - 1}}, "color": "secondary"})
+    if end < len(years):
+      nav_row.append({"action": {"type": "callback", "label": "➡️", "payload": {"action": f"{action}_page", "page": page + 1}}, "color": "secondary"})
+    if nav_row:
+      rows.append(nav_row)
+    rows.append([
+      {"action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": f"{action}_done"}}, "color": "positive"},
+      {"action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": f"{action}_cancel"}}, "color": "negative"},
+    ])
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
-  def stat_sort_tg(*, prefix: str, indicators: list, selected_ids: list[int]) -> InlineKeyboardMarkup:
+  def stat_sort_tg(
+    *,
+    prefix: str,
+    indicators: list,
+    selected_ids: list[int],
+    selected_sort_id: int | None = None,
+    page: int = 0,
+  ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = {int(x) for x in selected_ids}
-    for indicator in indicators:
-      if int(indicator.row_id) not in selected:
-        continue
+    filtered = [indicator for indicator in indicators if int(indicator.row_id) in selected]
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = filtered[start:end]
+    for indicator in batch:
+      mark = "✔ " if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
       keyboard.button(
-        text=f"{indicator.pic} {indicator.description}"[:64],
-        callback_data=f"{prefix}:{int(indicator.row_id)}",
+        text=f"{mark}{indicator.pic} {indicator.description}"[:64],
+        callback_data=f"{prefix}_toggle:{int(indicator.row_id)}:{page}",
       )
-    keyboard.adjust(1)
+    if page > 0:
+      keyboard.button(text="⬅️", callback_data=f"{prefix}_page:{page - 1}")
+    if end < len(filtered):
+      keyboard.button(text="➡️", callback_data=f"{prefix}_page:{page + 1}")
+    keyboard.button(text="🚀 Готово", callback_data=f"{prefix}_done")
+    keyboard.button(text="❌ Отмена", callback_data=f"{prefix}_cancel")
+    sizes = [1] * len(batch)
+    nav_count = int(page > 0) + int(end < len(filtered))
+    if nav_count:
+      sizes.append(nav_count)
+    sizes.append(2)
+    keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
   @staticmethod
-  def stat_sort_vk(*, action: str, indicators: list, selected_ids: list[int]) -> str:
+  def stat_sort_vk(
+    *,
+    action: str,
+    indicators: list,
+    selected_ids: list[int],
+    selected_sort_id: int | None = None,
+    page: int = 0,
+  ) -> str:
     selected = {int(x) for x in selected_ids}
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
-    for indicator in indicators:
-      if int(indicator.row_id) not in selected:
-        continue
+    filtered = [indicator for indicator in indicators if int(indicator.row_id) in selected]
+    start = page * InlineKbs.PAGE_SIZE
+    end = start + InlineKbs.PAGE_SIZE
+    batch = filtered[start:end]
+    for indicator in batch:
+      mark = "✔ " if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
       rows.append([
         {
           "action": {
             "type": "callback",
-            "label": f"{indicator.pic} {indicator.description}"[:40],
-            "payload": {"action": action, "indicator_id": int(indicator.row_id)},
+            "label": f"{mark}{indicator.pic} {indicator.description}"[:40],
+            "payload": {"action": action, "indicator_id": int(indicator.row_id), "page": page},
           },
           "color": "primary",
         }
       ])
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
+    if page > 0:
+      nav_row.append({
+        "action": {"type": "callback", "label": "⬅️", "payload": {"action": f"{action}_page", "page": page - 1}},
+        "color": "secondary",
+      })
+    if end < len(filtered):
+      nav_row.append({
+        "action": {"type": "callback", "label": "➡️", "payload": {"action": f"{action}_page", "page": page + 1}},
+        "color": "secondary",
+      })
+    if nav_row:
+      rows.append(nav_row)
+    rows.append([
+      {
+        "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": f"{action}_done"}},
+        "color": "positive",
+      },
+      {
+        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": f"{action}_cancel"}},
+        "color": "negative",
+      },
+    ])
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
