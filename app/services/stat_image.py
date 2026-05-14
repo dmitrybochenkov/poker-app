@@ -54,21 +54,9 @@ def _is_emoji_char(ch: str) -> bool:
 
 
 def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont, emoji_font: ImageFont.ImageFont) -> int:
-  text_bbox = draw.textbbox((0, 0), "M", font=text_font)
-  target_emoji_height = max(16, int(round((text_bbox[3] - text_bbox[1]) * 1.25)))
-  width = 0
-  for ch in text:
-    if _is_emoji_char(ch):
-      bbox = draw.textbbox((0, 0), ch, font=emoji_font)
-      glyph_w = max(1, bbox[2] - bbox[0])
-      glyph_h = max(1, bbox[3] - bbox[1])
-      if glyph_h > int(target_emoji_height * 1.35):
-        glyph_w = max(1, int(round(glyph_w * (target_emoji_height / glyph_h))))
-      width += glyph_w
-      continue
-    bbox = draw.textbbox((0, 0), ch, font=text_font)
-    width += bbox[2] - bbox[0]
-  return width
+  cell_bbox = draw.textbbox((0, 0), "M", font=text_font)
+  cell_w = max(1, cell_bbox[2] - cell_bbox[0])
+  return len(text) * cell_w
 
 
 def _line_height(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont) -> int:
@@ -91,7 +79,9 @@ def _draw_line(
   emoji_font: ImageFont.ImageFont,
 ) -> None:
   text_bbox = draw.textbbox((0, 0), "M", font=text_font)
+  cell_w = max(1, text_bbox[2] - text_bbox[0])
   target_emoji_height = max(16, int(round((text_bbox[3] - text_bbox[1]) * 1.25)))
+  line_h = _line_height(draw, text, text_font)
   cursor_x = x
   for ch in text:
     is_emoji = _is_emoji_char(ch)
@@ -107,14 +97,24 @@ def _draw_line(
         temp_draw.text((-bbox[0], -bbox[1]), ch, font=font, embedded_color=True)
         scaled_w = max(1, int(round(glyph_w * (target_emoji_height / glyph_h))))
         resized = temp.resize((scaled_w, target_emoji_height), Image.Resampling.LANCZOS)
-        image.paste(resized, (cursor_x, y), resized)
-        cursor_x += scaled_w
+        paste_x = cursor_x + max(0, (cell_w - scaled_w) // 2)
+        paste_y = y + max(0, (line_h - target_emoji_height) // 2)
+        image.paste(resized, (paste_x, paste_y), resized)
+        cursor_x += cell_w
         continue
-      draw.text((cursor_x, y), ch, font=font, embedded_color=True)
+      glyph_w = max(1, bbox[2] - bbox[0])
+      glyph_h = max(1, bbox[3] - bbox[1])
+      draw_x = cursor_x + max(0, (cell_w - glyph_w) // 2)
+      draw_y = y + max(0, (line_h - glyph_h) // 2)
+      draw.text((draw_x, draw_y), ch, font=font, embedded_color=True)
     else:
-      draw.text((cursor_x, y), ch, font=font, fill=fill)
-    bbox = draw.textbbox((0, 0), ch, font=font)
-    cursor_x += bbox[2] - bbox[0]
+      bbox = draw.textbbox((0, 0), ch, font=font)
+      glyph_w = max(1, bbox[2] - bbox[0])
+      glyph_h = max(1, bbox[3] - bbox[1])
+      draw_x = cursor_x + max(0, (cell_w - glyph_w) // 2)
+      draw_y = y + max(0, (line_h - glyph_h) // 2)
+      draw.text((draw_x, draw_y), ch, font=font, fill=fill)
+    cursor_x += cell_w
 
 
 def render_stat_table_png(*, title: str, report: str) -> bytes:
