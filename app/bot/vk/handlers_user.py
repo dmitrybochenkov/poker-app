@@ -72,6 +72,8 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
+STAT_SNACKBAR = "Обновлено"
+
 
 async def _notify_admins_about_room_join(
   *,
@@ -636,7 +638,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
     if mode != "all":
       indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_PARAMS.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -661,7 +663,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
     if mode != "all":
       indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_PARAMS.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -680,7 +682,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
     if mode != "all":
       indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_PARAMS.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     if not indicators:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_CURRENT_EMPTY.value)
@@ -719,7 +721,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         user_ctx["betstat_years"] = ",".join(str(x) for x in selected_years)
       user_ctx["betstat_selected_ids"] = ""
       user_ctx["betstat_mode"] = "all"
-      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_STAT_MODE.value)
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_STAT_MODE.value, keyboard=betting_stat_mode_keyboard())
       return PlainTextResponse("ok")
@@ -732,7 +734,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
       await send_vk_message(user_id=user_id, message=Text.user.STAT_EXPORT_CANCELED.value)
       return PlainTextResponse("ok")
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_YEAR.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -748,7 +750,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     selected_ids = [int(x) for x in vk_user_contexts.get(user_id, {}).get("pokerstat_selected_ids", "").split(",") if x]
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_PARAMS.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -770,7 +772,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     vk_user_contexts.setdefault(user_id, {})["pokerstat_selected_ids"] = ",".join(str(x) for x in sorted(selected))
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_PARAMS.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -800,7 +802,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
           bet_tournament_param_repository=BetTournamentParamRepository(session),
           poker_repository=PokerRepository(session),
         ).get_poker_stat(indicators=selected, years=selected_years, sort_pic=selected[0].pic)
-        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_STAT_REPORT.value)
+        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
         await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
         image_bytes = render_stat_table_png(title="Статистика покера", report=report)
         await send_vk_photo(
@@ -815,12 +817,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         vk_user_contexts.setdefault(user_id, {})["pokerstat_sort_id"] = ""
         return PlainTextResponse("ok")
     vk_user_contexts.setdefault(user_id, {})["pokerstat_sort_id"] = ""
-    await send_vk_message_event_answer(
-      event_id=event_id,
-      user_id=user_id,
-      peer_id=peer_id,
-      text=f"{Text.user.STAT_CHOOSE_SORT.value}\n{Text.user.STAT_CHOOSED_SORT_DEFAULT.value}",
-    )
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -837,12 +834,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
     sort_id_raw = vk_user_contexts.get(user_id, {}).get("pokerstat_sort_id")
     sort_id = int(sort_id_raw) if isinstance(sort_id_raw, str) and sort_id_raw.isdigit() else None
-    await send_vk_message_event_answer(
-      event_id=event_id,
-      user_id=user_id,
-      peer_id=peer_id,
-      text=f"{Text.user.STAT_CHOOSE_SORT.value}\n{Text.user.STAT_CHOOSED_SORT_DEFAULT.value}",
-    )
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -871,12 +863,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
-    await send_vk_message_event_answer(
-      event_id=event_id,
-      user_id=user_id,
-      peer_id=peer_id,
-      text=f"{Text.user.STAT_CHOOSE_SORT.value}\n{Text.user.STAT_CHOOSED_SORT_DEFAULT.value}",
-    )
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -909,7 +896,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         bet_tournament_param_repository=BetTournamentParamRepository(session),
         poker_repository=PokerRepository(session),
       ).get_poker_stat(indicators=selected, years=selected_years, sort_pic=sort_pic)
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.POKER_STAT_REPORT.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     image_bytes = render_stat_table_png(title="Статистика покера", report=report)
     await send_vk_photo(
@@ -960,7 +947,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       user_ctx["pokerstat_selected_ids"] = ""
       async with SessionFactory() as session:
         indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
-      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_PARAMS.value)
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
       await send_vk_message(
         user_id=user_id,
@@ -976,7 +963,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
       await send_vk_message(user_id=user_id, message=Text.user.STAT_EXPORT_CANCELED.value)
       return PlainTextResponse("ok")
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.STAT_CHOOSE_YEAR.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -1018,7 +1005,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
           bet_tournament_param_repository=BetTournamentParamRepository(session),
           poker_repository=PokerRepository(session),
         ).get_betting_stat(indicators=selected, mode=mode, years=selected_years, sort_pic=selected[0].pic)
-        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_STAT_REPORT.value)
+        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
         await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
         image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
         await send_vk_photo(
@@ -1033,12 +1020,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         vk_user_contexts.setdefault(user_id, {})["betstat_sort_id"] = ""
         return PlainTextResponse("ok")
     vk_user_contexts.setdefault(user_id, {})["betstat_sort_id"] = ""
-    await send_vk_message_event_answer(
-      event_id=event_id,
-      user_id=user_id,
-      peer_id=peer_id,
-      text=f"{Text.user.BET_STAT_CHOOSE_SORT.value}\n{Text.user.BET_STAT_CHOOSED_SORT_DEFAULT.value}",
-    )
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -1059,12 +1041,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
     sort_id_raw = user_ctx.get("betstat_sort_id")
     sort_id = int(sort_id_raw) if isinstance(sort_id_raw, str) and sort_id_raw.isdigit() else None
-    await send_vk_message_event_answer(
-      event_id=event_id,
-      user_id=user_id,
-      peer_id=peer_id,
-      text=f"{Text.user.BET_STAT_CHOOSE_SORT.value}\n{Text.user.BET_STAT_CHOOSED_SORT_DEFAULT.value}",
-    )
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -1096,12 +1073,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       if mode != "all":
         indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
-    await send_vk_message_event_answer(
-      event_id=event_id,
-      user_id=user_id,
-      peer_id=peer_id,
-      text=f"{Text.user.BET_STAT_CHOOSE_SORT.value}\n{Text.user.BET_STAT_CHOOSED_SORT_DEFAULT.value}",
-    )
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
@@ -1137,7 +1109,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         bet_tournament_param_repository=BetTournamentParamRepository(session),
         poker_repository=PokerRepository(session),
       ).get_betting_stat(indicators=selected, mode=mode, years=selected_years, sort_pic=sort_pic)
-    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_STAT_REPORT.value)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
     await send_vk_photo(
