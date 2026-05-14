@@ -197,6 +197,7 @@ class ReplyKbs:
         [
           Buttons.betting.MAKE_BET,
           Buttons.betting.CURRENT_TOURS,
+          Buttons.betting.BETTING_STAT,
           Buttons.betting.BETTING_INFO,
           Buttons.betting.TO_MAIN,
         ]
@@ -211,6 +212,7 @@ class ReplyKbs:
         [
           Buttons.betting.MAKE_BET,
           Buttons.betting.CURRENT_TOURS,
+          Buttons.betting.BETTING_STAT,
           Buttons.betting.BETTING_INFO,
           Buttons.betting.TO_MAIN,
         ]
