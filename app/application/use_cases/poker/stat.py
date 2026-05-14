@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from app.db.models.bet import Bet
 from app.db.models.poker_data import PokerData
@@ -12,6 +13,46 @@ from app.db.repositories.poker_repository import PokerRepository
 
 
 class StatUseCases:
+  @staticmethod
+  def _is_emoji_char(ch: str) -> bool:
+    code = ord(ch)
+    if 0x1F300 <= code <= 0x1FAFF:
+      return True
+    if 0x2600 <= code <= 0x27BF:
+      return True
+    return False
+
+  @classmethod
+  def _prettify_header(cls, header: str) -> str:
+    if header in {"👨", "🌟"}:
+      return header
+    chars = list(str(header))
+    if not chars:
+      return header
+    out: list[str] = []
+    for index, ch in enumerate(chars):
+      out.append(ch)
+      if index == len(chars) - 1:
+        continue
+      next_ch = chars[index + 1]
+      if ch == "\ufe0f" or next_ch == "\ufe0f":
+        continue
+      if ch == "\u200d" or next_ch == "\u200d":
+        continue
+      if unicodedata.combining(next_ch):
+        continue
+      if cls._is_emoji_char(ch) and cls._is_emoji_char(next_ch):
+        out.append(" ")
+    return "".join(out)
+
+  @staticmethod
+  def _prettify_achievement_cell(value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+      return ""
+    # Keep each achievement visible and non-overlapping in rendered image.
+    return " ".join(raw.split())
+
   def __init__(
     self,
     *,
@@ -217,16 +258,24 @@ class StatUseCases:
     has_ach = any(str(row.get("🌟", "")).strip() for row in rows)
     if has_ach and "🌟" not in headers:
       headers = headers + ["🌟"]
-    widths: dict[str, int] = {column: len(column) for column in headers}
+    display_headers: dict[str, str] = {
+      column: StatUseCases._prettify_header(column)
+      for column in headers
+    }
+    widths: dict[str, int] = {column: len(display_headers[column]) for column in headers}
     for row in rows:
       for column in headers:
-        widths[column] = max(widths[column], len(str(row.get(column, ""))))
+        cell_value = str(row.get(column, ""))
+        if column == "🌟":
+          cell_value = StatUseCases._prettify_achievement_cell(cell_value)
+          row[column] = cell_value
+        widths[column] = max(widths[column], len(cell_value))
 
     def fmt_line(values: list[str]) -> str:
       return " | ".join(value.ljust(widths[headers[idx]]) for idx, value in enumerate(values))
 
     lines = [
-      fmt_line(headers),
+      fmt_line([display_headers[column] for column in headers]),
       "-+-".join("-" * widths[column] for column in headers),
     ]
     for row in rows:
@@ -272,7 +321,8 @@ class StatUseCases:
           for row in rows:
             user = str(row.get("👨", ""))
             if all_time_win_streaks.get(user, 0) >= threshold:
-              row["🌟"] = f"{row.get('🌟', '')}{ach.pic}"
+              existing = str(row.get("🌟", "")).strip()
+              row["🌟"] = f"{existing} {ach.pic}".strip()
         continue
       ranked = sorted(
         rows,
@@ -284,7 +334,8 @@ class StatUseCases:
       best_value = float(ranked[0].get(metric_pic, 0))
       for item in ranked:
         if float(item.get(metric_pic, 0)) == best_value:
-          item["🌟"] = f"{item.get('🌟', '')}{ach.pic}"
+          existing = str(item.get("🌟", "")).strip()
+          item["🌟"] = f"{existing} {ach.pic}".strip()
         else:
           break
 
