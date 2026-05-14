@@ -273,8 +273,14 @@ class StatUseCases:
         key=lambda data: float(data.get(metric_pic, 0)),
         reverse=(ach.sort == "desc"),
       )
-      if ranked:
-        ranked[0]["🌟"] = f"{ranked[0].get('🌟', '')}{ach.pic}"
+      if not ranked:
+        continue
+      best_value = float(ranked[0].get(metric_pic, 0))
+      for item in ranked:
+        if float(item.get(metric_pic, 0)) == best_value:
+          item["🌟"] = f"{item.get('🌟', '')}{ach.pic}"
+        else:
+          break
 
     # Streak precedence: if user has 🦾, do not show weaker 💪.
     for row in rows:

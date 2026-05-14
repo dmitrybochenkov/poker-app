@@ -97,7 +97,7 @@ def _draw_line(
         temp_draw.text((-bbox[0], -bbox[1]), ch, font=font, embedded_color=True)
         scaled_w = max(1, int(round(glyph_w * (target_emoji_height / glyph_h))))
         # Do not let emoji overflow into neighbouring cell.
-        max_cell_w = max(1, int(round(cell_w * 0.95)))
+        max_cell_w = max(1, int(round(cell_w * 1.25)))
         if scaled_w > max_cell_w:
           scaled_w = max_cell_w
         resized = temp.resize((scaled_w, target_emoji_height), Image.Resampling.LANCZOS)
@@ -111,7 +111,7 @@ def _draw_line(
         temp = Image.new("RGBA", (glyph_w, glyph_h), (255, 255, 255, 0))
         temp_draw = ImageDraw.Draw(temp)
         temp_draw.text((-bbox[0], -bbox[1]), ch, font=font, embedded_color=True)
-        max_cell_w = max(1, int(round(cell_w * 0.95)))
+        max_cell_w = max(1, int(round(cell_w * 1.25)))
         scale = min(max_cell_w / glyph_w, target_emoji_height / glyph_h)
         scaled_w = max(1, int(round(glyph_w * scale)))
         scaled_h = max(1, int(round(glyph_h * scale)))
