@@ -155,7 +155,7 @@ def _draw_line(
 
 
 def render_stat_table_png(*, title: str, report: str) -> bytes:
-  lines = [line.rstrip("\n") for line in report.splitlines() if line.strip() != ""]
+  lines = [line.rstrip("\n") for line in report.splitlines()]
   if not lines:
     lines = ["Нет данных"]
 
@@ -180,6 +180,10 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
   line_heights: list[int] = []
   max_line_width = 0
   for line in lines:
+    if line == "":
+      h = max(8, int(round(_line_height(draw, "M", body_font) * 0.75)))
+      line_heights.append(h)
+      continue
     w = _line_width(draw, line, body_font, emoji_font)
     h = _line_height(draw, line, body_font)
     max_line_width = max(max_line_width, w)
@@ -196,7 +200,8 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
 
   y = top_pad + title_height + section_gap
   for i, line in enumerate(lines):
-    _draw_line(image, draw, x=left_pad, y=y, text=line, fill="#111827", text_font=body_font, emoji_font=emoji_font)
+    if line != "":
+      _draw_line(image, draw, x=left_pad, y=y, text=line, fill="#111827", text_font=body_font, emoji_font=emoji_font)
     y += line_heights[i] + line_gap
 
   output = BytesIO()

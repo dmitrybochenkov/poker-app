@@ -94,6 +94,41 @@ def _strip_html_tags(text: str) -> str:
   return text.replace("<b>", "").replace("</b>", "")
 
 
+def _split_names(value: str | None) -> set[str]:
+  if not value:
+    return set()
+  return {item.strip() for item in str(value).split(",") if item.strip()}
+
+
+async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[dict[str, str], str, str]:
+  poker_rows = await PokerRepository(session).list_all()
+  poker_rows = [p for p in poker_rows if p.date is not None]
+  poker_rows.sort(key=lambda p: p.date)
+  winners_by_date = {p.date: _split_names(p.winners) for p in poker_rows}
+  losers_by_date = {p.date: _split_names(p.loosers) for p in poker_rows}
+
+  def player_marks(player_name: str) -> str:
+    player_dates = sorted({
+      p.date for p in poker_rows
+      if player_name in winners_by_date.get(p.date, set()) or player_name in losers_by_date.get(p.date, set())
+    })[-5:]
+    marks: list[str] = []
+    for d in player_dates:
+      if player_name in winners_by_date.get(d, set()):
+        marks.append(" 🟢")
+      elif player_name in losers_by_date.get(d, set()):
+        marks.append(" 🔴")
+      else:
+        marks.append(" ⚪")
+    return "".join(marks)
+
+  marks_map = {name: player_marks(name) for name in players}
+  last_five_games = poker_rows[-5:]
+  winners_text = "\n".join(str(p.winners or "-") for p in last_five_games)
+  losers_text = "\n".join(str(p.loosers or "-") for p in last_five_games)
+  return marks_map, winners_text, losers_text
+
+
 async def _notify_admins_about_room_join(
   *,
   session,
@@ -517,13 +552,18 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     if not players:
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      marks_map, winners_text, losers_text = await _build_bet_last_five_hints(session=session, players=players)
     context["bet_amount_kopecks"] = str(amount_kopecks)
+    context["bet_player_marks"] = marks_map
+    context["bet_last_winners_text"] = winners_text
+    context["bet_last_losers_text"] = losers_text
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_WINNER_CHOOSE.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.BETTING_WINNER_CHOOSE.value,
-      keyboard=betting_player_keyboard(action="winner", players=players),
+      message=f"💍 Последние победители:\n{winners_text}\n\n{Text.user.BETTING_WINNER_CHOOSE.value}",
+      keyboard=betting_player_keyboard(action="winner", players=players, player_marks=marks_map),
     )
     return PlainTextResponse("ok")
 
@@ -541,16 +581,19 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       return PlainTextResponse("ok")
     context["bet_winner_name"] = winner_name
     better_name = context.get("bet_better_name")
+    marks_map = context.get("bet_player_marks", {})
+    losers_text = context.get("bet_last_losers_text", "")
     losers = [p for p in players if p != winner_name and p != better_name]
     if not losers:
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.REGISTRATION_READ_ERROR.value)
       return PlainTextResponse("ok")
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_LOSER_CHOOSE.value)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    loser_marks = {name: marks_map.get(name, "") for name in losers} if isinstance(marks_map, dict) else None
     await send_vk_message(
       user_id=user_id,
-      message=Text.user.BETTING_LOSER_CHOOSE.value,
-      keyboard=betting_player_keyboard(action="loser", players=losers),
+      message=f"❌ Последние проигравшие:\n{losers_text}\n\n{Text.user.BETTING_LOSER_CHOOSE.value}",
+      keyboard=betting_player_keyboard(action="loser", players=losers, player_marks=loser_marks),
     )
     return PlainTextResponse("ok")
 

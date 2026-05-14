@@ -121,10 +121,18 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
-  def betting_player_tg(*, action: str, players: list[str]) -> InlineKeyboardMarkup:
+  def betting_player_tg(
+    *,
+    action: str,
+    players: list[str],
+    player_marks: dict[str, str] | None = None,
+  ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players:
-      keyboard.button(text=player, callback_data=f"bet_{action}:{player}")
+      mark = ""
+      if player_marks:
+        mark = player_marks.get(player, "")
+      keyboard.button(text=f"{player}{mark}", callback_data=f"bet_{action}:{player}")
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -954,11 +962,20 @@ class InlineKbs:
     )
 
   @staticmethod
-  def betting_player_vk(*, action: str, players: list[str]) -> str:
+  def betting_player_vk(
+    *,
+    action: str,
+    players: list[str],
+    player_marks: dict[str, str] | None = None,
+  ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players:
+      mark = ""
+      if player_marks:
+        mark = player_marks.get(player, "")
+      label = f"{player}{mark}"[:40]
       rows.append([{
-        "action": {"type": "callback", "label": player[:40], "payload": {"action": f"bet_{action}", "player_name": player}},
+        "action": {"type": "callback", "label": label, "payload": {"action": f"bet_{action}", "player_name": player}},
         "color": "primary",
       }])
     return ReplyKbs.make_vk_callback(rows)

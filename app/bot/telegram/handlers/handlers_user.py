@@ -112,6 +112,41 @@ async def _notify_admins_about_room_join(
     await send_vk_message(user_id=admin_id, message=text)
 
 
+def _split_names(value: str | None) -> set[str]:
+  if not value:
+    return set()
+  return {item.strip() for item in str(value).split(",") if item.strip()}
+
+
+async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[dict[str, str], str, str]:
+  poker_rows = await PokerRepository(session).list_all()
+  poker_rows = [p for p in poker_rows if p.date is not None]
+  poker_rows.sort(key=lambda p: p.date)
+  winners_by_date = {p.date: _split_names(p.winners) for p in poker_rows}
+  losers_by_date = {p.date: _split_names(p.loosers) for p in poker_rows}
+
+  def player_marks(player_name: str) -> str:
+    player_dates = sorted({
+      p.date for p in poker_rows
+      if player_name in winners_by_date.get(p.date, set()) or player_name in losers_by_date.get(p.date, set())
+    })[-5:]
+    marks: list[str] = []
+    for d in player_dates:
+      if player_name in winners_by_date.get(d, set()):
+        marks.append(" 🟢")
+      elif player_name in losers_by_date.get(d, set()):
+        marks.append(" 🔴")
+      else:
+        marks.append(" ⚪")
+    return "".join(marks)
+
+  marks_map = {name: player_marks(name) for name in players}
+  last_five_games = poker_rows[-5:]
+  winners_text = "\n".join(str(p.winners or "-") for p in last_five_games)
+  losers_text = "\n".join(str(p.loosers or "-") for p in last_five_games)
+  return marks_map, winners_text, losers_text
+
+
 async def _get_telegram_user(telegram_id: int) -> User | None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
@@ -1727,11 +1762,18 @@ async def choose_bet_size(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
     return
   amount_kopecks = int(callback.data.split(":", 1)[1])
+  async with SessionFactory() as session:
+    marks_map, winners_text, losers_text = await _build_bet_last_five_hints(session=session, players=players)
   await _delete_message_if_possible(callback)
-  await state.update_data(bet_amount_kopecks=amount_kopecks)
+  await state.update_data(
+    bet_amount_kopecks=amount_kopecks,
+    bet_player_marks=marks_map,
+    bet_last_winners_text=winners_text,
+    bet_last_losers_text=losers_text,
+  )
   await callback.message.answer(
-    Text.user.BETTING_WINNER_CHOOSE.value,
-    reply_markup=betting_player_keyboard(action="winner", players=players),
+    f"💍 Последние победители:\n{winners_text}\n\n{Text.user.BETTING_WINNER_CHOOSE.value}",
+    reply_markup=betting_player_keyboard(action="winner", players=players, player_marks=marks_map),
   )
   await callback.answer()
 
@@ -1746,6 +1788,8 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
   data = await state.get_data()
   players = data.get("bet_players")
   better_name = data.get("bet_better_name")
+  marks_map = data.get("bet_player_marks", {})
+  losers_text = data.get("bet_last_losers_text", "")
   winner_name = callback.data.split(":", 1)[1]
   if not isinstance(players, list) or winner_name not in players:
     await state.clear()
@@ -1758,9 +1802,10 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
     return
   await _delete_message_if_possible(callback)
   await state.update_data(bet_winner_name=winner_name)
+  loser_marks = {name: marks_map.get(name, "") for name in loser_candidates} if isinstance(marks_map, dict) else None
   await callback.message.answer(
-    Text.user.BETTING_LOSER_CHOOSE.value,
-    reply_markup=betting_player_keyboard(action="loser", players=loser_candidates),
+    f"❌ Последние проигравшие:\n{losers_text}\n\n{Text.user.BETTING_LOSER_CHOOSE.value}",
+    reply_markup=betting_player_keyboard(action="loser", players=loser_candidates, player_marks=loser_marks),
   )
   await callback.answer()
 
