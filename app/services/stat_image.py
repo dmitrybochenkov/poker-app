@@ -107,14 +107,13 @@ def _draw_line(
       draw_x = cursor_x + max(0, (cell_w - glyph_w) // 2)
       draw_y = y + max(0, (line_h - glyph_h) // 2)
       draw.text((draw_x, draw_y), ch, font=font, embedded_color=True)
-    else:
-      bbox = draw.textbbox((0, 0), ch, font=font)
-      glyph_w = max(1, bbox[2] - bbox[0])
-      glyph_h = max(1, bbox[3] - bbox[1])
-      draw_x = cursor_x + max(0, (cell_w - glyph_w) // 2)
-      draw_y = y + max(0, (line_h - glyph_h) // 2)
-      draw.text((draw_x, draw_y), ch, font=font, fill=fill)
-    cursor_x += cell_w
+      cursor_x += cell_w
+      continue
+
+    # Keep normal text rendering unchanged so names stay visually correct.
+    draw.text((cursor_x, y), ch, font=font, fill=fill)
+    bbox = draw.textbbox((0, 0), ch, font=font)
+    cursor_x += bbox[2] - bbox[0]
 
 
 def render_stat_table_png(*, title: str, report: str) -> bytes:
