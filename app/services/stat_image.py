@@ -55,7 +55,7 @@ def _is_emoji_char(ch: str) -> bool:
 
 def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont, emoji_font: ImageFont.ImageFont) -> int:
   text_bbox = draw.textbbox((0, 0), "M", font=text_font)
-  target_emoji_height = max(16, text_bbox[3] - text_bbox[1])
+  target_emoji_height = max(16, int(round((text_bbox[3] - text_bbox[1]) * 1.25)))
   width = 0
   for ch in text:
     if _is_emoji_char(ch):
@@ -83,7 +83,7 @@ def _draw_line(
   emoji_font: ImageFont.ImageFont,
 ) -> None:
   text_bbox = draw.textbbox((0, 0), "M", font=text_font)
-  target_emoji_height = max(16, text_bbox[3] - text_bbox[1])
+  target_emoji_height = max(16, int(round((text_bbox[3] - text_bbox[1]) * 1.25)))
   cursor_x = x
   for ch in text:
     is_emoji = _is_emoji_char(ch)
