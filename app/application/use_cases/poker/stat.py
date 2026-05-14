@@ -177,17 +177,26 @@ class StatUseCases:
           pokers_by_id=pokers_by_id,
           tournaments=tournaments,
         )
+      if mode in {"regular", "year"}:
+        # Current tournaments only: mark users with no unpaid bets.
+        row["🌟"] = "👮" if len([bet for bet in user_bets if not bool(bet.is_paid)]) == 0 else ""
       rows.append(row)
 
     sort_metric = sort_pic if sort_pic in selected_pics else selected_pics[0]
     rows.sort(key=lambda item: item.get(sort_metric, 0), reverse=True)
-    rows = await self._apply_achievements(
-      rows=rows,
-      indicator_id_to_pic={int(ind.row_id): ind.pic for ind in selected},
-      achievement_type="betting",
-    )
+    if mode == "all":
+      rows = await self._apply_achievements(
+        rows=rows,
+        indicator_id_to_pic={int(ind.row_id): ind.pic for ind in selected},
+        achievement_type="betting",
+      )
 
-    return self._to_text_table(rows=rows, headers=["👨"] + selected_pics)
+    report = self._to_text_table(rows=rows, headers=["👨"] + selected_pics)
+    if mode in {"regular", "year"}:
+      current_tournament = self._find_current_tournament_by_type(tournaments=tournaments, tournament_type=mode)
+      if current_tournament is not None:
+        report = f"{report}\n\n{self._format_current_tournament_money_block(tournament=current_tournament)}"
+    return report
 
   @staticmethod
   def _to_text_table(*, rows: list[dict[str, str | int | float]], headers: list[str]) -> str:
@@ -258,6 +267,12 @@ class StatUseCases:
       )
       if ranked:
         ranked[0]["🌟"] = f"{ranked[0].get('🌟', '')}{ach.pic}"
+
+    # Streak precedence: if user has 🦾, do not show weaker 💪.
+    for row in rows:
+      stars = str(row.get("🌟", ""))
+      if "🦾" in stars and "💪" in stars:
+        row["🌟"] = stars.replace("💪", "")
     return rows
 
   @staticmethod
@@ -479,6 +494,20 @@ class StatUseCases:
     if tournament_type in cache:
       return cache[tournament_type]
     return default
+
+  def _format_current_tournament_money_block(self, *, tournament) -> str:
+    bank_rub = round(float(int(tournament.current_bank_kopecks or 0)) / 100, 2)
+    first_p, second_p, third_p = self._get_tournament_percents(tournament_type=tournament.tournament_type)
+    first_rub = round(bank_rub * first_p / 100, 2)
+    second_rub = round(bank_rub * second_p / 100, 2)
+    third_rub = round(bank_rub * third_p / 100, 2)
+    title = "💰" if tournament.tournament_type == "regular" else "🎄💰"
+    return (
+      f"{title}: {bank_rub:.2f} ₽\n"
+      f"🥇: {first_rub:.2f} ₽\n"
+      f"🥈: {second_rub:.2f} ₽\n"
+      f"🥉: {third_rub:.2f} ₽"
+    )
 
   def _count_tournament_titles(self, *, user: str, tournaments: list, tournament_type: str) -> int:
     count = 0

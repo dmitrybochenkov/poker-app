@@ -22,6 +22,7 @@ from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_e
 from app.bot.vk.keyboards import (
   admin_main_keyboard,
   betting_keyboard,
+  betting_current_keyboard,
   betting_info_keyboard,
   poker_keyboard,
   poker_info_keyboard,
@@ -73,6 +74,12 @@ from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 STAT_SNACKBAR = "Обновлено"
+
+
+def _filter_betting_indicators_by_mode(*, indicators, mode: str):
+  if mode == "all":
+    return [item for item in indicators if item.for_current_tournaments in {"yes", "no"}]
+  return [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
 
 
 def _strip_html_tags(text: str) -> str:
@@ -640,8 +647,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     selected_ids = [int(x) for x in user_ctx.get("betstat_selected_ids", "").split(",") if x]
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
@@ -665,8 +671,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ",".join(str(x) for x in sorted(selected))
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
@@ -684,8 +689,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     if not indicators:
@@ -717,17 +721,28 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       selected_years = sorted(selected_set)
       user_ctx["betstat_years"] = ",".join(str(x) for x in selected_years)
       user_ctx["betstat_selected_ids"] = ""
-      user_ctx["betstat_mode"] = "all"
     if action == "betstatyear_done":
+      mode = user_ctx.get("betstat_mode", "all")
       if not selected_years:
         current_year = datetime.now().year
         selected_years = [current_year] if current_year in years else ([years[0]] if years else [])
         user_ctx["betstat_years"] = ",".join(str(x) for x in selected_years)
       user_ctx["betstat_selected_ids"] = ""
-      user_ctx["betstat_mode"] = "all"
+      async with SessionFactory() as session:
+        indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+      indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
+      if not indicators:
+        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+        await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+        await send_vk_message(user_id=user_id, message=Text.user.BETTING_CURRENT_EMPTY.value)
+        return PlainTextResponse("ok")
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_STAT_MODE.value, keyboard=betting_stat_mode_keyboard())
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.STAT_CHOOSE_PARAMS.value,
+        keyboard=betting_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
+      )
       return PlainTextResponse("ok")
     if action == "betstatyear_cancel":
       user_ctx["betstat_years"] = ""
@@ -991,8 +1006,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     selected_ids = {int(x) for x in user_ctx.get("betstat_selected_ids", "").split(",") if x}
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-      if mode != "all":
-        indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+      indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
       if not selected_ids:
         default_indicator = next((item for item in indicators if str(item.description).strip() == "Денег всего"), None)
         if default_indicator is None and indicators:
@@ -1040,8 +1054,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     selected_ids = {int(x) for x in user_ctx.get("betstat_selected_ids", "").split(",") if x}
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-      if mode != "all":
-        indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+      indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
     sort_id_raw = user_ctx.get("betstat_sort_id")
     sort_id = int(sort_id_raw) if isinstance(sort_id_raw, str) and sort_id_raw.isdigit() else None
@@ -1074,8 +1087,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     selected_ids = {int(x) for x in user_ctx.get("betstat_selected_ids", "").split(",") if x}
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-      if mode != "all":
-        indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+      indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
@@ -1101,8 +1113,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     sort_id = int(sort_id_raw) if isinstance(sort_id_raw, str) and sort_id_raw.isdigit() else None
     async with SessionFactory() as session:
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-      if mode != "all":
-        indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+      indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
       selected = [item for item in indicators if int(item.row_id) in selected_ids]
       sort_indicator = next((item for item in selected if sort_id is not None and int(item.row_id) == sort_id), None)
       sort_pic = sort_indicator.pic if sort_indicator is not None else None
@@ -1156,6 +1167,9 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.main.BETTING.value,
     Buttons.betting.TO_MAIN.value,
     Buttons.betting.CURRENT_TOURS.value,
+    Buttons.bettingCurrent.REG_TOURNAMENT.value,
+    Buttons.bettingCurrent.YEAR_TOURNAMENT.value,
+    Buttons.bettingCurrent.TO_MAIN.value,
     Buttons.betting.BETTING_STAT.value,
     Buttons.betting.BETTING_INFO.value,
     Buttons.bettingInfo.BETTING_RULES.value,
@@ -1313,31 +1327,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.CURRENT_TOURS.value:
-    async with SessionFactory() as session:
-      use_case = BetUseCases(
-        user_repository=UserRepository(session),
-        poker_repository=PokerRepository(session),
-        bet_repository=BetRepository(session),
-        bet_param_repository=BetParamRepository(session),
-        bet_tournament_repository=BetTournamentRepository(session),
-        bet_tournament_param_repository=BetTournamentParamRepository(session),
-        poker_data_repository=PokerDataRepository(session),
-      )
-      tournaments = await use_case.list_current_tournaments_with_banks()
-      bets = await use_case.list_user_bets_for_current_poker(better_id=user_id)
-    if not tournaments:
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_CURRENT_EMPTY.value)
-      return PlainTextResponse("ok")
-    tournament_lines = [f"• {_format_tournament_name(t)} — банк {bank_kopecks // 100} ₽" for t, bank_kopecks in tournaments]
-    await send_vk_message(
-      user_id=user_id,
-      message=Text.user.BETTING_CURRENT_LIST.value.format(tournaments="\n".join(tournament_lines)),
-    )
-    if bets:
-      bet_lines = [f"• {_format_tournament_name('single')} — {b.amount_kopecks // 100} ₽" for b in bets]
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_USER_BETS.value.format(bets="\n".join(bet_lines)))
-    else:
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_USER_BETS_EMPTY.value)
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_current_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.BETTING_STAT.value:
@@ -1357,6 +1347,29 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       message=Text.user.STAT_CHOOSE_YEAR.value,
       keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_years=[], page=0),
     )
+    return PlainTextResponse("ok")
+
+  if text in {Buttons.bettingCurrent.REG_TOURNAMENT.value, Buttons.bettingCurrent.YEAR_TOURNAMENT.value}:
+    user_ctx = vk_user_contexts.setdefault(user_id, {})
+    user_ctx["betstat_years"] = ""
+    user_ctx["betstat_selected_ids"] = ""
+    user_ctx["betstat_mode"] = "regular" if text == Buttons.bettingCurrent.REG_TOURNAMENT.value else "year"
+    user_ctx["betstat_sort_id"] = ""
+    async with SessionFactory() as session:
+      bets = await BetRepository(session).list_all()
+    years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
+    if not years:
+      await send_vk_message(user_id=user_id, message="Нет данных по ставкам.")
+      return PlainTextResponse("ok")
+    await send_vk_message(
+      user_id=user_id,
+      message=Text.user.STAT_CHOOSE_YEAR.value,
+      keyboard=stat_year_keyboard(action="betstatyear", years=years, selected_years=[], page=0),
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.bettingCurrent.TO_MAIN.value:
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.MAKE_BET.value:

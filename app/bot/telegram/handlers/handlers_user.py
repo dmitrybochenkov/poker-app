@@ -22,6 +22,7 @@ from app.bot.telegram.keyboards import (
   admin_main_keyboard,
   new_user_keyboard,
   betting_keyboard,
+  betting_current_keyboard,
   betting_info_keyboard,
   poker_keyboard,
   poker_info_keyboard,
@@ -66,6 +67,12 @@ from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 router = Router()
+
+
+def _filter_betting_indicators_by_mode(*, indicators, mode: str):
+  if mode == "all":
+    return [item for item in indicators if item.for_current_tournaments in {"yes", "no"}]
+  return [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
 
 
 async def _notify_admins_about_room_join(
@@ -908,44 +915,14 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
 async def show_current_betting_tournaments(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  async with SessionFactory() as session:
-    use_case = BetUseCases(
-      user_repository=UserRepository(session),
-      poker_repository=PokerRepository(session),
-      bet_repository=BetRepository(session),
-      bet_param_repository=BetParamRepository(session),
-      bet_tournament_repository=BetTournamentRepository(session),
-      bet_tournament_param_repository=BetTournamentParamRepository(session),
-      poker_data_repository=PokerDataRepository(session),
-    )
-    tournaments = await use_case.list_current_tournaments_with_banks()
-    bets = await use_case.list_user_bets_for_current_poker(better_id=message.from_user.id)
-
-  if not tournaments:
-    await message.answer(Text.user.BETTING_CURRENT_EMPTY.value)
-    return
-
-  tournament_lines = [
-    f"• {_format_tournament_name(tournament)} — банк {bank_kopecks // 100} ₽"
-    for tournament, bank_kopecks in tournaments
-  ]
-  await message.answer(Text.user.BETTING_CURRENT_LIST.value.format(tournaments="\n".join(tournament_lines)))
-
-  if bets:
-    bet_lines = [f"• {_format_tournament_name('single')} — {bet.amount_kopecks // 100} ₽" for bet in bets]
-    await message.answer(Text.user.BETTING_USER_BETS.value.format(bets="\n".join(bet_lines)))
-  else:
-    await message.answer(Text.user.BETTING_USER_BETS_EMPTY.value)
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_current_keyboard)
 
 
-@router.message(F.text == Buttons.betting.BETTING_STAT.value)
-async def show_betting_stat_indicators(message: Message, state: FSMContext) -> None:
-  if not await _ensure_approved_telegram_user(message):
-    return
+async def _start_betting_stat_flow(*, message: Message, state: FSMContext, mode: str) -> None:
   await state.update_data(
     betstat_years=[],
     betstat_selected_ids=[],
-    betstat_mode="all",
+    betstat_mode=mode,
     betstat_sort_id=None,
   )
   async with SessionFactory() as session:
@@ -958,6 +935,34 @@ async def show_betting_stat_indicators(message: Message, state: FSMContext) -> N
     Text.user.STAT_CHOOSE_YEAR.value,
     reply_markup=stat_year_keyboard(prefix="betstatyear", years=years, selected_years=[], page=0),
   )
+
+
+@router.message(F.text == Buttons.bettingCurrent.REG_TOURNAMENT.value)
+async def show_regular_betting_tournament_stat(message: Message, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await _start_betting_stat_flow(message=message, state=state, mode="regular")
+
+
+@router.message(F.text == Buttons.bettingCurrent.YEAR_TOURNAMENT.value)
+async def show_year_betting_tournament_stat(message: Message, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await _start_betting_stat_flow(message=message, state=state, mode="year")
+
+
+@router.message(F.text == Buttons.bettingCurrent.TO_MAIN.value)
+async def back_to_betting_from_current_tournaments(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
+
+
+@router.message(F.text == Buttons.betting.BETTING_STAT.value)
+async def show_betting_stat_indicators(message: Message, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await _start_betting_stat_flow(message=message, state=state, mode="all")
 
 
 @router.callback_query(F.data.startswith("betstatyear_page:"))
@@ -996,7 +1001,7 @@ async def betting_stat_year_toggle(callback: CallbackQuery, state: FSMContext) -
     selected_years.remove(year)
   else:
     selected_years.add(year)
-  await state.update_data(betstat_years=sorted(selected_years), betstat_selected_ids=[], betstat_mode="all")
+  await state.update_data(betstat_years=sorted(selected_years), betstat_selected_ids=[])
   async with SessionFactory() as session:
     bets = await BetRepository(session).list_all()
   years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
@@ -1028,6 +1033,7 @@ async def betting_stat_year_done(callback: CallbackQuery, state: FSMContext) -> 
     return
   data = await state.get_data()
   selected_years: list[int] = data.get("betstat_years", [])
+  mode = data.get("betstat_mode", "all")
   if not selected_years:
     async with SessionFactory() as session:
       bets = await BetRepository(session).list_all()
@@ -1039,9 +1045,16 @@ async def betting_stat_year_done(callback: CallbackQuery, state: FSMContext) -> 
     current_year = datetime.now().year
     selected_years = [current_year] if current_year in years else [years[0]]
     await state.update_data(betstat_years=selected_years)
+  async with SessionFactory() as session:
+    indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
+  indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
+  if not indicators:
+    await callback.message.edit_text(Text.user.BETTING_CURRENT_EMPTY.value)
+    await callback.answer()
+    return
   await callback.message.edit_text(
-    Text.user.BETTING_STAT_MODE.value,
-    reply_markup=betting_stat_mode_keyboard(),
+    Text.user.STAT_CHOOSE_PARAMS.value,
+    reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=0, selected_ids=[]),
   )
   await callback.answer()
 
@@ -1060,8 +1073,7 @@ async def betting_stat_mode_selected(callback: CallbackQuery, state: FSMContext)
   await state.update_data(betstat_mode=mode, betstat_selected_ids=[])
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-  if mode != "all":
-    indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+  indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
   if not indicators:
     await callback.message.edit_text(Text.user.BETTING_CURRENT_EMPTY.value)
     await callback.answer()
@@ -1084,8 +1096,7 @@ async def betting_stat_page(callback: CallbackQuery, state: FSMContext) -> None:
   mode = data.get("betstat_mode", "all")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-  if mode != "all":
-    indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+  indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
   await callback.message.edit_text(
     Text.user.STAT_CHOOSE_PARAMS.value,
     reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=page, selected_ids=selected_ids),
@@ -1113,8 +1124,7 @@ async def betting_stat_indicator_selected(callback: CallbackQuery, state: FSMCon
   await state.update_data(betstat_selected_ids=list(selected))
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-  if mode != "all":
-    indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+  indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
   await callback.message.edit_text(
     Text.user.STAT_CHOOSE_PARAMS.value,
     reply_markup=betting_stat_indicators_keyboard(indicators=indicators, page=page, selected_ids=list(selected)),
@@ -1134,8 +1144,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
   mode = data.get("betstat_mode", "all")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     if not selected_ids:
       default_indicator = next((item for item in indicators if str(item.description).strip() == "Денег всего"), None)
       if default_indicator is None and indicators:
@@ -1205,8 +1214,7 @@ async def betting_stat_sort_page(callback: CallbackQuery, state: FSMContext) -> 
   selected_sort_id = data.get("betstat_sort_id")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
   await callback.message.edit_text(
     f"{Text.user.BET_STAT_CHOOSE_SORT.value}\n{Text.user.BET_STAT_CHOOSED_SORT_DEFAULT.value}",
@@ -1239,8 +1247,7 @@ async def betting_stat_sort_toggle(callback: CallbackQuery, state: FSMContext) -
   mode = data.get("betstat_mode", "all")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
   await callback.message.edit_text(
     f"{Text.user.BET_STAT_CHOOSE_SORT.value}\n{Text.user.BET_STAT_CHOOSED_SORT_DEFAULT.value}",
@@ -1281,8 +1288,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
   sort_id = data.get("betstat_sort_id")
   async with SessionFactory() as session:
     indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    if mode != "all":
-      indicators = [item for item in indicators if item.for_current_tournaments in {"yes", "only"}]
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
     sort_indicator = next((item for item in selected if sort_id is not None and int(item.row_id) == int(sort_id)), None)
     sort_pic = sort_indicator.pic if sort_indicator is not None else None
