@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from unicodedata import category
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -9,6 +10,7 @@ def _load_font(size: int) -> ImageFont.ImageFont:
   font_candidates = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/System/Library/Fonts/Supplemental/Menlo.ttc",
   ]
   for path in font_candidates:
     try:
@@ -18,6 +20,58 @@ def _load_font(size: int) -> ImageFont.ImageFont:
   return ImageFont.load_default()
 
 
+def _load_emoji_font(size: int) -> ImageFont.ImageFont:
+  emoji_candidates = [
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf",
+    "/System/Library/Fonts/Apple Color Emoji.ttc",
+    "/System/Library/Fonts/AppleColorEmoji.ttc",
+  ]
+  for path in emoji_candidates:
+    try:
+      return ImageFont.truetype(path, size=size)
+    except Exception:
+      continue
+  return _load_font(size=size)
+
+
+def _is_emoji_char(ch: str) -> bool:
+  code = ord(ch)
+  return (
+    0x1F300 <= code <= 0x1FAFF
+    or 0x2600 <= code <= 0x27BF
+    or code in {0xFE0F, 0x200D}
+    or category(ch) == "So"
+  )
+
+
+def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont, emoji_font: ImageFont.ImageFont) -> int:
+  width = 0
+  for ch in text:
+    font = emoji_font if _is_emoji_char(ch) else text_font
+    bbox = draw.textbbox((0, 0), ch, font=font)
+    width += bbox[2] - bbox[0]
+  return width
+
+
+def _draw_line(
+  draw: ImageDraw.ImageDraw,
+  *,
+  x: int,
+  y: int,
+  text: str,
+  fill: str,
+  text_font: ImageFont.ImageFont,
+  emoji_font: ImageFont.ImageFont,
+) -> None:
+  cursor_x = x
+  for ch in text:
+    font = emoji_font if _is_emoji_char(ch) else text_font
+    draw.text((cursor_x, y), ch, font=font, fill=fill)
+    bbox = draw.textbbox((0, 0), ch, font=font)
+    cursor_x += bbox[2] - bbox[0]
+
+
 def render_stat_table_png(*, title: str, report: str) -> bytes:
   lines = [line.rstrip("\n") for line in report.splitlines() if line.strip() != ""]
   if not lines:
@@ -25,6 +79,8 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
 
   title_font = _load_font(28)
   body_font = _load_font(24)
+  emoji_font = _load_emoji_font(24)
+  title_emoji_font = _load_emoji_font(28)
   left_pad = 36
   right_pad = 36
   top_pad = 28
@@ -37,13 +93,13 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
 
   title_bbox = draw.textbbox((0, 0), title, font=title_font)
   title_height = title_bbox[3] - title_bbox[1]
-  title_width = title_bbox[2] - title_bbox[0]
+  title_width = _line_width(draw, title, title_font, title_emoji_font)
 
   line_heights: list[int] = []
   max_line_width = 0
   for line in lines:
     bbox = draw.textbbox((0, 0), line, font=body_font)
-    w = bbox[2] - bbox[0]
+    w = _line_width(draw, line, body_font, emoji_font)
     h = bbox[3] - bbox[1]
     max_line_width = max(max_line_width, w)
     line_heights.append(h)
@@ -55,14 +111,13 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
 
   image = Image.new("RGB", (width, height), "#ffffff")
   draw = ImageDraw.Draw(image)
-  draw.text((left_pad, top_pad), title, font=title_font, fill="#1f2937")
+  _draw_line(draw, x=left_pad, y=top_pad, text=title, fill="#1f2937", text_font=title_font, emoji_font=title_emoji_font)
 
   y = top_pad + title_height + section_gap
   for i, line in enumerate(lines):
-    draw.text((left_pad, y), line, font=body_font, fill="#111827")
+    _draw_line(draw, x=left_pad, y=y, text=line, fill="#111827", text_font=body_font, emoji_font=emoji_font)
     y += line_heights[i] + line_gap
 
   output = BytesIO()
   image.save(output, format="PNG", optimize=True)
   return output.getvalue()
-

@@ -75,6 +75,10 @@ from app.services.stat_image import render_stat_table_png
 STAT_SNACKBAR = "Обновлено"
 
 
+def _strip_html_tags(text: str) -> str:
+  return text.replace("<b>", "").replace("</b>", "")
+
+
 async def _notify_admins_about_room_join(
   *,
   session,
@@ -1239,7 +1243,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.bettingInfo.BETTING_RULES.value:
-    await send_vk_message(user_id=user_id, message=Text.user.BET_RULES.value, keyboard=betting_info_keyboard)
+    await send_vk_message(
+      user_id=user_id,
+      message=_strip_html_tags(Text.user.BET_RULES.value),
+      keyboard=betting_info_keyboard,
+    )
     return PlainTextResponse("ok")
 
   if text == Buttons.bettingInfo.BETTING_STAT_INFO.value:
