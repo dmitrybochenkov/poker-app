@@ -257,7 +257,6 @@ class ReplyKbs:
         [
           Buttons.poker.POKER_STAT,
           Buttons.poker.POKER_INFO,
-          Buttons.poker.POLL,
           Buttons.poker.TO_MAIN,
         ]
       ),
@@ -271,7 +270,6 @@ class ReplyKbs:
         [
           Buttons.poker.POKER_STAT,
           Buttons.poker.POKER_INFO,
-          Buttons.poker.POLL,
           Buttons.poker.TO_MAIN,
         ]
       ),
