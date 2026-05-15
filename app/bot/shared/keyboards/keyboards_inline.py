@@ -457,7 +457,7 @@ class InlineKbs:
     )
     keyboard.button(
       text="💼 Сделать кассиром",
-      callback_data=f"pokercashier:{int(player_id)}",
+      callback_data=f"pokerroomcashier:{int(player_id)}",
     )
     keyboard.adjust(1)
     return keyboard.as_markup()
@@ -893,7 +893,7 @@ class InlineKbs:
           "action": {
             "type": "callback",
             "label": "💼 Сделать кассиром",
-            "payload": {"action": "poker_set_cashier_select", "player_id": int(player_id)},
+            "payload": {"action": "poker_room_set_cashier_select", "player_id": int(player_id)},
           },
           "color": "primary",
         }

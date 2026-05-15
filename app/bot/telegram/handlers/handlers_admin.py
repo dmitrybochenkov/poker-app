@@ -923,6 +923,44 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
   await callback.answer(cashier_text)
 
 
+@router.callback_query(F.data.startswith("pokerroomcashier:"))
+async def set_cashier_from_room_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  user_row_id = int(callback.data.split(":", 1)[1])
+  await _clear_inline_keyboard(callback)
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
+      return
+    poker_repository = PokerRepository(session)
+    active = await poker_repository.get_started()
+    if active is None:
+      await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
+      return
+    poker, _ = active
+    if poker.cashier_id is not None:
+      await callback.answer(
+        "Кассир уже назначен. Для переназначения используй 'Корректировать покер'.",
+        show_alert=True,
+      )
+      return
+    user_repository = UserRepository(session)
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=poker_repository,
+      poker_data_repository=PokerDataRepository(session),
+      buyin_data_repository=BuyinDataRepository(session),
+    )
+    updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
+    if updated is None:
+      await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
+      return
+    cashier_user = await user_repository.get_by_row_id(user_row_id)
+    cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
+    await _refresh_admin_room_status(session=session)
+  await callback.answer(f"{cashier_name} выбран кассиром.")
+
+
 @router.callback_query(F.data.startswith("pokerroommanage:"))
 async def poker_room_manage_callback(callback: CallbackQuery) -> None:
   if callback.from_user is None:
@@ -937,9 +975,15 @@ async def poker_room_manage_callback(callback: CallbackQuery) -> None:
       await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
       return
   if callback.message is not None:
-    await callback.message.edit_reply_markup(
-      reply_markup=poker_room_manage_player_keyboard(player_id=int(player_id_s)),
-    )
+    try:
+      await callback.message.edit_reply_markup(
+        reply_markup=poker_room_manage_player_keyboard(player_id=int(player_id_s)),
+      )
+    except Exception:
+      await callback.message.answer(
+        "Управление игроком:",
+        reply_markup=poker_room_manage_player_keyboard(player_id=int(player_id_s)),
+      )
   await callback.answer()
 
 

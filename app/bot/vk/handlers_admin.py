@@ -977,6 +977,46 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     return PlainTextResponse("ok")
 
+  if action == "poker_room_set_cashier_select":
+    user_row_id = callback_payload.get("player_id")
+    if not isinstance(user_row_id, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=admin_user_id):
+        result_text = Text.admin.NO_RIGHTS.value
+      else:
+        poker_repository = PokerRepository(session)
+        active = await poker_repository.get_started()
+        if active is None:
+          result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+        else:
+          poker, _ = active
+          if poker.cashier_id is not None:
+            result_text = "Кассир уже назначен. Для переназначения используй 'Корректировать покер'."
+          else:
+            user_repository = UserRepository(session)
+            use_case = ManagePokerPlayersUseCase(
+              poker_repository=poker_repository,
+              poker_data_repository=PokerDataRepository(session),
+              buyin_data_repository=BuyinDataRepository(session),
+            )
+            updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
+            if updated is None:
+              result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+            else:
+              cashier_user = await user_repository.get_by_row_id(user_row_id)
+              cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
+              result_text = f"{cashier_name} выбран кассиром."
+              await _refresh_admin_room_status(session=session)
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text=result_text,
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    return PlainTextResponse("ok")
+
   if action == "poker_buyin_select":
     player_id = callback_payload.get("player_id")
     if not isinstance(player_id, int):
