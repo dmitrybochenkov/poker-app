@@ -2121,6 +2121,8 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
       Text.user.BETTING_CREATED.value.format(
         tournament=_format_tournament_name(tournament_type),
         amount_rub=amount_kopecks // 100,
+        winner=winner_name,
+        loser=loser_name,
       ),
       reply_markup=betting_keyboard,
     )

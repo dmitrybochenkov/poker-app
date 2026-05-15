@@ -893,6 +893,8 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         message=Text.user.BETTING_CREATED.value.format(
           tournament=_format_tournament_name(tournament_type),
           amount_rub=amount_kopecks // 100,
+          winner=winner_name,
+          loser=loser_name,
         ),
         keyboard=betting_keyboard,
       )

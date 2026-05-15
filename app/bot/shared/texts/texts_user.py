@@ -80,7 +80,7 @@ class UserText(Enum):
   BETTING_AMOUNT_PROMPT = "Введи сумму ставки в рублях (целым числом)."
   BETTING_AMOUNT_INVALID = "Сумма должна быть положительным целым числом."
   BETTING_ALREADY_EXISTS = "Ставка на этот турнир уже сделана."
-  BETTING_CREATED = "Ставка принята: {tournament} — {amount_rub} ₽."
+  BETTING_CREATED = "Ставка принята: {tournament} — {amount_rub} ₽.\nПобедитель: {winner}\nПроигравший: {loser}"
   BETTING_CURRENT_EMPTY = "Активных турниров для ставок сейчас нет."
   BETTING_CURRENT_LIST = "Сейчас открыты турниры:\n{tournaments}"
   BETTING_USER_BETS_EMPTY = "У тебя пока нет ставок в текущей игре."
