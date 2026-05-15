@@ -60,6 +60,11 @@ class ManagePokerPlayersUseCase:
     if active is None:
       return None
     poker, _ = active
+    if self.buyin_data_repository is not None:
+      await self.buyin_data_repository.delete_for_player_on_date(
+        poker_date=poker.date,
+        player_id=player_id,
+      )
     removed = await self.poker_data_repository.remove_player(date=poker.date, player_id=player_id)
     if removed and self.poker_room_denied_repository is not None:
       is_admin = False

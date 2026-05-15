@@ -319,16 +319,22 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
       recipients[int(user.row_id)] = user
 
   text = (
-    "🏦 Новый закуп\n"
-    f"Игрок: {updated_player.player_name}\n"
-    f"Количество: +{buyins_count}\n"
-    f"Итого закупов: {updated_player.buyins}"
+    f"🏦 Новый закуп для {updated_player.player_name}: +{buyins_count}. "
+    f"Всего: {updated_player.buyins}."
   )
   for user in recipients.values():
     if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
       await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
     elif user.notification_platform == "vk" and user.vk_id is not None:
       await send_vk_message(user_id=user.vk_id, message=text)
+
+  player_user = await user_repository.get_by_row_id(int(updated_player.player_id))
+  if player_user is not None and player_user.notification_platform is not None:
+    player_text = f"🏦 Новый закуп: +{buyins_count}. Всего: {updated_player.buyins}."
+    if player_user.notification_platform == "tg" and player_user.telegram_id is not None and telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=player_user.telegram_id, text=player_text)
+    elif player_user.notification_platform == "vk" and player_user.vk_id is not None:
+      await send_vk_message(user_id=player_user.vk_id, message=player_text)
 
 
 async def _notify_user_removed_from_room(*, user) -> None:
@@ -847,7 +853,6 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       text=result_text,
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    await send_vk_message(user_id=admin_user_id, message=result_text)
     return PlainTextResponse("ok")
 
   if action == "poker_room_reject_select":
@@ -893,6 +898,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
         use_case = ManagePokerPlayersUseCase(
           poker_repository=PokerRepository(session),
           poker_data_repository=PokerDataRepository(session),
+          buyin_data_repository=BuyinDataRepository(session),
           user_repository=user_repository,
           poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
@@ -1427,9 +1433,15 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         user_repository=user_repository,
         poker_room_denied_repository=PokerRoomDeniedRepository(session),
       )
+      tmp_telegram_id = 0
+      while True:
+        candidate = -random.randint(10_000_000_000, 9_999_999_999_999)
+        if await user_repository.get_by_telegram_id(candidate) is None:
+          tmp_telegram_id = candidate
+          break
       created_user = await user_repository.create(
         name=name,
-        telegram_id=None,
+        telegram_id=tmp_telegram_id,
         vk_id=None,
         is_approved=True,
         notification_platform=None,
@@ -2033,11 +2045,12 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_EMPTY.value)
         return PlainTextResponse("ok")
 
+      is_correct_mode = text == Buttons.admin_room_correct.BUYIN_CORRECT.value
       if is_admin:
         await send_vk_message(
           user_id=user_id,
           message=Text.admin.POKER_BUYIN_CHOOSE.value,
-          keyboard=poker_buyin_candidates_keyboard(players=players),
+          keyboard=poker_buyin_candidates_keyboard(players=players, show_buyins=is_correct_mode),
         )
         return PlainTextResponse("ok")
 

@@ -499,11 +499,12 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
-  def poker_buyin_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
+  def poker_buyin_candidates_tg(*, players: list, show_buyins: bool = False) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
+      label = f"{player.player_name}: {int(player.buyins)}" if show_buyins else f"{player.player_name}"
       keyboard.button(
-        text=f"{player.player_name}",
+        text=label,
         callback_data=f"pokerbuyin:{player.player_id}",
       )
     keyboard.button(
@@ -968,15 +969,16 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
-  def poker_buyin_candidates_vk(*, players: list) -> str:
+  def poker_buyin_candidates_vk(*, players: list, show_buyins: bool = False) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
+      label = f"{player.player_name}: {int(player.buyins)}" if show_buyins else f"{player.player_name}"
       rows.append(
         [
           {
             "action": {
               "type": "callback",
-              "label": f"{player.player_name}"[:40],
+              "label": label[:40],
               "payload": {
                 "action": "poker_buyin_select",
                 "player_id": int(player.player_id),

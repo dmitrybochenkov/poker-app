@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.db.models.buyin_data import BuyinData
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -36,3 +36,12 @@ class BuyinDataRepository:
       .limit(limit)
     )
     return list(result.scalars().all())
+
+  async def delete_for_player_on_date(self, *, poker_date, player_id: int) -> int:
+    result = await self.session.execute(
+      delete(BuyinData)
+      .where(BuyinData.poker_date == poker_date)
+      .where(BuyinData.player_id == player_id)
+    )
+    await self.session.commit()
+    return int(result.rowcount or 0)
