@@ -30,6 +30,40 @@ class InlineKbs:
     return names[value.weekday()]
 
   @staticmethod
+  def _shift_month(value: date, delta: int) -> date:
+    total = value.year * 12 + (value.month - 1) + delta
+    year = total // 12
+    month = total % 12 + 1
+    return date(year, month, 1)
+
+  @staticmethod
+  def _poll_days_for_month(month: date) -> list[date]:
+    days_in_month = calendar.monthrange(month.year, month.month)[1]
+    return [
+      date(month.year, month.month, day)
+      for day in range(1, days_in_month + 1)
+      if date(month.year, month.month, day).weekday() in {4, 5}
+    ]
+
+  @staticmethod
+  def _month_label_ru(month: date) -> str:
+    names = [
+      "Январь",
+      "Февраль",
+      "Март",
+      "Апрель",
+      "Май",
+      "Июнь",
+      "Июль",
+      "Август",
+      "Сентябрь",
+      "Октябрь",
+      "Ноябрь",
+      "Декабрь",
+    ]
+    return names[month.month - 1]
+
+  @staticmethod
   def _format_rub_from_kopecks(value_kopecks: int) -> str:
     rub = int(value_kopecks) // 100
     kop = int(value_kopecks) % 100
@@ -1337,8 +1371,7 @@ class InlineKbs:
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = {item.isoformat() for item in (selected_dates or [])}
-    days_in_month = calendar.monthrange(month.year, month.month)[1]
-    all_dates = [date(month.year, month.month, day) for day in range(1, days_in_month + 1)]
+    all_dates = InlineKbs._poll_days_for_month(month)
     start = page * InlineKbs.POLL_PAGE_SIZE
     end = start + InlineKbs.POLL_PAGE_SIZE
     batch = all_dates[start:end]
@@ -1349,6 +1382,7 @@ class InlineKbs:
         callback_data=f"poll_day:{item.isoformat()}:{page}",
       )
     keyboard.button(text="⬅️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page - 1}")
+    keyboard.button(text=f"{page + 1}/{max(1, (len(all_dates) + InlineKbs.POLL_PAGE_SIZE - 1) // InlineKbs.POLL_PAGE_SIZE)}", callback_data="poll_noop")
     keyboard.button(text="🚀 Готово", callback_data="poll_done")
     keyboard.button(text="❌ Отмена", callback_data="poll_cancel")
     keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
@@ -1363,8 +1397,7 @@ class InlineKbs:
     selected_dates: list[date] | None = None,
   ) -> str:
     selected = {item.isoformat() for item in (selected_dates or [])}
-    days_in_month = calendar.monthrange(month.year, month.month)[1]
-    all_dates = [date(month.year, month.month, day) for day in range(1, days_in_month + 1)]
+    all_dates = InlineKbs._poll_days_for_month(month)
     start = page * InlineKbs.POLL_PAGE_SIZE_VK
     end = start + InlineKbs.POLL_PAGE_SIZE_VK
     batch = all_dates[start:end]
@@ -1396,6 +1429,14 @@ class InlineKbs:
           "color": "secondary",
         },
         {
+          "action": {
+            "type": "callback",
+            "label": f"{page + 1}/{max(1, (len(all_dates) + InlineKbs.POLL_PAGE_SIZE_VK - 1) // InlineKbs.POLL_PAGE_SIZE_VK)}",
+            "payload": {"action": "poll_noop"},
+          },
+          "color": "secondary",
+        },
+        {
           "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "poll_done"}},
           "color": "positive",
         },
@@ -1413,6 +1454,69 @@ class InlineKbs:
         },
       ]
     )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poll_admin_choose_tg(*, next_month: date) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=InlineKbs._month_label_ru(next_month),
+      callback_data=f"polladmin_month:{next_month.year}-{next_month.month:02d}",
+    )
+    keyboard.button(text="Другой месяц", callback_data="polladmin_other")
+    keyboard.adjust(1, 1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poll_admin_other_tg(*, months: list[date]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for item in months:
+      keyboard.button(
+        text=InlineKbs._month_label_ru(item),
+        callback_data=f"polladmin_month:{item.year}-{item.month:02d}",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poll_admin_choose_vk(*, next_month: date) -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": InlineKbs._month_label_ru(next_month),
+              "payload": {"action": "polladmin_month", "month": f"{next_month.year}-{next_month.month:02d}"},
+            },
+            "color": "primary",
+          },
+        ],
+        [
+          {
+            "action": {"type": "callback", "label": "Другой месяц", "payload": {"action": "polladmin_other"}},
+            "color": "secondary",
+          },
+        ],
+      ]
+    )
+
+  @staticmethod
+  def poll_admin_other_vk(*, months: list[date]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for item in months:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": InlineKbs._month_label_ru(item),
+              "payload": {"action": "polladmin_month", "month": f"{item.year}-{item.month:02d}"},
+            },
+            "color": "primary",
+          }
+        ]
+      )
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod

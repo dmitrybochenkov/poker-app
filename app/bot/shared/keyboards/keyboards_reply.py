@@ -403,6 +403,7 @@ class ReplyKbs:
     return cls.make_tg(
       _button_labels(
         [
+          Buttons.admin_room.CREATE_POLL,
           Buttons.admin_room.SET_CASHIER,
           Buttons.admin_room.START_BETTING,
           Buttons.admin_room.FINISH_POKER,
@@ -421,6 +422,7 @@ class ReplyKbs:
     return cls.make_vk(
       _button_labels(
         [
+          Buttons.admin_room.CREATE_POLL,
           Buttons.admin_room.SET_CASHIER,
           Buttons.admin_room.START_BETTING,
           Buttons.admin_room.FINISH_POKER,

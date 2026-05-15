@@ -1,4 +1,5 @@
 from fastapi.responses import PlainTextResponse
+from datetime import date
 from types import SimpleNamespace
 
 from app.application.exceptions import (
@@ -36,6 +37,8 @@ from app.bot.vk.keyboards import (
   poker_remove_player_candidates_keyboard,
   poker_unban_player_candidates_keyboard,
   poker_params_keyboard,
+  poll_admin_choose_keyboard,
+  poll_admin_other_keyboard,
   room_admin_keyboard,
 )
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
@@ -53,7 +56,20 @@ from app.bot.vk.state import (
   vk_user_states,
 )
 from app.db.repositories.user_repository import UserRepository
+from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
+
+
+def _shift_month(value: date, delta: int) -> date:
+  total = value.year * 12 + (value.month - 1) + delta
+  year = total // 12
+  month = total % 12 + 1
+  return date(year, month, 1)
+
+
+def _parse_month_key(value: str) -> date:
+  year_s, month_s = value.split("-")
+  return date(int(year_s), int(month_s), 1)
 
 
 def _format_rub_from_kopecks(value_kopecks: int) -> str:
@@ -804,6 +820,46 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     await send_vk_message(user_id=admin_user_id, message=result_text)
     return PlainTextResponse("ok")
 
+  if action == "polladmin_other":
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=admin_user_id):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.admin.NO_RIGHTS.value,
+        )
+        return PlainTextResponse("ok")
+    current = date.today().replace(day=1)
+    months = [current, _shift_month(current, 1), _shift_month(current, 2)]
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=admin_user_id,
+      message="Выбери месяц для опроса:",
+      keyboard=poll_admin_other_keyboard(months=months),
+    )
+    return PlainTextResponse("ok")
+
+  if action == "polladmin_month":
+    month_key = callback_payload.get("month")
+    if not isinstance(month_key, str):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=admin_user_id):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.admin.NO_RIGHTS.value,
+        )
+        return PlainTextResponse("ok")
+      month = _parse_month_key(month_key)
+      await PollConfigRepository(session).set_active_month(month=month)
+      await session.commit()
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=admin_user_id, message=f"Опрос на {month:%m.%Y} создан.")
+    return PlainTextResponse("ok")
+
   return None
 
 
@@ -1020,6 +1076,19 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       await send_vk_message(user_id=recipient_id, message=Text.user.START_BETTING.value, keyboard=betting_keyboard)
 
     await send_vk_message(user_id=user_id, message=Text.admin.BETTING_START_SUCCESS.value)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_room.CREATE_POLL.value:
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=user_id):
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+    next_month = _shift_month(date.today().replace(day=1), 1)
+    await send_vk_message(
+      user_id=user_id,
+      message="Выбери месяц для опроса:",
+      keyboard=poll_admin_choose_keyboard(next_month=next_month),
+    )
     return PlainTextResponse("ok")
 
   if text == Buttons.admin_room.ADD_PLAYER.value:

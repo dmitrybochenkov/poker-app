@@ -1,3 +1,5 @@
+from datetime import date
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -34,6 +36,8 @@ from app.bot.telegram.keyboards import (
   poker_remove_player_candidates_keyboard,
   poker_unban_player_candidates_keyboard,
   poker_params_keyboard,
+  poll_admin_choose_keyboard,
+  poll_admin_other_keyboard,
   room_admin_keyboard,
 )
 from app.bot.telegram.notifications import notify_user_about_approval
@@ -50,9 +54,22 @@ from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.user_repository import UserRepository
+from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 
 router = Router()
+
+
+def _shift_month(value: date, delta: int) -> date:
+  total = value.year * 12 + (value.month - 1) + delta
+  year = total // 12
+  month = total % 12 + 1
+  return date(year, month, 1)
+
+
+def _parse_month_key(value: str) -> date:
+  year_s, month_s = value.split("-")
+  return date(int(year_s), int(month_s), 1)
 
 
 async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
@@ -298,6 +315,53 @@ async def start_betting(message: Message) -> None:
     await send_vk_message(user_id=user_id, message=Text.user.START_BETTING.value, keyboard=vk_betting_keyboard)
 
   await message.answer(Text.admin.BETTING_START_SUCCESS.value)
+
+
+@router.message(F.text == Buttons.admin_room.CREATE_POLL.value)
+async def create_poll_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
+      return
+  next_month = _shift_month(date.today().replace(day=1), 1)
+  await message.answer(
+    "Выбери месяц для опроса:",
+    reply_markup=poll_admin_choose_keyboard(next_month=next_month),
+  )
+
+
+@router.callback_query(F.data == "polladmin_other")
+async def create_poll_choose_other(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
+      return
+  current = date.today().replace(day=1)
+  months = [current, _shift_month(current, 1), _shift_month(current, 2)]
+  if callback.message is not None:
+    await callback.message.edit_reply_markup(reply_markup=poll_admin_other_keyboard(months=months))
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("polladmin_month:"))
+async def create_poll_set_month(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
+      return
+    month = _parse_month_key(str(callback.data).split(":", 1)[1])
+    await PollConfigRepository(session).set_active_month(month=month)
+    await session.commit()
+  await _clear_inline_keyboard(callback)
+  if callback.message is not None:
+    await callback.message.answer(f"Опрос на {month:%m.%Y} создан.")
+  await callback.answer("Опрос создан")
 
 
 @router.message(F.text == Buttons.admin_room.SET_CASHIER.value)

@@ -65,6 +65,7 @@ from app.db.repositories.bet_tournament_repository import BetTournamentRepositor
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poll_vote_repository import PollVoteRepository
+from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
@@ -122,6 +123,16 @@ def _month_name_ru_upper(month: date) -> str:
 
 def _poll_choose_text(month: date) -> str:
   return f"Выбери даты на {_month_name_ru_upper(month)} и нажми '🚀 Готово'."
+
+
+def _poll_days_for_month(month: date) -> list[date]:
+  day = date(month.year, month.month, 1)
+  result: list[date] = []
+  while day.month == month.month:
+    if day.weekday() in {4, 5}:
+      result.append(day)
+    day = date.fromordinal(day.toordinal() + 1)
+  return result
 
 
 def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
@@ -550,7 +561,11 @@ async def start_room_poll(message: Message, state: FSMContext) -> None:
     await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
     return
 
-  month = date(date.today().year, 6, 1)
+  async with SessionFactory() as session:
+    month = await PollConfigRepository(session).get_active_month()
+  if month is None:
+    await message.answer(Text.user.POLL_NOT_ACTIVE.value)
+    return
   month_start, month_end = _month_bounds(month)
   async with SessionFactory() as session:
     selected = await PollVoteRepository(session).get_user_month_votes(
@@ -580,8 +595,8 @@ async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
     return
   _, month_key, page_s = str(callback.data).split(":")
   month = _parse_month_key(month_key)
-  days_in_month = _month_bounds(month)[1].day
-  max_page = max(0, (days_in_month - 1) // 6)
+  allowed_days = _poll_days_for_month(month)
+  max_page = max(0, (len(allowed_days) - 1) // 6)
   page = max(0, min(int(page_s), max_page))
   data = await state.get_data()
   selected = _parse_iso_dates(data.get("poll_selected", []))
@@ -630,7 +645,8 @@ async def poll_done(callback: CallbackQuery, state: FSMContext) -> None:
   data = await state.get_data()
   month = _parse_month_key(data.get("poll_month"))
   month_start, month_end = _month_bounds(month)
-  selected = [item for item in _parse_iso_dates(data.get("poll_selected", [])) if month_start <= item <= month_end]
+  allowed = set(_poll_days_for_month(month))
+  selected = [item for item in _parse_iso_dates(data.get("poll_selected", [])) if item in allowed and month_start <= item <= month_end]
   async with SessionFactory() as session:
     repository = PollVoteRepository(session)
     await repository.replace_user_month_votes(

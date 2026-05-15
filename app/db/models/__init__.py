@@ -11,6 +11,7 @@ from app.db.models.stat_indicator import StatIndicator
 from app.db.models.achievement import Achievement
 from app.db.models.poker_room_denied import PokerRoomDenied
 from app.db.models.poll_vote import PollVote
+from app.db.models.poll_config import PollConfig
 
 __all__ = [
   "User",
@@ -26,4 +27,5 @@ __all__ = [
   "Achievement",
   "PokerRoomDenied",
   "PollVote",
+  "PollConfig",
 ]
