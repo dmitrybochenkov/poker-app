@@ -119,8 +119,10 @@ async def _refresh_admin_room_status(*, session) -> None:
     f"Сейчас в руме: {len(players)}\n\n"
     "Подсказка: после входа большинства игроков назначь кассира."
   )
-  tg_admins = await user_repository.list_telegram_admin_ids()
-  vk_admins = await user_repository.list_vk_admin_ids()
+  player_row_ids = {int(p.player_id) for p in players}
+  admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
+  tg_admins = [int(u.telegram_id) for u in admins if u.telegram_id is not None]
+  vk_admins = [int(u.vk_id) for u in admins if u.vk_id is not None]
   if telegram_bot is not None:
     for admin_id in tg_admins:
       prev_mid = TG_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
@@ -284,7 +286,8 @@ async def _upsert_tg_admin_chips_status(*, session, poker_date) -> None:
         setattr(p, "_buyin_size_chips", int(params.buyin_size_chips))
         setattr(p, "_buyin_size_kopecks", int(params.buyin_size_kopecks))
   text = _build_chips_status_text(players=players, chips_in_game=chips_in_game, chips_entered=chips_entered)
-  admins = [u for u in await user_repository.list_approved() if u.is_admin]
+  player_row_ids = {int(p.player_id) for p in players}
+  admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
   for admin in admins:
     if admin.notification_platform != "tg" or admin.telegram_id is None:
       continue
@@ -376,9 +379,11 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
     if cashier is not None:
       recipients[int(cashier.row_id)] = cashier
 
+  players = await PokerDataRepository(session).list_players(date=poker.date)
+  player_row_ids = {int(p.player_id) for p in players}
   admins = await user_repository.list_approved()
   for user in admins:
-    if user.is_admin:
+    if user.is_admin and int(user.row_id) in player_row_ids:
       recipients[int(user.row_id)] = user
 
   text = (
@@ -398,9 +403,17 @@ async def _notify_user_removed_from_room(*, user) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
   if user.telegram_id is not None and telegram_bot is not None:
-    await telegram_bot.send_message(chat_id=user.telegram_id, text=Text.user.ROOM_REMOVED_BY_ADMIN.value)
+    await telegram_bot.send_message(
+      chat_id=user.telegram_id,
+      text=Text.user.ROOM_REMOVED_BY_ADMIN.value,
+      reply_markup=main_admin_entry_keyboard if user.is_admin else main_keyboard,
+    )
   if user.vk_id is not None:
-    await send_vk_message(user_id=user.vk_id, message=Text.user.ROOM_REMOVED_BY_ADMIN.value)
+    await send_vk_message(
+      user_id=user.vk_id,
+      message=Text.user.ROOM_REMOVED_BY_ADMIN.value,
+      keyboard=vk_main_keyboard if not user.is_admin else vk_main_keyboard,
+    )
 
 
 async def _notify_user_unbanned_for_room(*, user) -> None:
@@ -479,6 +492,15 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
     if created is None:
       await callback.answer(Text.admin.POKER_STARTED.value, show_alert=True)
       return
+    starter = await user_repository.get_by_telegram_id(callback.from_user.id)
+    if starter is not None:
+      await ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+      ).add_player_to_active_poker(
+        player_id=int(starter.row_id),
+        player_name=starter.name,
+      )
 
     tg_user_ids = await user_repository.list_approved_tg_ids()
     vk_user_ids = await user_repository.list_approved_vk_ids()

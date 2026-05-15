@@ -344,10 +344,12 @@ async def _notify_admins_about_room_join(
   repository = UserRepository(session)
   poker_repository = PokerRepository(session)
   poker_data_repository = PokerDataRepository(session)
-  admin_tg_ids = await repository.list_telegram_admin_ids()
-  admin_vk_ids = await repository.list_vk_admin_ids()
   active = await poker_repository.get_started()
   players = await poker_data_repository.list_players(date=active[0].date) if active is not None else []
+  player_row_ids = {int(p.player_id) for p in players}
+  admins = [u for u in await repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
+  admin_tg_ids = [int(u.telegram_id) for u in admins if u.telegram_id is not None]
+  admin_vk_ids = [int(u.vk_id) for u in admins if u.vk_id is not None]
   can_start_betting = bool(
     active is not None
     and active[0].cashier_id is not None
@@ -359,17 +361,10 @@ async def _notify_admins_about_room_join(
     f"Сейчас в руме: {len(players)}\n\n"
     "Подсказка: после входа большинства игроков назначь кассира."
   )
-  text = (
-    "🟢 Новый игрок в покер руме\n"
-    f"Игрок: {joined_user.name}\n"
-    f"Платформа: {platform_label}"
-  )
-
   for admin_id in admin_tg_ids:
     if joined_user.telegram_id is not None and int(admin_id) == int(joined_user.telegram_id):
       continue
     if telegram_bot is not None:
-      await telegram_bot.send_message(chat_id=admin_id, text=text)
       prev_mid = TG_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
       if prev_mid is not None:
         try:
@@ -386,7 +381,6 @@ async def _notify_admins_about_room_join(
   for admin_id in admin_vk_ids:
     if joined_user.vk_id is not None and int(admin_id) == int(joined_user.vk_id):
       continue
-    await send_vk_message(user_id=admin_id, message=text)
     prev_mid = VK_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
     if prev_mid is not None:
       try:
@@ -1603,8 +1597,9 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         player_id=int(user.row_id),
         money_kopecks=int(money_kopecks),
       )
-      admins = [u for u in await user_repository.list_approved() if u.is_admin]
       all_players = await poker_data_repository.list_players(date=poker.date)
+      player_row_ids = {int(p.player_id) for p in all_players}
+      admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
       chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in all_players)
       chips_entered = sum(int(p.chips or 0) for p in all_players)
       for p in all_players:
