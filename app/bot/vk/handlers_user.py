@@ -1818,13 +1818,15 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
           bets = await BetRepository(session).list_for_poker(date=poker.date)
           for bet in bets:
             better_id = int(bet.better_id)
-            better_user = await user_repository.get_by_telegram_id(better_id)
-            if better_user is None:
-              better_user = await user_repository.get_by_vk_id(better_id)
+            better_user = await user_repository.get_by_row_id(better_id)
             if better_user is not None:
               better_row_id = int(better_user.row_id)
               bet_row_ids.add(better_row_id)
               better_row_by_id[better_id] = better_row_id
+            else:
+              # better_id in bets is expected to be users.row_id
+              bet_row_ids.add(better_id)
+              better_row_by_id[better_id] = better_id
             bet_name_by_id[better_id] = bet.better_name
         player_ids = {int(p.player_id) for p in players}
         for p in players:

@@ -81,10 +81,11 @@ class BetUseCases:
     user = await self._get_approved_user(better_id=better_id)
     if user is None:
       return None, "user_not_approved"
+    better_row_id = int(user.row_id)
 
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
       date=poker.date,
-      better_id=better_id,
+      better_id=better_row_id,
       tournament_type=tournament_type,
     )
     if existing is not None:
@@ -100,7 +101,7 @@ class BetUseCases:
     created = await self.bet_repository.create(
       poker_id=poker.row_id,
       date=poker.date,
-      better_id=better_id,
+      better_id=better_row_id,
       better_name=user.name,
       tournament_type=tournament_type,
       amount_kopecks=amount_kopecks,
@@ -171,9 +172,10 @@ class BetUseCases:
     user = await self._get_approved_user(better_id=better_id)
     if user is None:
       return None, [], "user_not_approved"
+    better_row_id = int(user.row_id)
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
       date=poker.date,
-      better_id=better_id,
+      better_id=better_row_id,
       tournament_type=tournament_type,
     )
     if existing is not None:
@@ -195,9 +197,12 @@ class BetUseCases:
     poker = await self.get_active_bettable_poker()
     if poker is None:
       return []
+    user = await self._get_approved_user(better_id=better_id)
+    if user is None:
+      return []
     return await self.bet_repository.list_for_user_in_poker(
       date=poker.date,
-      better_id=better_id,
+      better_id=int(user.row_id),
     )
 
   async def _get_approved_user(self, *, better_id: int) -> User | None:
