@@ -417,17 +417,14 @@ async def calculate_poker(message: Message) -> None:
     for bet in sorted(bets, key=lambda x: int(x.row_id)):
       guessed_winner = bool(bet.winner_name) and bet.winner_name in winners
       guessed_loser = bool(bet.loser_name) and bet.loser_name in loosers
+      if not guessed_winner and not guessed_loser:
+        continue
       mark = _bet_mark(
         amount_kopecks=int(bet.amount_kopecks),
         guessed_winner=guessed_winner,
         guessed_loser=guessed_loser,
       )
-      winner_guess = bet.winner_name or "-"
-      loser_guess = bet.loser_name or "-"
-      bet_lines.append(
-        f"{bet.better_name}: {_format_rub_from_kopecks(int(bet.amount_kopecks))} ₽ | "
-        f"💍 {winner_guess} / ❌ {loser_guess} | {mark} +{int(bet.score)}"
-      )
+      bet_lines.append(f"{bet.better_name}: {mark} +{int(bet.score)}")
 
     lines = [
       Text.admin.POKER_CALC_SUCCESS.value,
@@ -460,6 +457,13 @@ async def calculate_poker(message: Message) -> None:
         f"Победители: {winners_text}\n"
         f"Проигравшие: {loosers_text}"
       )
+      if player is not None:
+        own_transfer_lines: list[str] = []
+        own_name = str(player.player_name)
+        for line in transfer_lines:
+          if line.startswith(f"{own_name} ➡️ ") or f"➡️ {own_name}:" in line:
+            own_transfer_lines.append(line)
+        player_text += "\n\n💲 Переводы:\n" + ("\n".join(own_transfer_lines) if own_transfer_lines else "Переводы не требуются")
       if bets:
         own_bets = [b for b in bets if int(b.better_id) == int(row_id)]
         if own_bets:
@@ -475,7 +479,11 @@ async def calculate_poker(message: Message) -> None:
             details.append(
               f"{_format_rub_from_kopecks(int(b.amount_kopecks))} ₽ | {mark} +{int(b.score)}"
             )
-          player_text += "\nСтавки: " + "; ".join(details)
+          player_text += "\n\n🍀 Ставки:\n" + "\n".join(details)
+        else:
+          player_text += "\n\n🍀 Ставки:\nСтавок не было"
+      else:
+        player_text += "\n\n🍀 Ставки:\nСтавок не было"
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
         await telegram_bot.send_message(chat_id=user.telegram_id, text=player_text)
       elif user.notification_platform == "vk" and user.vk_id is not None:
