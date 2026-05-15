@@ -307,29 +307,19 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
   from app.bot.telegram.runtime import telegram_bot
 
   user_repository = UserRepository(session)
-  recipients: dict[int, object] = {}
-
+  cashier = None
   if poker.cashier_id is not None:
     cashier = await user_repository.get_by_row_id(int(poker.cashier_id))
-    if cashier is not None:
-      recipients[int(cashier.row_id)] = cashier
-
-  players = await PokerDataRepository(session).list_players(date=poker.date)
-  player_row_ids = {int(p.player_id) for p in players}
-  users = await user_repository.list_approved()
-  for user in users:
-    if user.is_admin and int(user.row_id) in player_row_ids:
-      recipients[int(user.row_id)] = user
 
   text = (
     f"🏦 Новый закуп для {updated_player.player_name}: +{buyins_count}. "
     f"Всего: {updated_player.buyins}."
   )
-  for user in recipients.values():
-    if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
-      await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
-    elif user.notification_platform == "vk" and user.vk_id is not None:
-      await send_vk_message(user_id=user.vk_id, message=text)
+  if cashier is not None:
+    if cashier.notification_platform == "tg" and cashier.telegram_id is not None and telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=cashier.telegram_id, text=text)
+    elif cashier.notification_platform == "vk" and cashier.vk_id is not None:
+      await send_vk_message(user_id=cashier.vk_id, message=text)
 
   player_user = await user_repository.get_by_row_id(int(updated_player.player_id))
   if player_user is not None and player_user.notification_platform is not None:
@@ -770,7 +760,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             current_big_buyin_count = int(self_player.big_buyin_count) if self_player is not None else 0
             current_super_buyin_count = int(self_player.super_buyin_count) if self_player is not None else 0
             result_text = Text.admin.POKER_BUYIN_PROMPT.value
-            result_added_text = f"🎲 В покер добавлен новый игрок\n{user.name}: {int(self_player.buyins) if self_player is not None else 0}"
+            result_added_text = f"🎲 В покер добавлен новый игрок\nИмя: {user.name}: {int(self_player.buyins) if self_player is not None else 0}"
             result_keyboard = poker_buyin_count_keyboard(
               player_id=int(user.row_id),
               max_buyins=int(params.max_buyins),
@@ -1650,7 +1640,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     vk_user_contexts.pop(user_id, None)
     await send_vk_message(
       user_id=user_id,
-      message=f"🎲 В покер добавлен новый игрок\n{created_user.name}: {int(self_player.buyins) if self_player is not None else 0}",
+      message=f"🎲 В покер добавлен новый игрок\nИмя: {created_user.name}: {int(self_player.buyins) if self_player is not None else 0}",
     )
     await send_vk_message(
       user_id=user_id,
