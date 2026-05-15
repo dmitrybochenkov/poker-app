@@ -340,6 +340,21 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
       await send_vk_message(user_id=player_user.vk_id, message=player_text)
 
 
+async def _notify_admins_about_removed_player(*, session, poker_date, player_name: str, buyins: int) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  user_repository = UserRepository(session)
+  players = await PokerDataRepository(session).list_players(date=poker_date)
+  player_row_ids = {int(p.player_id) for p in players}
+  admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
+  text = f"❌ Игрок удален из покера\n{player_name}: {int(buyins)}"
+  for user in admins:
+    if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+    elif user.notification_platform == "vk" and user.vk_id is not None:
+      await send_vk_message(user_id=user.vk_id, message=text)
+
+
 async def _notify_user_removed_from_room(*, user) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
@@ -929,6 +944,19 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
         removed_user = await user_repository.get_by_row_id(int(player_id))
+        active = await PokerRepository(session).get_started()
+        removed_player_name = removed_user.name if removed_user is not None else f"ID {int(player_id)}"
+        removed_player_buyins = 0
+        poker_date = None
+        if active is not None:
+          poker_date = active[0].date
+          player_before_remove = await PokerDataRepository(session).get_player(
+            date=poker_date,
+            player_id=int(player_id),
+          )
+          if player_before_remove is not None:
+            removed_player_name = str(player_before_remove.player_name)
+            removed_player_buyins = int(player_before_remove.buyins)
         removed = await use_case.remove_player_from_active_poker(player_id=int(player_id))
         if removed is None:
           result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
@@ -938,7 +966,13 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_text = Text.admin.POKER_REMOVE_PLAYER_SUCCESS.value
           if removed_user is not None:
             await _notify_user_removed_from_room(user=removed_user)
-          await _refresh_admin_room_status(session=session)
+          if poker_date is not None:
+            await _notify_admins_about_removed_player(
+              session=session,
+              poker_date=poker_date,
+              player_name=removed_player_name,
+              buyins=removed_player_buyins,
+            )
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
