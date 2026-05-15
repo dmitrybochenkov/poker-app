@@ -1918,12 +1918,12 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         user for user in approved_users
         if user.vk_id is not None and int(user.vk_id) not in active_vk_ids
       ]
+      text_out = Text.admin.POKER_ADD_PLAYER_CHOOSE.value
       if not candidates:
-        await send_vk_message(user_id=user_id, message=Text.admin.POKER_ADD_PLAYER_EMPTY.value)
-        return PlainTextResponse("ok")
+        text_out = f"{Text.admin.POKER_ADD_PLAYER_EMPTY.value}\n\nМожно добавить нового игрока вручную."
     await send_vk_message(
       user_id=user_id,
-      message=Text.admin.POKER_ADD_PLAYER_CHOOSE.value,
+      message=text_out,
       keyboard=poker_add_player_candidates_keyboard(users=candidates),
     )
     return PlainTextResponse("ok")

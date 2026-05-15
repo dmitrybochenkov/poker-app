@@ -503,7 +503,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
       keyboard.button(
-        text=f"{player.player_name}: {int(player.buyins)}",
+        text=f"{player.player_name}",
         callback_data=f"pokerbuyin:{player.player_id}",
       )
     keyboard.button(
@@ -976,7 +976,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": f"{player.player_name}: {int(player.buyins)}"[:40],
+              "label": f"{player.player_name}"[:40],
               "payload": {
                 "action": "poker_buyin_select",
                 "player_id": int(player.player_id),

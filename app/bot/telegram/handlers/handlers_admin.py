@@ -1081,11 +1081,11 @@ async def add_player_menu(message: Message) -> None:
       user for user in approved_users
       if user.telegram_id is not None and int(user.row_id) not in active_user_row_ids
     ]
+    text = Text.admin.POKER_ADD_PLAYER_CHOOSE.value
     if not candidates:
-      await message.answer(Text.admin.POKER_ADD_PLAYER_EMPTY.value)
-      return
+      text = f"{Text.admin.POKER_ADD_PLAYER_EMPTY.value}\n\nМожно добавить нового игрока вручную."
   await message.answer(
-    Text.admin.POKER_ADD_PLAYER_CHOOSE.value,
+    text,
     reply_markup=poker_add_player_candidates_keyboard(users=candidates),
   )
 
