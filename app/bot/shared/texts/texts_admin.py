@@ -7,7 +7,8 @@ class AdminText(Enum):
   NEW_REGISTRATION_EXIST = "Тип: привязка платформы"
   NEW_REGISTRATION_KIND_NEW = NEW_REGISTRATION_NEW
   NEW_REGISTRATION_KIND_LINK = NEW_REGISTRATION_EXIST
-  NO_RIGHTS = "Недостаточно прав."
+  NO_RIGHTS = "Ты не админ, вот и нехуй нажимать на админские кнопки!"
+  ADMIN_PANEL = "Админ панель для админа."
   USER_NOT_FOUND = "Пользователь не найден."
   MAKE_ADMIN_USAGE = "Использование: /make_admin"
   MAKE_ADMIN_PROMPT = "Выбери пользователя, которому нужно выдать права администратора:"

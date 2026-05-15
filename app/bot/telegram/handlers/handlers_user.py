@@ -200,16 +200,27 @@ def _split_names(value: str | None) -> set[str]:
 
 async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[dict[str, str], str, str]:
   poker_rows = await PokerRepository(session).list_all()
-  poker_rows = [p for p in poker_rows if p.date is not None]
+  poker_rows = [
+    p for p in poker_rows
+    if p.date is not None
+    and not bool(p.is_going)
+    and bool(str(p.winners or "").strip())
+    and bool(str(p.loosers or "").strip())
+  ]
   poker_rows.sort(key=lambda p: p.date)
   winners_by_date = {p.date: _split_names(p.winners) for p in poker_rows}
   losers_by_date = {p.date: _split_names(p.loosers) for p in poker_rows}
+  completed_dates = {p.date for p in poker_rows}
+  poker_data_rows = await PokerDataRepository(session).list_all()
+  player_game_dates: dict[str, list] = {}
+  for row in poker_data_rows:
+    if row.date in completed_dates:
+      player_game_dates.setdefault(row.player_name, []).append(row.date)
+  for name, dates in list(player_game_dates.items()):
+    player_game_dates[name] = sorted(set(dates))
 
   def player_marks(player_name: str) -> str:
-    player_dates = sorted({
-      p.date for p in poker_rows
-      if player_name in winners_by_date.get(p.date, set()) or player_name in losers_by_date.get(p.date, set())
-    })[-5:]
+    player_dates = player_game_dates.get(player_name, [])[-5:]
     marks: list[str] = []
     for d in player_dates:
       if player_name in winners_by_date.get(d, set()):
@@ -545,7 +556,7 @@ async def open_room_admin_panel(message: Message) -> None:
   if not user.is_admin:
     await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=room_keyboard)
     return
-  await message.answer("Покер админ панель.", reply_markup=admin_room_keyboard)
+  await message.answer(Text.admin.ADMIN_PANEL.value, reply_markup=admin_room_keyboard)
 
 
 @router.message(F.text == Buttons.poker.POLL.value)
@@ -702,7 +713,7 @@ async def open_admin_panel(message: Message) -> None:
   if not user.is_admin:
     await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=main_keyboard)
     return
-  await message.answer(Text.admin.POKER_PARAMS_CHOOSE.value, reply_markup=admin_main_keyboard)
+  await message.answer(Text.admin.ADMIN_PANEL.value, reply_markup=admin_main_keyboard)
 
 
 @router.message(F.text == Buttons.admin_main.TO_MAIN.value)

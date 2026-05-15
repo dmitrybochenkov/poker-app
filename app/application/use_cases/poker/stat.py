@@ -187,6 +187,7 @@ class StatUseCases:
       tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) == int(year)]
     pokers_by_id = await self._load_pokers_by_id()
     pokers_by_date = await self._load_pokers_by_date()
+    ongoing_poker_dates = await self._load_ongoing_poker_dates()
 
     if mode == "all":
       bets = [bet for bet in bets if self._bet_in_any_tournament(bet=bet, tournaments=tournaments)]
@@ -195,6 +196,8 @@ class StatUseCases:
       if active_tournament is None:
         return "Нет данных по ставкам."
       bets = [bet for bet in bets if self._bet_in_tournament(bet=bet, tournament=active_tournament)]
+      # Do not expose bets from unfinished (currently running) poker games.
+      bets = [bet for bet in bets if bet.date not in ongoing_poker_dates]
     else:
       bets = [bet for bet in bets if self._bet_in_any_tournament(bet=bet, tournaments=tournaments)]
 
@@ -457,6 +460,16 @@ class StatUseCases:
       losers = {item.strip() for item in str(poker.loosers or "").split(",") if item.strip()}
       data[poker.date] = (winners, losers)
     return data
+
+  async def _load_ongoing_poker_dates(self) -> set:
+    if self.poker_repository is None:
+      return set()
+    result = set()
+    pokers = await self.poker_repository.list_all()
+    for poker in pokers:
+      if poker.date is not None and bool(poker.is_going):
+        result.add(poker.date)
+    return result
 
   @staticmethod
   def _bet_in_tournament(*, bet: Bet, tournament) -> bool:
