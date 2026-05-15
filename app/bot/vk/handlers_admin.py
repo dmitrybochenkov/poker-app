@@ -31,6 +31,7 @@ from app.bot.vk.api import (
   send_vk_message,
   send_vk_message_event_answer,
   send_vk_message_with_id,
+  unpin_vk_message,
 )
 from app.bot.shared.chips_runtime import (
   TG_ADMIN_ROOM_STATUS_MSG_IDS,
@@ -1870,6 +1871,27 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       vk_user_ids = await user_repository.list_approved_vk_ids()
 
     from app.bot.telegram.runtime import telegram_bot
+    if telegram_bot is not None:
+      for chat_id, message_id in list(TG_ADMIN_ROOM_STATUS_MSG_IDS.items()):
+        try:
+          await telegram_bot.unpin_chat_message(chat_id=int(chat_id), message_id=int(message_id))
+        except Exception:
+          pass
+        try:
+          await telegram_bot.delete_message(chat_id=int(chat_id), message_id=int(message_id))
+        except Exception:
+          pass
+    for peer_id, message_id in list(VK_ADMIN_ROOM_STATUS_MSG_IDS.items()):
+      try:
+        await unpin_vk_message(peer_id=int(peer_id))
+      except Exception:
+        pass
+      try:
+        await delete_vk_message_by_id(peer_id=int(peer_id), message_id=int(message_id))
+      except Exception:
+        pass
+    TG_ADMIN_ROOM_STATUS_MSG_IDS.clear()
+    VK_ADMIN_ROOM_STATUS_MSG_IDS.clear()
 
     if telegram_bot is not None:
       for recipient_id in tg_user_ids:

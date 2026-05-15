@@ -55,7 +55,7 @@ from app.bot.telegram.keyboards import (
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.states import AdminPokerState, RegistrationState
 from app.bot.vk.api import delete_vk_message_by_id, send_vk_message, send_vk_message_with_id
-from app.bot.vk.api import pin_vk_message_by_id
+from app.bot.vk.api import pin_vk_message_by_id, unpin_vk_message
 from app.bot.vk.keyboards import betting_keyboard as vk_betting_keyboard
 from app.bot.vk.keyboards import main_keyboard as vk_main_keyboard
 from app.bot.vk.keyboards import poker_room_admin_status_keyboard as vk_poker_room_admin_status_keyboard
@@ -91,6 +91,27 @@ async def _start_betting_flow(*, admin_tg_id: int) -> str:
     vk_user_ids = await user_repository.list_approved_vk_ids()
 
   from app.bot.telegram.runtime import telegram_bot
+  if telegram_bot is not None:
+    for chat_id, message_id in list(TG_ADMIN_ROOM_STATUS_MSG_IDS.items()):
+      try:
+        await telegram_bot.unpin_chat_message(chat_id=int(chat_id), message_id=int(message_id))
+      except Exception:
+        pass
+      try:
+        await telegram_bot.delete_message(chat_id=int(chat_id), message_id=int(message_id))
+      except Exception:
+        pass
+  for peer_id, message_id in list(VK_ADMIN_ROOM_STATUS_MSG_IDS.items()):
+    try:
+      await unpin_vk_message(peer_id=int(peer_id))
+    except Exception:
+      pass
+    try:
+      await delete_vk_message_by_id(peer_id=int(peer_id), message_id=int(message_id))
+    except Exception:
+      pass
+  TG_ADMIN_ROOM_STATUS_MSG_IDS.clear()
+  VK_ADMIN_ROOM_STATUS_MSG_IDS.clear()
   if telegram_bot is not None:
     for user_id in tg_user_ids:
       await telegram_bot.send_message(chat_id=user_id, text=Text.user.START_BETTING.value, reply_markup=betting_keyboard)
@@ -798,6 +819,11 @@ async def start_betting_inline(callback: CallbackQuery) -> None:
   result_text = await _start_betting_flow(admin_tg_id=callback.from_user.id)
   await callback.answer(result_text, show_alert=True)
   await _clear_inline_keyboard(callback)
+  if callback.message is not None:
+    try:
+      await callback.message.delete()
+    except Exception:
+      pass
 
 
 @router.message(F.text == Buttons.admin_main.CREATE_POLL.value)

@@ -110,6 +110,13 @@ async def pin_vk_message_by_id(*, peer_id: int, message_id: int) -> None:
   )
 
 
+async def unpin_vk_message(*, peer_id: int) -> None:
+  await vk_api_call(
+    "messages.unpin",
+    peer_id=peer_id,
+  )
+
+
 async def send_vk_photo(
   *,
   user_id: int,
