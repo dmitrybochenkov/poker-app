@@ -27,6 +27,7 @@ from app.bot.vk.api import (
   clear_vk_message_keyboard_by_id,
   delete_vk_message_by_id,
   delete_vk_message,
+  pin_vk_message_by_id,
   send_vk_message,
   send_vk_message_event_answer,
   send_vk_message_with_id,
@@ -72,6 +73,7 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.bot.vk.state import (
   WAITING_FOR_ADMIN_CASHOUT_AMOUNT,
   WAITING_FOR_ADMIN_CORRECTED_NAME,
+  WAITING_FOR_ADMIN_NEW_PLAYER_NAME,
   vk_user_contexts,
   vk_user_states,
 )
@@ -210,11 +212,17 @@ async def _refresh_admin_room_status(*, session) -> None:
     and not bool(poker.is_bettable)
     and not bool(poker.is_ready_for_chips_entering)
   )
-  status_text = (
-    "🟢 Игроки в покер руме\n"
-    f"Сейчас в руме: {len(players)}\n\n"
-    "Подсказка: после входа большинства игроков назначь кассира."
-  )
+  if poker.cashier_id is None:
+    status_text = (
+      "🎲 Ниже список игроков в руме.\n"
+      "❌ Лишних можно удалить.\n"
+      "❗ После входа большинства игроков выбери кассира."
+    )
+  else:
+    status_text = (
+      "🍀 Когда все игроки будут в руме - запусти ставки.\n"
+      "❗ Ставки можно делать только на активных игроков."
+    )
   player_row_ids = {int(p.player_id) for p in players}
   admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
   tg_admins = [int(u.telegram_id) for u in admins if u.telegram_id is not None]
@@ -230,8 +238,15 @@ async def _refresh_admin_room_status(*, session) -> None:
       sent = await telegram_bot.send_message(
         chat_id=int(admin_id),
         text=status_text,
-        reply_markup=tg_poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+        reply_markup=tg_poker_room_admin_status_keyboard(
+          players=[] if poker.cashier_id is not None else players,
+          can_start_betting=can_start_betting,
+        ),
       )
+      try:
+        await telegram_bot.pin_chat_message(chat_id=int(admin_id), message_id=int(sent.message_id), disable_notification=True)
+      except Exception:
+        pass
       TG_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent.message_id)
   for admin_id in vk_admins:
     prev_mid = VK_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
@@ -243,9 +258,16 @@ async def _refresh_admin_room_status(*, session) -> None:
     sent_mid = await send_vk_message_with_id(
       user_id=int(admin_id),
       message=status_text,
-      keyboard=poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+      keyboard=poker_room_admin_status_keyboard(
+        players=[] if poker.cashier_id is not None else players,
+        can_start_betting=can_start_betting,
+      ),
     )
     if sent_mid is not None:
+      try:
+        await pin_vk_message_by_id(peer_id=int(admin_id), message_id=int(sent_mid))
+      except Exception:
+        pass
       VK_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent_mid)
 
 
@@ -729,13 +751,25 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     return None
 
   if action == "poker_add_player_new":
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=admin_user_id):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.admin.NO_RIGHTS.value,
+        )
+        return PlainTextResponse("ok")
+    vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_NEW_PLAYER_NAME
+    vk_user_contexts.setdefault(admin_user_id, {})["new_player_from"] = "poker_add"
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
       peer_id=peer_id,
-      text="Добавь нового пользователя через регистрацию, потом выбери 'Добавить игрока'.",
+      text="Введи имя нового игрока",
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=admin_user_id, message="Введи имя нового игрока:")
     return PlainTextResponse("ok")
 
   if action == "poker_add_player_cancel":
@@ -941,7 +975,6 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       text=result_text,
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    await send_vk_message(user_id=admin_user_id, message=result_text)
     return PlainTextResponse("ok")
 
   if action == "poker_buyin_select":
@@ -1334,6 +1367,50 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await send_vk_message(user_id=user_id, message=result_text)
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_NEW_PLAYER_NAME:
+    name = " ".join((text or "").split())
+    if not name:
+      await send_vk_message(user_id=user_id, message="Имя не может быть пустым. Введи имя нового игрока:")
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=user_id):
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      user_repository = UserRepository(session)
+      use_case = ManagePokerPlayersUseCase(
+        poker_repository=PokerRepository(session),
+        poker_data_repository=PokerDataRepository(session),
+        user_repository=user_repository,
+        poker_room_denied_repository=PokerRoomDeniedRepository(session),
+      )
+      created_user = await user_repository.create(
+        name=name,
+        telegram_id=None,
+        vk_id=None,
+        is_approved=True,
+        notification_platform=None,
+      )
+      created_user.telegram_id = -int(created_user.row_id)
+      created_user.notification_platform = None
+      await session.commit()
+      created = await use_case.add_player_to_active_poker(
+        player_id=int(created_user.row_id),
+        player_name=created_user.name,
+      )
+      await use_case.remove_denied_for_active_poker(user_row_id=int(created_user.row_id))
+      if created is None:
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+        return PlainTextResponse("ok")
+      await _refresh_admin_room_status(session=session)
+    vk_user_states.pop(user_id, None)
+    vk_user_contexts.pop(user_id, None)
+    await send_vk_message(user_id=user_id, message=f"{Text.admin.POKER_ADD_PLAYER_SUCCESS.value}\n\nИмя: {name}")
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_CASHOUT_AMOUNT:

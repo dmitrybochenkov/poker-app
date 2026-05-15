@@ -356,11 +356,17 @@ async def _notify_admins_about_room_join(
     and not bool(active[0].is_bettable)
     and not bool(active[0].is_ready_for_chips_entering)
   )
-  status_text = (
-    "🟢 Игроки в покер руме\n"
-    f"Сейчас в руме: {len(players)}\n\n"
-    "Подсказка: после входа большинства игроков назначь кассира."
-  )
+  if active is None or active[0].cashier_id is None:
+    status_text = (
+      "🎲 Ниже список игроков в руме.\n"
+      "❌ Лишних можно удалить.\n"
+      "❗ После входа большинства игроков выбери кассира."
+    )
+  else:
+    status_text = (
+      "🍀 Когда все игроки будут в руме - запусти ставки.\n"
+      "❗ Ставки можно делать только на активных игроков."
+    )
   for admin_id in admin_tg_ids:
     if joined_user.telegram_id is not None and int(admin_id) == int(joined_user.telegram_id):
       continue
@@ -374,7 +380,10 @@ async def _notify_admins_about_room_join(
       sent = await telegram_bot.send_message(
         chat_id=int(admin_id),
         text=status_text,
-        reply_markup=tg_poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+        reply_markup=tg_poker_room_admin_status_keyboard(
+          players=[] if (active is not None and active[0].cashier_id is not None) else players,
+          can_start_betting=can_start_betting,
+        ),
       )
       TG_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent.message_id)
 
@@ -390,7 +399,10 @@ async def _notify_admins_about_room_join(
     sent_mid = await send_vk_message_with_id(
       user_id=int(admin_id),
       message=status_text,
-      keyboard=poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+      keyboard=poker_room_admin_status_keyboard(
+        players=[] if (active is not None and active[0].cashier_id is not None) else players,
+        can_start_betting=can_start_betting,
+      ),
     )
     if sent_mid is not None:
       VK_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent_mid)

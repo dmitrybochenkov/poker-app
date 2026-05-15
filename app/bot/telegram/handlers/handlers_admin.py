@@ -55,6 +55,7 @@ from app.bot.telegram.keyboards import (
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.telegram.states import AdminPokerState, RegistrationState
 from app.bot.vk.api import delete_vk_message_by_id, send_vk_message, send_vk_message_with_id
+from app.bot.vk.api import pin_vk_message_by_id
 from app.bot.vk.keyboards import betting_keyboard as vk_betting_keyboard
 from app.bot.vk.keyboards import main_keyboard as vk_main_keyboard
 from app.bot.vk.keyboards import poker_room_admin_status_keyboard as vk_poker_room_admin_status_keyboard
@@ -114,11 +115,17 @@ async def _refresh_admin_room_status(*, session) -> None:
     and not bool(poker.is_bettable)
     and not bool(poker.is_ready_for_chips_entering)
   )
-  status_text = (
-    "🟢 Игроки в покер руме\n"
-    f"Сейчас в руме: {len(players)}\n\n"
-    "Подсказка: после входа большинства игроков назначь кассира."
-  )
+  if poker.cashier_id is None:
+    status_text = (
+      "🎲 Ниже список игроков в руме.\n"
+      "❌ Лишних можно удалить.\n"
+      "❗ После входа большинства игроков выбери кассира."
+    )
+  else:
+    status_text = (
+      "🍀 Когда все игроки будут в руме - запусти ставки.\n"
+      "❗ Ставки можно делать только на активных игроков."
+    )
   player_row_ids = {int(p.player_id) for p in players}
   admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
   tg_admins = [int(u.telegram_id) for u in admins if u.telegram_id is not None]
@@ -134,8 +141,15 @@ async def _refresh_admin_room_status(*, session) -> None:
       sent = await telegram_bot.send_message(
         chat_id=int(admin_id),
         text=status_text,
-        reply_markup=poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+        reply_markup=poker_room_admin_status_keyboard(
+          players=[] if poker.cashier_id is not None else players,
+          can_start_betting=can_start_betting,
+        ),
       )
+      try:
+        await telegram_bot.pin_chat_message(chat_id=int(admin_id), message_id=int(sent.message_id), disable_notification=True)
+      except Exception:
+        pass
       TG_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent.message_id)
   for admin_id in vk_admins:
     prev_mid = VK_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
@@ -147,9 +161,16 @@ async def _refresh_admin_room_status(*, session) -> None:
     sent_mid = await send_vk_message_with_id(
       user_id=int(admin_id),
       message=status_text,
-      keyboard=vk_poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+      keyboard=vk_poker_room_admin_status_keyboard(
+        players=[] if poker.cashier_id is not None else players,
+        can_start_betting=can_start_betting,
+      ),
     )
     if sent_mid is not None:
+      try:
+        await pin_vk_message_by_id(peer_id=int(admin_id), message_id=int(sent_mid))
+      except Exception:
+        pass
       VK_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent_mid)
 
 
@@ -899,11 +920,6 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
     cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
     cashier_text = f"{cashier_name} выбран кассиром."
     await _refresh_admin_room_status(session=session)
-  if callback.message is not None:
-    try:
-      await callback.message.edit_text(cashier_text)
-    except Exception:
-      await callback.message.answer(cashier_text)
   await callback.answer(cashier_text)
 
 
@@ -1064,10 +1080,17 @@ async def add_player_callback(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("pokeraddnew:"))
-async def add_player_new_callback(callback: CallbackQuery) -> None:
+async def add_player_new_callback(callback: CallbackQuery, state: FSMContext) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
+      return
   await _clear_inline_keyboard(callback)
+  await state.set_state(AdminPokerState.waiting_for_new_player_name)
   if callback.message is not None:
-    await callback.message.answer("Добавь нового пользователя через регистрацию, потом выбери 'Добавить игрока'.")
+    await callback.message.answer("Введи имя нового игрока:")
   await callback.answer()
 
 
@@ -1075,6 +1098,50 @@ async def add_player_new_callback(callback: CallbackQuery) -> None:
 async def add_player_cancel_callback(callback: CallbackQuery) -> None:
   await _clear_inline_keyboard(callback)
   await callback.answer(Buttons.betting_inline.CONFIRM_NO.value)
+
+
+@router.message(AdminPokerState.waiting_for_new_player_name)
+async def add_new_player_name_input(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
+    return
+  name = " ".join((message.text or "").split())
+  if not name:
+    await message.answer("Имя не может быть пустым. Введи имя нового игрока:")
+    return
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
+      await state.clear()
+      return
+    user_repository = UserRepository(session)
+    use_case = ManagePokerPlayersUseCase(
+      poker_repository=PokerRepository(session),
+      poker_data_repository=PokerDataRepository(session),
+      user_repository=user_repository,
+      poker_room_denied_repository=PokerRoomDeniedRepository(session),
+    )
+    created_user = await user_repository.create(
+      name=name,
+      telegram_id=None,
+      vk_id=None,
+      is_approved=True,
+      notification_platform=None,
+    )
+    created_user.telegram_id = -int(created_user.row_id)
+    created_user.notification_platform = None
+    await session.commit()
+    created = await use_case.add_player_to_active_poker(
+      player_id=int(created_user.row_id),
+      player_name=created_user.name,
+    )
+    await use_case.remove_denied_for_active_poker(user_row_id=int(created_user.row_id))
+    if created is None:
+      await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+      await state.clear()
+      return
+    await _refresh_admin_room_status(session=session)
+  await state.clear()
+  await message.answer(f"{Text.admin.POKER_ADD_PLAYER_SUCCESS.value}\n\nИмя: {name}")
 
 
 @router.message((F.text == Buttons.admin_room.REMOVE_PLAYER.value) | (F.text == Buttons.admin_room_correct.REMOVE_PLAYER.value))
