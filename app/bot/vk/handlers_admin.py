@@ -114,12 +114,13 @@ def _winner_mark(*, is_streak: bool) -> str:
   return "🛡️💍" if is_streak else "💍"
 
 
-def _bet_mark(*, guessed_winner: bool, guessed_loser: bool) -> str:
+def _bet_mark(*, amount_kopecks: int, guessed_winner: bool, guessed_loser: bool) -> str:
+  size_mark = "🐔" if int(amount_kopecks) >= 40000 else "🐤"
   if guessed_winner and guessed_loser:
-    return "🍀🔮"
+    return f"{size_mark}🔮"
   if guessed_winner or guessed_loser:
-    return "🍀"
-  return ""
+    return f"{size_mark}🍀"
+  return size_mark
 
 
 async def _notify_players_about_finish(*, players: list) -> None:
@@ -1213,7 +1214,11 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       for bet in sorted(bets, key=lambda x: int(x.row_id)):
         guessed_winner = bool(bet.winner_name) and bet.winner_name in winners
         guessed_loser = bool(bet.loser_name) and bet.loser_name in loosers
-        mark = _bet_mark(guessed_winner=guessed_winner, guessed_loser=guessed_loser)
+        mark = _bet_mark(
+          amount_kopecks=int(bet.amount_kopecks),
+          guessed_winner=guessed_winner,
+          guessed_loser=guessed_loser,
+        )
         winner_guess = bet.winner_name or "-"
         loser_guess = bet.loser_name or "-"
         bet_lines.append(
@@ -1264,7 +1269,11 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
             for b in own_bets:
               guessed_winner = bool(b.winner_name) and b.winner_name in winners
               guessed_loser = bool(b.loser_name) and b.loser_name in loosers
-              mark = _bet_mark(guessed_winner=guessed_winner, guessed_loser=guessed_loser)
+              mark = _bet_mark(
+                amount_kopecks=int(b.amount_kopecks),
+                guessed_winner=guessed_winner,
+                guessed_loser=guessed_loser,
+              )
               details.append(f"{_format_rub_from_kopecks(int(b.amount_kopecks))} ₽ | {mark} +{int(b.score)}")
             player_text += "\nСтавки: " + "; ".join(details)
         if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
