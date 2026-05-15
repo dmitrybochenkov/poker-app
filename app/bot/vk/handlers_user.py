@@ -1797,16 +1797,25 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value)
         return PlainTextResponse("ok")
 
+      poker_repository = PokerRepository(session)
+      poker_data_repository = PokerDataRepository(session)
+      active = await poker_repository.get_started()
+      ready = await poker_repository.get_latest_ready_for_chips() if active is None else None
+      current_poker_date = active[0].date if active is not None else (ready.date if ready is not None else None)
+      if current_poker_date is None:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
+        return PlainTextResponse("ok")
+
       use_case = ManagePokerPlayersUseCase(
-        poker_repository=PokerRepository(session),
-        poker_data_repository=PokerDataRepository(session),
+        poker_repository=poker_repository,
+        poker_data_repository=poker_data_repository,
         poker_room_denied_repository=PokerRoomDeniedRepository(session),
       )
       is_denied = await use_case.is_denied_for_active_poker(user_row_id=int(user.row_id))
       if is_denied:
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value)
         return PlainTextResponse("ok")
-      players = await use_case.list_active_poker_players()
+      players = await poker_data_repository.list_players(date=current_poker_date)
       if players:
         already_in_room = any(int(item.player_id) == int(user.row_id) for item in players)
         if already_in_room:
@@ -1817,10 +1826,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
           )
           return PlainTextResponse("ok")
 
-      created = await use_case.add_player_to_active_poker(
-        player_id=int(user.row_id),
-        player_name=user.name,
-      )
+      if active is None:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
+        return PlainTextResponse("ok")
+      created = await use_case.add_player_to_active_poker(player_id=int(user.row_id), player_name=user.name)
       if created is None:
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_ROOM_CLOSED.value)
         return PlainTextResponse("ok")

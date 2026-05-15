@@ -32,7 +32,7 @@ class UserText(Enum):
   START_POKER = "Начало покера. Желающим принять участие в игре пора заходить в покер рум!"
   START_BETTING = "Ставки открыты. Можно делать ставки на текущую игру."
   FINISH_POKER = "Покер завершен.\n\nИтог:\n🏦 Закупы: {buyins}\n💸 Кешаут: {cashout_rub} ₽"
-  FINISH_CHIPS_PROMPT = "Покер завершен. Посчитай свои фишки и отправь число в чат."
+  FINISH_CHIPS_PROMPT = "Покер завершен. Посчитай свои фишки и отправь число мне."
   FINISH_CHIPS_SAVED = "Фишки сохранены: {chips}.\nИтог: {money_rub} ₽ {reaction}"
   FINISH_CHIPS_INVALID = "Введи целое число фишек, кратное {step}."
   FINISH_CHIPS_NOT_READY = "Сейчас ввод фишек закрыт."

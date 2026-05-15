@@ -497,6 +497,9 @@ async def start_betting(message: Message) -> None:
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
     poker, params = active
+    if poker.is_ready_for_chips_entering:
+      await message.answer(Text.user.FINISH_CHIPS_NOT_READY.value)
+      return
     if poker.is_bettable:
       await message.answer(Text.admin.BETTING_ALREADY_OPEN.value)
       return
@@ -823,6 +826,9 @@ async def buyin_menu(message: Message) -> None:
       await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
       return
     poker, params = active
+    if poker.is_ready_for_chips_entering:
+      await message.answer(Text.user.FINISH_CHIPS_NOT_READY.value)
+      return
     if poker.cashier_id is None:
       await message.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
       return
@@ -880,6 +886,9 @@ async def buyin_select_callback(callback: CallbackQuery) -> None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
       return
     poker, params = active
+    if poker.is_ready_for_chips_entering:
+      await callback.answer(Text.user.FINISH_CHIPS_NOT_READY.value, show_alert=True)
+      return
     if poker.cashier_id is None:
       await callback.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value, show_alert=True)
       return
@@ -940,6 +949,9 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
       return
     poker, params = active
+    if poker.is_ready_for_chips_entering:
+      await callback.answer(Text.user.FINISH_CHIPS_NOT_READY.value, show_alert=True)
+      return
     if poker.cashier_id is None:
       await callback.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value, show_alert=True)
       return

@@ -684,6 +684,18 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_keyboard = None
         else:
           poker, params = active
+          if poker.is_ready_for_chips_entering:
+            result_text = Text.user.FINISH_CHIPS_NOT_READY.value
+            result_keyboard = None
+            await send_vk_message_event_answer(
+              event_id=event_id,
+              user_id=admin_user_id,
+              peer_id=peer_id,
+              text=result_text,
+            )
+            await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+            await send_vk_message(user_id=admin_user_id, message=result_text)
+            return PlainTextResponse("ok")
           if poker.cashier_id is None:
             result_text = Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value
             result_keyboard = None
@@ -742,6 +754,17 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
         else:
           poker, params = active
+          if poker.is_ready_for_chips_entering:
+            result_text = Text.user.FINISH_CHIPS_NOT_READY.value
+            await send_vk_message_event_answer(
+              event_id=event_id,
+              user_id=admin_user_id,
+              peer_id=peer_id,
+              text=result_text,
+            )
+            await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+            await send_vk_message(user_id=admin_user_id, message=result_text)
+            return PlainTextResponse("ok")
           if poker.cashier_id is None:
             result_text = Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value
             await send_vk_message_event_answer(
@@ -1294,6 +1317,9 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
         return PlainTextResponse("ok")
       poker, _ = active
+      if poker.is_ready_for_chips_entering:
+        await send_vk_message(user_id=user_id, message=Text.user.FINISH_CHIPS_NOT_READY.value)
+        return PlainTextResponse("ok")
       if poker.is_bettable:
         await send_vk_message(user_id=user_id, message=Text.admin.BETTING_ALREADY_OPEN.value)
         return PlainTextResponse("ok")
@@ -1448,6 +1474,9 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
         return PlainTextResponse("ok")
       poker, _ = active
+      if poker.is_ready_for_chips_entering:
+        await send_vk_message(user_id=user_id, message=Text.user.FINISH_CHIPS_NOT_READY.value)
+        return PlainTextResponse("ok")
       if poker.cashier_id is None:
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
         return PlainTextResponse("ok")

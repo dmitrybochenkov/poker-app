@@ -26,7 +26,8 @@ class PokerRepository:
     return result.first()
 
   async def finish(self, poker: Poker) -> Poker:
-    poker.is_going = False
+    # Move poker to chips-entry stage, but keep it "going" until final calculation.
+    poker.is_going = True
     poker.is_bettable = False
     poker.is_ready_for_chips_entering = True
     await self.session.commit()
@@ -36,7 +37,6 @@ class PokerRepository:
   async def get_latest_ready_for_chips(self) -> Poker | None:
     result = await self.session.execute(
       select(Poker)
-      .where(Poker.is_going.is_(False))
       .where(Poker.is_ready_for_chips_entering.is_(True))
       .order_by(Poker.row_id.desc())
     )
@@ -46,7 +46,6 @@ class PokerRepository:
     result = await self.session.execute(
       select(Poker, PokerParam)
       .join(PokerParam, Poker.params_id == PokerParam.row_id)
-      .where(Poker.is_going.is_(False))
       .where(Poker.is_ready_for_chips_entering.is_(True))
       .order_by(Poker.row_id.desc())
     )
@@ -59,6 +58,7 @@ class PokerRepository:
     return poker
 
   async def finish_chips_entering(self, poker: Poker, *, winners: str, loosers: str) -> Poker:
+    poker.is_going = False
     poker.is_ready_for_chips_entering = False
     poker.winners = winners
     poker.loosers = loosers

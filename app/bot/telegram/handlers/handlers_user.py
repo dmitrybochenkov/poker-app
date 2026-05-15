@@ -556,16 +556,25 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
       await message.answer(Text.user.STATUS_PENDING.value)
       return
 
+    poker_repository = PokerRepository(session)
+    poker_data_repository = PokerDataRepository(session)
+    active = await poker_repository.get_started()
+    ready = await poker_repository.get_latest_ready_for_chips() if active is None else None
+    current_poker_date = active[0].date if active is not None else (ready.date if ready is not None else None)
+    if current_poker_date is None:
+      await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
+      return
+
     use_case = ManagePokerPlayersUseCase(
-      poker_repository=PokerRepository(session),
-      poker_data_repository=PokerDataRepository(session),
+      poker_repository=poker_repository,
+      poker_data_repository=poker_data_repository,
       poker_room_denied_repository=PokerRoomDeniedRepository(session),
     )
     is_denied = await use_case.is_denied_for_active_poker(user_row_id=int(user.row_id))
     if is_denied:
       await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
       return
-    players = await use_case.list_active_poker_players()
+    players = await poker_data_repository.list_players(date=current_poker_date)
     if players:
       already_in_room = any(int(item.player_id) == int(user.row_id) for item in players)
       if already_in_room:
@@ -574,10 +583,10 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
           reply_markup=room_admin_keyboard if user.is_admin else room_keyboard,
         )
         return
-    created = await use_case.add_player_to_active_poker(
-      player_id=int(user.row_id),
-      player_name=user.name,
-    )
+    if active is None:
+      await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
+      return
+    created = await use_case.add_player_to_active_poker(player_id=int(user.row_id), player_name=user.name)
     if created is None:
       await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
       return
