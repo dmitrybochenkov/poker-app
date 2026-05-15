@@ -19,7 +19,15 @@ from app.bot.telegram.keyboards import (
   registration_review_keyboard as tg_registration_review_keyboard,
 )
 from app.bot.telegram.notifications import notify_admins_about_registration as notify_tg_admins_about_registration
-from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_event_answer, send_vk_photo
+from app.bot.vk.api import (
+  delete_vk_message,
+  edit_vk_message_by_id,
+  send_vk_message,
+  send_vk_message_event_answer,
+  send_vk_message_with_id,
+  send_vk_photo,
+)
+from app.bot.shared.chips_runtime import VK_ADMIN_CHIPS_STATUS_MSG_IDS, VK_USER_CHIPS_RESULT_MSG_IDS
 from app.bot.vk.keyboards import (
   admin_main_keyboard,
   betting_keyboard,
@@ -28,6 +36,7 @@ from app.bot.vk.keyboards import (
   poker_keyboard,
   poker_info_keyboard,
   poker_cashout_candidates_keyboard,
+  poker_calc_keyboard,
   betting_confirm_keyboard,
   betting_player_keyboard,
   betting_size_keyboard,
@@ -215,6 +224,21 @@ def _chips_reaction(money_kopecks: int) -> str:
   winner = ["🍾", "👍", "🔥", "🏆", "👏", "🤩", "🎉"]
   loser = ["👎", "🥴", "😢", "💩", "🤮", "😭", "🤷‍♀"]
   return random.choice(winner if int(money_kopecks) >= 0 else loser)
+
+
+def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered: int) -> str:
+  lines = [
+    "🎰 Ввод фишек.",
+    "",
+    f"Всего в игре было {chips_in_game} фишек. Введено: {chips_entered} фишек",
+    "",
+  ]
+  for p in players:
+    if p.chips is None:
+      lines.append(f"{p.player_name}: еще не ввел фишки")
+    else:
+      lines.append(f"{p.player_name}: {int(p.chips)}")
+  return "\n".join(lines)
 
 
 def _split_names(value: str | None) -> set[str]:
@@ -1494,33 +1518,59 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         money_kopecks=int(money_kopecks),
       )
       admins = [u for u in await user_repository.list_approved() if u.is_admin]
-      waiting_names = [p.player_name for p in await poker_data_repository.list_players(date=poker.date) if int(p.chips or 0) == 0]
-      waiting_text = (
-        Text.admin.POKER_CHIPS_ALL_ENTERED.value
-        if not waiting_names
-        else Text.admin.POKER_CHIPS_WAITING.value.format(players="\n".join(f"- {name}" for name in waiting_names))
-      )
-      admin_text = (
-        "🎰 Ввод фишек\n"
-        f"Игрок: {updated.player_name}\n"
-        f"Фишки: {chips}\n"
-        f"Итог: {_format_rub_from_kopecks(int(money_kopecks))} ₽ {_chips_reaction(int(money_kopecks))}\n\n"
-        f"{waiting_text}"
+      all_players = await poker_data_repository.list_players(date=poker.date)
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in all_players)
+      chips_entered = sum(int(p.chips or 0) for p in all_players)
+      admin_text = _build_chips_status_text(
+        players=all_players,
+        chips_in_game=chips_in_game,
+        chips_entered=chips_entered,
       )
       from app.bot.telegram.runtime import telegram_bot
       for admin in admins:
         if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
           await telegram_bot.send_message(chat_id=admin.telegram_id, text=admin_text)
         elif admin.notification_platform == "vk" and admin.vk_id is not None:
-          await send_vk_message(user_id=admin.vk_id, message=admin_text)
-      await send_vk_message(
-        user_id=user_id,
-        message=Text.user.FINISH_CHIPS_SAVED.value.format(
-          chips=chips,
-          money_rub=_format_rub_from_kopecks(int(money_kopecks)),
-          reaction=_chips_reaction(int(money_kopecks)),
-        ),
+          prev_mid = VK_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(admin.vk_id))
+          if prev_mid is not None:
+            try:
+              await edit_vk_message_by_id(
+                peer_id=int(admin.vk_id),
+                message_id=int(prev_mid),
+                message=admin_text,
+                keyboard=poker_calc_keyboard(),
+              )
+              continue
+            except Exception:
+              pass
+          sent_mid = await send_vk_message_with_id(
+            user_id=int(admin.vk_id),
+            message=admin_text,
+            keyboard=poker_calc_keyboard(),
+          )
+          if sent_mid is not None:
+            VK_ADMIN_CHIPS_STATUS_MSG_IDS[int(admin.vk_id)] = int(sent_mid)
+      user_text = Text.user.FINISH_CHIPS_SAVED.value.format(
+        chips=chips,
+        money_rub=_format_rub_from_kopecks(int(money_kopecks)),
+        reaction=_chips_reaction(int(money_kopecks)),
       )
+      prev_user_mid = VK_USER_CHIPS_RESULT_MSG_IDS.get(int(user_id))
+      if prev_user_mid is not None:
+        try:
+          await edit_vk_message_by_id(
+            peer_id=int(user_id),
+            message_id=int(prev_user_mid),
+            message=user_text,
+          )
+        except Exception:
+          sent_mid = await send_vk_message_with_id(user_id=user_id, message=user_text)
+          if sent_mid is not None:
+            VK_USER_CHIPS_RESULT_MSG_IDS[int(user_id)] = int(sent_mid)
+      else:
+        sent_mid = await send_vk_message_with_id(user_id=user_id, message=user_text)
+        if sent_mid is not None:
+          VK_USER_CHIPS_RESULT_MSG_IDS[int(user_id)] = int(sent_mid)
       return PlainTextResponse("ok")
 
   if text in {

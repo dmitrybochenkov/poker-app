@@ -40,5 +40,6 @@ poker_unban_player_candidates_keyboard = InlineKbs.poker_unban_player_candidates
 poker_buyin_candidates_keyboard = InlineKbs.poker_buyin_candidates_tg
 poker_buyin_count_keyboard = InlineKbs.poker_buyin_count_tg
 poker_cashout_candidates_keyboard = InlineKbs.poker_cashout_candidates_tg
+poker_calc_keyboard = InlineKbs.poker_calc_tg
 registration_candidates_keyboard = InlineKbs.registration_candidates_tg
 registration_candidates_page_keyboard = InlineKbs.registration_candidates_tg_page

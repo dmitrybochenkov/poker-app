@@ -58,6 +58,41 @@ async def send_vk_message(*, user_id: int, message: str, keyboard: str | None = 
     await vk_api_call("messages.send", **params)
 
 
+async def send_vk_message_with_id(*, user_id: int, message: str, keyboard: str | None = None) -> int | None:
+  params = {
+    "user_id": user_id,
+    "random_id": secrets.randbelow(2**31 - 1),
+    "message": message,
+  }
+  if keyboard is not None:
+    params["keyboard"] = keyboard
+  data = await vk_api_call("messages.send", **params)
+  response = data.get("response")
+  if isinstance(response, int):
+    return response
+  return None
+
+
+async def edit_vk_message_by_id(*, peer_id: int, message_id: int, message: str, keyboard: str | None = None) -> None:
+  params = {
+    "peer_id": peer_id,
+    "message_id": message_id,
+    "message": message,
+  }
+  if keyboard is not None:
+    params["keyboard"] = keyboard
+  await vk_api_call("messages.edit", **params)
+
+
+async def clear_vk_message_keyboard_by_id(*, peer_id: int, message_id: int) -> None:
+  await vk_api_call(
+    "messages.edit",
+    peer_id=peer_id,
+    message_id=message_id,
+    keyboard=json.dumps({"buttons": []}, ensure_ascii=False),
+  )
+
+
 async def send_vk_photo(
   *,
   user_id: int,

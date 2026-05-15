@@ -23,7 +23,15 @@ from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import betting_keyboard as tg_betting_keyboard
 from app.bot.telegram.keyboards import main_keyboard as tg_main_keyboard
 from app.bot.telegram.notifications import notify_user_about_approval
-from app.bot.vk.api import delete_vk_message, send_vk_message, send_vk_message_event_answer
+from app.bot.vk.api import (
+  clear_vk_message_keyboard_by_id,
+  delete_vk_message,
+  edit_vk_message_by_id,
+  send_vk_message,
+  send_vk_message_event_answer,
+  send_vk_message_with_id,
+)
+from app.bot.shared.chips_runtime import VK_ADMIN_CHIPS_STATUS_MSG_IDS, VK_USER_CHIPS_RESULT_MSG_IDS
 from app.bot.vk.keyboards import (
   betting_keyboard,
   link_candidates_keyboard,
@@ -38,6 +46,7 @@ from app.bot.vk.keyboards import (
   poker_remove_player_candidates_keyboard,
   poker_unban_player_candidates_keyboard,
   poker_params_keyboard,
+  poker_calc_keyboard,
   poll_admin_choose_keyboard,
   poll_admin_other_keyboard,
   room_admin_keyboard,
@@ -121,6 +130,33 @@ def _bet_mark(*, amount_kopecks: int, guessed_winner: bool, guessed_loser: bool)
   if guessed_winner or guessed_loser:
     return f"{size_mark}🍀"
   return size_mark
+
+
+def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered: int) -> str:
+  lines = [
+    "🎰 Ввод фишек.",
+    "",
+    f"Всего в игре было {chips_in_game} фишек. Введено: {chips_entered} фишек",
+    "",
+  ]
+  for p in players:
+    if p.chips is None:
+      lines.append(f"{p.player_name}: еще не ввел фишки")
+    else:
+      lines.append(f"{p.player_name}: {int(p.chips)}")
+  return "\n".join(lines)
+
+
+async def _clear_vk_admin_chips_calc_buttons() -> None:
+  for peer_id, message_id in list(VK_ADMIN_CHIPS_STATUS_MSG_IDS.items()):
+    try:
+      await clear_vk_message_keyboard_by_id(
+        peer_id=int(peer_id),
+        message_id=int(message_id),
+      )
+    except Exception:
+      pass
+  VK_ADMIN_CHIPS_STATUS_MSG_IDS.clear()
 
 
 async def _notify_players_about_finish(*, players: list) -> None:
@@ -890,6 +926,25 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
               updated = await pdata.set_chips(date=poker.date, player_id=int(player_id), chips=chips)
               if updated is not None:
                 await pdata.set_cashout(date=poker.date, player_id=int(player_id), money_kopecks=int(money_kopecks))
+                all_players = await pdata.list_players(date=poker.date)
+                chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in all_players)
+                chips_entered = sum(int(p.chips or 0) for p in all_players)
+                status_text = _build_chips_status_text(
+                  players=all_players,
+                  chips_in_game=chips_in_game,
+                  chips_entered=chips_entered,
+                )
+                prev_mid = VK_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(admin_user_id))
+                if prev_mid is not None:
+                  try:
+                    await edit_vk_message_by_id(
+                      peer_id=int(admin_user_id),
+                      message_id=int(prev_mid),
+                      message=status_text,
+                      keyboard=poker_calc_keyboard(),
+                    )
+                  except Exception:
+                    pass
               vk_user_contexts.setdefault(admin_user_id, {}).pop("cashout_input_value", None)
               result_text = (
                 f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n"
@@ -950,6 +1005,47 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     await send_vk_message(user_id=admin_user_id, message=f"Опрос на {month:%m.%Y} создан.")
     return PlainTextResponse("ok")
 
+  if action == "poker_calc_run":
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=admin_user_id):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.admin.NO_RIGHTS.value,
+        )
+        return PlainTextResponse("ok")
+      ready = await PokerRepository(session).get_latest_ready_for_chips_with_params()
+      if ready is None:
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.admin.POKER_CASHOUT_EMPTY.value,
+        )
+        return PlainTextResponse("ok")
+      poker, params = ready
+      players = await PokerDataRepository(session).list_players(date=poker.date)
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
+      chips_entered = sum(int(p.chips or 0) for p in players)
+      diff = chips_entered - chips_in_game
+      if diff != 0:
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=f"Фишки не сходятся. Разница: {diff}",
+        )
+        return PlainTextResponse("ok")
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text="Запускаю расчет...",
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    return await handle_admin_text_commands(user_id=admin_user_id, text=Buttons.admin_room.CALCULATE_POKER.value)
+
   return None
 
 
@@ -977,6 +1073,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_INVALID.value)
       return PlainTextResponse("ok")
     chips = int(text)
+    target_user = None
     player_id = vk_user_contexts.get(user_id, {}).get("cashout_player_id")
     if player_id is None:
       vk_user_states.pop(user_id, None)
@@ -1018,6 +1115,26 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         player_id=int(player_id),
         money_kopecks=int(money_kopecks),
       )
+      all_players = await PokerDataRepository(session).list_players(date=poker.date)
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in all_players)
+      chips_entered = sum(int(p.chips or 0) for p in all_players)
+      status_text = _build_chips_status_text(
+        players=all_players,
+        chips_in_game=chips_in_game,
+        chips_entered=chips_entered,
+      )
+      prev_mid = VK_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(user_id))
+      if prev_mid is not None:
+        try:
+          await edit_vk_message_by_id(
+            peer_id=int(user_id),
+            message_id=int(prev_mid),
+            message=status_text,
+            keyboard=poker_calc_keyboard(),
+          )
+        except Exception:
+          pass
+      target_user = await user_repository.get_by_row_id(int(player_id))
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await send_vk_message(
@@ -1028,6 +1145,28 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         f"Итог: {_format_rub_from_kopecks(int(money_kopecks))} ₽"
       ),
     )
+    if target_user is not None and target_user.vk_id is not None:
+      user_text = Text.user.FINISH_CHIPS_SAVED.value.format(
+        chips=chips,
+        money_rub=_format_rub_from_kopecks(int(money_kopecks)),
+        reaction=_get_reaction("winner" if int(money_kopecks) >= 0 else "loser"),
+      )
+      prev_mid = VK_USER_CHIPS_RESULT_MSG_IDS.get(int(target_user.vk_id))
+      if prev_mid is not None:
+        try:
+          await edit_vk_message_by_id(
+            peer_id=int(target_user.vk_id),
+            message_id=int(prev_mid),
+            message=user_text,
+          )
+        except Exception:
+          sent_mid = await send_vk_message_with_id(user_id=int(target_user.vk_id), message=user_text)
+          if sent_mid is not None:
+            VK_USER_CHIPS_RESULT_MSG_IDS[int(target_user.vk_id)] = int(sent_mid)
+      else:
+        sent_mid = await send_vk_message_with_id(user_id=int(target_user.vk_id), message=user_text)
+        if sent_mid is not None:
+          VK_USER_CHIPS_RESULT_MSG_IDS[int(target_user.vk_id)] = int(sent_mid)
     return PlainTextResponse("ok")
 
   if text.lower().startswith("approve "):
@@ -1137,8 +1276,20 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     await _notify_players_about_finish(players=players)
     await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)
     if players:
-      waiting = "\n".join(f"- {p.player_name}" for p in players)
-      await send_vk_message(user_id=user_id, message=Text.admin.POKER_CHIPS_WAITING.value.format(players=waiting))
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
+      chips_entered = sum(int(p.chips or 0) for p in players)
+      status_text = _build_chips_status_text(
+        players=players,
+        chips_in_game=chips_in_game,
+        chips_entered=chips_entered,
+      )
+      sent_mid = await send_vk_message_with_id(
+        user_id=user_id,
+        message=status_text,
+        keyboard=poker_calc_keyboard(),
+      )
+      if sent_mid is not None:
+        VK_ADMIN_CHIPS_STATUS_MSG_IDS[int(user_id)] = int(sent_mid)
     return PlainTextResponse("ok")
 
   if text == Buttons.admin_room.CALCULATE_POKER.value:
@@ -1160,21 +1311,13 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         return PlainTextResponse("ok")
 
       chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
-      chips_entered = sum(int(p.chips) for p in players)
+      chips_entered = sum(int(p.chips or 0) for p in players)
       diff = chips_entered - chips_in_game
       if diff != 0:
-        mismatch_text = Text.admin.POKER_CALC_BALANCE_MISMATCH.value.format(
-          in_game=chips_in_game,
-          entered=chips_entered,
-          diff=diff,
+        mismatch_text = (
+          "Количество введенных фишек не совпадает с количеством закупленных\n"
+          f"Разница: {diff}"
         )
-        admins = [u for u in await user_repository.list_approved() if u.is_admin]
-        from app.bot.telegram.runtime import telegram_bot
-        for admin in admins:
-          if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
-            await telegram_bot.send_message(chat_id=admin.telegram_id, text=mismatch_text)
-          elif admin.notification_platform == "vk" and admin.vk_id is not None:
-            await send_vk_message(user_id=admin.vk_id, message=mismatch_text)
         await send_vk_message(user_id=user_id, message=mismatch_text)
         return PlainTextResponse("ok")
 
@@ -1311,6 +1454,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
           await telegram_bot.send_message(chat_id=user.telegram_id, text=player_text)
         elif user.notification_platform == "vk" and user.vk_id is not None:
           await send_vk_message(user_id=user.vk_id, message=player_text)
+      await _clear_vk_admin_chips_calc_buttons()
     return PlainTextResponse("ok")
 
   if text == Buttons.admin_room.START_BETTING.value:

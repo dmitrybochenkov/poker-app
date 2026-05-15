@@ -38,6 +38,7 @@ from app.bot.telegram.keyboards import (
   betting_stat_mode_keyboard,
   betting_stat_indicators_keyboard,
   poker_stat_indicators_keyboard,
+  poker_calc_keyboard,
   stat_year_keyboard,
   stat_sort_keyboard,
   poll_month_keyboard,
@@ -56,6 +57,7 @@ from app.bot.vk.keyboards import (
   registration_review_keyboard as vk_registration_review_keyboard,
 )
 from app.bot.vk.api import send_vk_message
+from app.bot.shared.chips_runtime import TG_ADMIN_CHIPS_STATUS_MSG_IDS, TG_USER_CHIPS_RESULT_MSG_IDS
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -97,10 +99,41 @@ def _format_rub_from_kopecks(value_kopecks: int) -> str:
 
 
 def _format_waiting_players(players: list) -> str:
-  waiting = [p.player_name for p in players if int(p.chips or 0) == 0]
+  waiting = [p.player_name for p in players if p.chips is None]
   if not waiting:
     return Text.admin.POKER_CHIPS_ALL_ENTERED.value
   return Text.admin.POKER_CHIPS_WAITING.value.format(players="\n".join(f"- {name}" for name in waiting))
+
+
+def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered: int) -> str:
+  lines = [
+    "🎰 Ввод фишек.",
+    "",
+    f"Всего в игре было {chips_in_game} фишек. Введено: {chips_entered} фишек",
+    "",
+  ]
+  for p in players:
+    if p.chips is None:
+      lines.append(f"{p.player_name}: еще не ввел фишки")
+    else:
+      lines.append(f"{p.player_name}: {int(p.chips)}")
+  return "\n".join(lines)
+
+
+async def _upsert_tg_user_chips_result(*, chat_id: int, text: str) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  if telegram_bot is None:
+    return
+  prev_msg_id = TG_USER_CHIPS_RESULT_MSG_IDS.get(int(chat_id))
+  if prev_msg_id is not None:
+    try:
+      await telegram_bot.edit_message_text(chat_id=chat_id, message_id=prev_msg_id, text=text)
+      return
+    except Exception:
+      pass
+  sent = await telegram_bot.send_message(chat_id=chat_id, text=text)
+  TG_USER_CHIPS_RESULT_MSG_IDS[int(chat_id)] = int(sent.message_id)
 
 
 async def _notify_admins_about_chips_entry(*, session, player, chips: int, money_kopecks: int) -> None:
@@ -108,17 +141,36 @@ async def _notify_admins_about_chips_entry(*, session, player, chips: int, money
 
   user_repository = UserRepository(session)
   admins = [u for u in await user_repository.list_approved() if u.is_admin]
-  text = (
-    "🎰 Ввод фишек\n"
-    f"Игрок: {player.player_name}\n"
-    f"Фишки: {chips}\n"
-    f"Итог: {_format_rub_from_kopecks(int(money_kopecks))} ₽ {_chips_reaction(int(money_kopecks))}"
-  )
-  waiting_text = _format_waiting_players(await PokerDataRepository(session).list_players(date=player.date))
-  full_text = f"{text}\n\n{waiting_text}"
+  poker_repository = PokerRepository(session)
+  players = await PokerDataRepository(session).list_players(date=player.date)
+  chips_entered = sum(int(p.chips or 0) for p in players)
+  chips_in_game = 0
+  ready = await poker_repository.get_latest_ready_for_chips_with_params()
+  if ready is not None:
+    poker, params = ready
+    if poker.date == player.date:
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
+  full_text = _build_chips_status_text(players=players, chips_in_game=chips_in_game, chips_entered=chips_entered)
   for admin in admins:
     if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
-      await telegram_bot.send_message(chat_id=admin.telegram_id, text=full_text)
+      prev_msg_id = TG_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(admin.telegram_id))
+      if prev_msg_id is not None:
+        try:
+          await telegram_bot.edit_message_text(
+            chat_id=admin.telegram_id,
+            message_id=prev_msg_id,
+            text=full_text,
+            reply_markup=poker_calc_keyboard(),
+          )
+          continue
+        except Exception:
+          pass
+      sent = await telegram_bot.send_message(
+        chat_id=admin.telegram_id,
+        text=full_text,
+        reply_markup=poker_calc_keyboard(),
+      )
+      TG_ADMIN_CHIPS_STATUS_MSG_IDS[int(admin.telegram_id)] = int(sent.message_id)
     elif admin.notification_platform == "vk" and admin.vk_id is not None:
       await send_vk_message(user_id=admin.vk_id, message=full_text)
 
@@ -2253,12 +2305,13 @@ async def process_chips_input(message: Message, state: FSMContext) -> None:
       chips=chips,
       money_kopecks=int(money_kopecks),
     )
-    await message.answer(
-      Text.user.FINISH_CHIPS_SAVED.value.format(
+    await _upsert_tg_user_chips_result(
+      chat_id=message.from_user.id,
+      text=Text.user.FINISH_CHIPS_SAVED.value.format(
         chips=chips,
         money_rub=_format_rub_from_kopecks(int(money_kopecks)),
         reaction=_chips_reaction(int(money_kopecks)),
-      )
+      ),
     )
 
 

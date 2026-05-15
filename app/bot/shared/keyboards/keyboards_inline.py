@@ -1048,6 +1048,33 @@ class InlineKbs:
     )
 
   @staticmethod
+  def poker_calc_tg() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=Buttons.admin_room.CALCULATE_POKER.value,
+      callback_data="pokercalc:run",
+    )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_calc_vk() -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Buttons.admin_room.CALCULATE_POKER.value,
+              "payload": {"action": "poker_calc_run"},
+            },
+            "color": "positive",
+          }
+        ]
+      ]
+    )
+
+  @staticmethod
   def betting_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])

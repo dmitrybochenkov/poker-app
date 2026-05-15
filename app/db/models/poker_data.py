@@ -16,7 +16,7 @@ class PokerData(Base):
   buyins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
   big_buyin_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
   super_buyin_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-  chips: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+  chips: Mapped[int | None] = mapped_column(Integer, default=None, nullable=True)
   money_kopecks: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
   __table_args__ = (
