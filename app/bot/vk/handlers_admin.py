@@ -1,6 +1,7 @@
 from fastapi.responses import PlainTextResponse
 from datetime import date
 from types import SimpleNamespace
+import random
 
 from app.application.exceptions import (
   UserAlreadyApprovedError,
@@ -80,6 +81,29 @@ def _format_rub_from_kopecks(value_kopecks: int) -> str:
   return f"{rub}.{kop:02d}"
 
 
+def _get_reaction(mode: str) -> str:
+  winner = ["🍾", "👍", "🔥", "🏆", "👏", "🤩", "🎉"]
+  loser = ["👎", "🥴", "😢", "💩", "🤮", "😭", "🤷‍♀"]
+  return random.choice(winner if mode == "winner" else loser)
+
+
+def _calculate_transfers(money_rows: list[dict[str, int | str]]) -> list[str]:
+  rows = [{"name": str(item["name"]), "money": int(item["money"])} for item in money_rows]
+  lines: list[str] = []
+  while True:
+    loser = min(rows, key=lambda x: int(x["money"]))
+    winner = max(rows, key=lambda x: int(x["money"]))
+    if int(loser["money"]) == 0 and int(winner["money"]) == 0:
+      break
+    transfer = min(-int(loser["money"]), int(winner["money"]))
+    if transfer <= 0:
+      break
+    loser["money"] = int(loser["money"]) + transfer
+    winner["money"] = int(winner["money"]) - transfer
+    lines.append(f"{loser['name']} ➡️ {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
+  return lines
+
+
 async def _notify_players_about_finish(*, players: list) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
@@ -90,10 +114,7 @@ async def _notify_players_about_finish(*, players: list) -> None:
       if user is None or user.notification_platform is None:
         continue
 
-      text = Text.user.FINISH_POKER.value.format(
-        buyins=player.buyins,
-        cashout_rub=_format_rub_from_kopecks(player.money_kopecks),
-      )
+      text = Text.user.FINISH_CHIPS_PROMPT.value
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
         await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
       elif user.notification_platform == "vk" and user.vk_id is not None:
@@ -807,9 +828,36 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       if not await is_vk_admin(session=session, vk_id=admin_user_id):
         result_text = Text.admin.NO_RIGHTS.value
       else:
-        vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CASHOUT_AMOUNT
-        vk_user_contexts[admin_user_id] = {"cashout_player_id": str(player_id)}
-        result_text = Text.admin.POKER_CASHOUT_PROMPT.value
+        ready = await PokerRepository(session).get_latest_ready_for_chips_with_params()
+        if ready is None:
+          result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+        else:
+          poker, params = ready
+          pdata = PokerDataRepository(session)
+          player = await pdata.get_player(date=poker.date, player_id=int(player_id))
+          chips_raw = vk_user_contexts.get(admin_user_id, {}).get("cashout_input_value")
+          if chips_raw is not None and player is not None:
+            chips = int(chips_raw)
+            bb_size = max(1, int(params.bb_size_chips or 10))
+            step = max(1, bb_size // 2)
+            if chips % step != 0:
+              vk_user_contexts.setdefault(admin_user_id, {}).pop("cashout_input_value", None)
+              result_text = Text.user.FINISH_CHIPS_INVALID.value.format(step=step)
+            else:
+              money_kopecks = ((chips - int(player.buyins) * int(params.buyin_size_chips)) * int(params.buyin_size_kopecks)) // int(params.buyin_size_chips)
+              updated = await pdata.set_chips(date=poker.date, player_id=int(player_id), chips=chips)
+              if updated is not None:
+                await pdata.set_cashout(date=poker.date, player_id=int(player_id), money_kopecks=int(money_kopecks))
+              vk_user_contexts.setdefault(admin_user_id, {}).pop("cashout_input_value", None)
+              result_text = (
+                f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n"
+                f"{player.player_name}: {chips} фишек\n"
+                f"Итог: {_format_rub_from_kopecks(int(money_kopecks))} ₽"
+              )
+          else:
+            vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CASHOUT_AMOUNT
+            vk_user_contexts[admin_user_id] = {"cashout_player_id": str(player_id)}
+            result_text = Text.admin.POKER_CASHOUT_PROMPT.value
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -900,6 +948,18 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
         return PlainTextResponse("ok")
       user_repository = UserRepository(session)
+      ready = await PokerRepository(session).get_latest_ready_for_chips_with_params()
+      if ready is None:
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
+        return PlainTextResponse("ok")
+      poker, params = ready
+      bb_size = max(1, int(params.bb_size_chips or 10))
+      step = max(1, bb_size // 2)
+      if chips % step != 0:
+        await send_vk_message(user_id=user_id, message=Text.user.FINISH_CHIPS_INVALID.value.format(step=step))
+        return PlainTextResponse("ok")
       use_case = ManagePokerPlayersUseCase(
         poker_repository=PokerRepository(session),
         poker_data_repository=PokerDataRepository(session),
@@ -910,13 +970,20 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         vk_user_contexts.pop(user_id, None)
         await send_vk_message(user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value)
         return PlainTextResponse("ok")
+      money_kopecks = ((chips - int(updated.buyins) * int(params.buyin_size_chips)) * int(params.buyin_size_kopecks)) // int(params.buyin_size_chips)
+      await PokerDataRepository(session).set_cashout(
+        date=poker.date,
+        player_id=int(player_id),
+        money_kopecks=int(money_kopecks),
+      )
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await send_vk_message(
       user_id=user_id,
       message=(
         f"{Text.admin.POKER_CASHOUT_SAVED.value}\n\n"
-        f"{updated.player_name}: {updated.chips} фишек"
+        f"{updated.player_name}: {updated.chips} фишек\n"
+        f"Итог: {_format_rub_from_kopecks(int(money_kopecks))} ₽"
       ),
     )
     return PlainTextResponse("ok")
@@ -1037,11 +1104,100 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     await _notify_players_about_finish(players=players)
     await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)
     if players:
-      await send_vk_message(
-        user_id=user_id,
-        message=Text.admin.POKER_CASHOUT_CHOOSE.value,
-        keyboard=poker_cashout_candidates_keyboard(players=players),
+      waiting = "\n".join(f"- {p.player_name}" for p in players)
+      await send_vk_message(user_id=user_id, message=Text.admin.POKER_CHIPS_WAITING.value.format(players=waiting))
+    return PlainTextResponse("ok")
+
+  if text == Buttons.admin_room.CALCULATE_POKER.value:
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=user_id):
+        await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
+        return PlainTextResponse("ok")
+      user_repository = UserRepository(session)
+      poker_repository = PokerRepository(session)
+      ready = await poker_repository.get_latest_ready_for_chips_with_params()
+      if ready is None:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_EMPTY.value)
+        return PlainTextResponse("ok")
+      poker, params = ready
+      poker_data_repository = PokerDataRepository(session)
+      players = await poker_data_repository.list_players(date=poker.date)
+      if not players:
+        await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_EMPTY.value)
+        return PlainTextResponse("ok")
+
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
+      chips_entered = sum(int(p.chips) for p in players)
+      diff = chips_entered - chips_in_game
+      if diff != 0:
+        mismatch_text = Text.admin.POKER_CALC_BALANCE_MISMATCH.value.format(
+          in_game=chips_in_game,
+          entered=chips_entered,
+          diff=diff,
+        )
+        admins = [u for u in await user_repository.list_approved() if u.is_admin]
+        from app.bot.telegram.runtime import telegram_bot
+        for admin in admins:
+          if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
+            await telegram_bot.send_message(chat_id=admin.telegram_id, text=mismatch_text)
+          elif admin.notification_platform == "vk" and admin.vk_id is not None:
+            await send_vk_message(user_id=admin.vk_id, message=mismatch_text)
+        await send_vk_message(user_id=user_id, message=mismatch_text)
+        return PlainTextResponse("ok")
+
+      money_rows: list[dict[str, int | str]] = []
+      for player in players:
+        money_kopecks = (
+          (int(player.chips) - int(player.buyins) * int(params.buyin_size_chips)) * int(params.buyin_size_kopecks)
+        ) // int(params.buyin_size_chips)
+        await poker_data_repository.set_cashout(
+          date=poker.date,
+          player_id=int(player.player_id),
+          money_kopecks=int(money_kopecks),
+        )
+        money_rows.append({"name": player.player_name, "money": int(money_kopecks)})
+
+      max_money = max(int(item["money"]) for item in money_rows)
+      min_money = min(int(item["money"]) for item in money_rows)
+      winners = [str(item["name"]) for item in money_rows if int(item["money"]) == max_money]
+      loosers = [str(item["name"]) for item in money_rows if int(item["money"]) == min_money]
+      winners_text = ", ".join(winners)
+      loosers_text = ", ".join(loosers)
+      transfers = _calculate_transfers(money_rows)
+      await poker_repository.finish_chips_entering(
+        poker,
+        winners=winners_text,
+        loosers=loosers_text,
       )
+
+      result_lines = [
+        Text.admin.POKER_CALC_SUCCESS.value,
+        "",
+        f"💍 {winners_text}",
+        f"❌ {loosers_text}",
+        "",
+        "💲 Переводы:",
+      ]
+      result_lines.extend(transfers if transfers else ["Переводы не требуются"])
+      result_text = "\n".join(result_lines)
+      await send_vk_message(user_id=user_id, message=result_text)
+
+      from app.bot.telegram.runtime import telegram_bot
+      for player in players:
+        user = await user_repository.get_by_row_id(int(player.player_id))
+        if user is None:
+          continue
+        money = next((int(item["money"]) for item in money_rows if str(item["name"]) == player.player_name), 0)
+        reaction = _get_reaction("winner" if money >= 0 else "loser")
+        player_text = (
+          f"Твой итог по игре: {_format_rub_from_kopecks(money)} ₽ {reaction}\n"
+          f"Победители: {winners_text}\n"
+          f"Проигравшие: {loosers_text}"
+        )
+        if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+          await telegram_bot.send_message(chat_id=user.telegram_id, text=player_text)
+        elif user.notification_platform == "vk" and user.vk_id is not None:
+          await send_vk_message(user_id=user.vk_id, message=player_text)
     return PlainTextResponse("ok")
 
   if text == Buttons.admin_room.START_BETTING.value:
@@ -1078,7 +1234,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     await send_vk_message(user_id=user_id, message=Text.admin.BETTING_START_SUCCESS.value)
     return PlainTextResponse("ok")
 
-  if text == Buttons.admin_room.CREATE_POLL.value:
+  if text == Buttons.admin_main.CREATE_POLL.value:
     async with SessionFactory() as session:
       if not await is_vk_admin(session=session, vk_id=user_id):
         await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)

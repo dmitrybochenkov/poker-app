@@ -1,4 +1,5 @@
 from datetime import date
+import random
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
@@ -28,6 +29,7 @@ from app.bot.telegram.keyboards import (
   betting_info_keyboard,
   poker_keyboard,
   poker_info_keyboard,
+  poker_cashout_candidates_keyboard,
   room_admin_keyboard,
   room_keyboard,
   betting_confirm_keyboard,
@@ -72,6 +74,53 @@ from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 router = Router()
+
+
+def _money_kopecks_from_chips(*, chips: int, buyins: int, buyin_size_chips: int, buyin_size_kopecks: int) -> int:
+  if buyin_size_chips <= 0:
+    return 0
+  return ((int(chips) - int(buyins) * int(buyin_size_chips)) * int(buyin_size_kopecks)) // int(buyin_size_chips)
+
+
+def _chips_reaction(money_kopecks: int) -> str:
+  winner = ["🍾", "👍", "🔥", "🏆", "👏", "🤩", "🎉"]
+  loser = ["👎", "🥴", "😢", "💩", "🤮", "😭", "🤷‍♀"]
+  return random.choice(winner if int(money_kopecks) >= 0 else loser)
+
+
+def _format_rub_from_kopecks(value_kopecks: int) -> str:
+  rub = int(value_kopecks) // 100
+  kop = abs(int(value_kopecks) % 100)
+  if kop == 0:
+    return str(rub)
+  return f"{rub}.{kop:02d}"
+
+
+def _format_waiting_players(players: list) -> str:
+  waiting = [p.player_name for p in players if int(p.chips or 0) == 0]
+  if not waiting:
+    return Text.admin.POKER_CHIPS_ALL_ENTERED.value
+  return Text.admin.POKER_CHIPS_WAITING.value.format(players="\n".join(f"- {name}" for name in waiting))
+
+
+async def _notify_admins_about_chips_entry(*, session, player, chips: int, money_kopecks: int) -> None:
+  from app.bot.telegram.runtime import telegram_bot
+
+  user_repository = UserRepository(session)
+  admins = [u for u in await user_repository.list_approved() if u.is_admin]
+  text = (
+    "🎰 Ввод фишек\n"
+    f"Игрок: {player.player_name}\n"
+    f"Фишки: {chips}\n"
+    f"Итог: {_format_rub_from_kopecks(int(money_kopecks))} ₽ {_chips_reaction(int(money_kopecks))}"
+  )
+  waiting_text = _format_waiting_players(await PokerDataRepository(session).list_players(date=player.date))
+  full_text = f"{text}\n\n{waiting_text}"
+  for admin in admins:
+    if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=admin.telegram_id, text=full_text)
+    elif admin.notification_platform == "vk" and admin.vk_id is not None:
+      await send_vk_message(user_id=admin.vk_id, message=full_text)
 
 
 def _month_bounds(month: date) -> tuple[date, date]:
@@ -2135,6 +2184,73 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
 @router.message(RegistrationState.waiting_for_bet_amount)
 async def repeat_bet_inline_flow(message: Message) -> None:
   await message.answer(Text.user.BETTING_SIZE_CHOOSE.value)
+
+
+@router.message(F.text.regexp(r"^\d{1,9}$"))
+async def process_chips_input(message: Message, state: FSMContext) -> None:
+  if message.from_user is None or not message.text:
+    return
+  if await state.get_state() is not None:
+    return
+  chips = int(message.text)
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    user = await user_repository.get_by_telegram_id(message.from_user.id)
+    if user is None or not user.is_approved:
+      return
+    ready = await PokerRepository(session).get_latest_ready_for_chips_with_params()
+    if ready is None:
+      return
+    poker, params = ready
+    bb_size = max(1, int(params.bb_size_chips or 10))
+    step = max(1, bb_size // 2)
+    if chips % step != 0:
+      await message.answer(Text.user.FINISH_CHIPS_INVALID.value.format(step=step))
+      return
+    poker_data_repository = PokerDataRepository(session)
+    players = await poker_data_repository.list_players(date=poker.date)
+    if not players:
+      await message.answer(Text.user.FINISH_CHIPS_NOT_READY.value)
+      return
+    if user.is_admin:
+      await state.update_data(cashout_input_value=chips)
+      await message.answer(
+        Text.admin.POKER_CHIPS_FOR_WHO.value.format(chips=chips),
+        reply_markup=poker_cashout_candidates_keyboard(players=players),
+      )
+      return
+    player = await poker_data_repository.get_player(date=poker.date, player_id=int(user.row_id))
+    if player is None:
+      await message.answer(Text.user.FINISH_CHIPS_NOT_IN_GAME.value)
+      return
+    money_kopecks = _money_kopecks_from_chips(
+      chips=chips,
+      buyins=int(player.buyins),
+      buyin_size_chips=int(params.buyin_size_chips),
+      buyin_size_kopecks=int(params.buyin_size_kopecks),
+    )
+    updated = await poker_data_repository.set_chips(date=poker.date, player_id=int(user.row_id), chips=chips)
+    if updated is None:
+      await message.answer(Text.user.FINISH_CHIPS_NOT_IN_GAME.value)
+      return
+    await poker_data_repository.set_cashout(
+      date=poker.date,
+      player_id=int(user.row_id),
+      money_kopecks=int(money_kopecks),
+    )
+    await _notify_admins_about_chips_entry(
+      session=session,
+      player=updated,
+      chips=chips,
+      money_kopecks=int(money_kopecks),
+    )
+    await message.answer(
+      Text.user.FINISH_CHIPS_SAVED.value.format(
+        chips=chips,
+        money_rub=_format_rub_from_kopecks(int(money_kopecks)),
+        reaction=_chips_reaction(int(money_kopecks)),
+      )
+    )
 
 
 @router.message(RegistrationState.waiting_for_bank_name)

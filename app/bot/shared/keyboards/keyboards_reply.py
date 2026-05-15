@@ -168,6 +168,7 @@ class ReplyKbs:
       _button_labels(
         [
           Buttons.admin_main.START_POKER,
+          Buttons.admin_main.CREATE_POLL,
           Buttons.admin_main.MAKE_ADMIN,
           Buttons.admin_main.TO_MAIN,
         ]
@@ -181,6 +182,7 @@ class ReplyKbs:
       _button_labels(
         [
           Buttons.admin_main.START_POKER,
+          Buttons.admin_main.CREATE_POLL,
           Buttons.admin_main.MAKE_ADMIN,
           Buttons.admin_main.TO_MAIN,
         ]
@@ -401,7 +403,6 @@ class ReplyKbs:
     return cls.make_tg(
       _button_labels(
         [
-          Buttons.admin_room.CREATE_POLL,
           Buttons.admin_room.SET_CASHIER,
           Buttons.admin_room.START_BETTING,
           Buttons.admin_room.FINISH_POKER,
@@ -420,7 +421,6 @@ class ReplyKbs:
     return cls.make_vk(
       _button_labels(
         [
-          Buttons.admin_room.CREATE_POLL,
           Buttons.admin_room.SET_CASHIER,
           Buttons.admin_room.START_BETTING,
           Buttons.admin_room.FINISH_POKER,

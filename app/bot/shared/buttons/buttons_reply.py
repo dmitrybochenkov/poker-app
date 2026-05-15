@@ -13,6 +13,7 @@ class MainBtns(Enum):
 
 class AdminMainBtns(Enum):
   START_POKER = "🎲 Старт покера"
+  CREATE_POLL = "🗓 Создать опрос"
   MAKE_ADMIN = "👨🏻‍💻 Добавить админа"
   TO_MAIN = "🏠 На главную"
 
@@ -23,7 +24,6 @@ class RoomBtns(Enum):
   POKER_ADMIN = "🔑 Покер админ панель"
 
 class AdminRoomBtns(Enum):
-  CREATE_POLL = "🗓 Создать опрос"
   SET_CASHIER = "🏦 Назначить кассира"
   START_BETTING = "🍀 Старт ставок"
   FINISH_POKER = "🏁 Финиш покера"
