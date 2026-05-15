@@ -452,6 +452,21 @@ def _approved_tg_keyboard(user: User):
   return main_admin_entry_keyboard if user.is_admin else main_keyboard
 
 
+async def _post_bet_tg_keyboard_for_user(*, telegram_id: int):
+  async with SessionFactory() as session:
+    user = await UserRepository(session).get_by_telegram_id(telegram_id)
+    if user is None:
+      return main_keyboard
+    active = await PokerRepository(session).get_started()
+    if active is None:
+      return _approved_tg_keyboard(user)
+    poker, _ = active
+    player = await PokerDataRepository(session).get_player(date=poker.date, player_id=int(user.row_id))
+    if player is not None:
+      return room_admin_keyboard if user.is_admin else room_keyboard
+    return _approved_tg_keyboard(user)
+
+
 async def _ensure_approved_telegram_callback_user(callback: CallbackQuery) -> bool:
   if callback.from_user is None:
     await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
@@ -2337,6 +2352,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
   elif status == "invalid_amount" or created is None:
     await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
   else:
+    post_bet_keyboard = await _post_bet_tg_keyboard_for_user(telegram_id=callback.from_user.id)
     await callback.message.answer(
       Text.user.BETTING_CREATED.value.format(
         tournament=_format_tournament_name(tournament_type),
@@ -2344,7 +2360,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
         winner=winner_name,
         loser=loser_name,
       ),
-      reply_markup=betting_keyboard,
+      reply_markup=post_bet_keyboard,
     )
   await state.clear()
   await callback.answer()

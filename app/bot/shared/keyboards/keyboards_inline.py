@@ -499,13 +499,18 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
-  def poker_buyin_candidates_tg(*, players: list, show_buyins: bool = False) -> InlineKeyboardMarkup:
+  def poker_buyin_candidates_tg(
+    *,
+    players: list,
+    show_buyins: bool = False,
+    callback_prefix: str = "pokerbuyin",
+  ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
       label = f"{player.player_name}: {int(player.buyins)}" if show_buyins else f"{player.player_name}"
       keyboard.button(
         text=label,
-        callback_data=f"pokerbuyin:{player.player_id}",
+        callback_data=f"{callback_prefix}:{player.player_id}",
       )
     keyboard.button(
       text=Buttons.betting_inline.CONFIRM_NO.value,
@@ -565,6 +570,20 @@ class InlineKbs:
       callback_data=f"pokerbuyincancel:{player_id}",
     )
     keyboard.adjust(*([1] * (safe_max + (len(unique_special_values) if safe_max == 2 else 0) + 1)))
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_buyin_correct_confirm_tg(*, player_id: int, new_buyins: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=Buttons.betting_inline.CONFIRM_YES.value,
+      callback_data=f"pokerbuyincorrectconfirm:yes:{int(player_id)}:{int(new_buyins)}",
+    )
+    keyboard.button(
+      text=Buttons.betting_inline.CONFIRM_NO.value,
+      callback_data=f"pokerbuyincorrectconfirm:no:{int(player_id)}:{int(new_buyins)}",
+    )
+    keyboard.adjust(2)
     return keyboard.as_markup()
 
   @staticmethod
@@ -969,7 +988,12 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
-  def poker_buyin_candidates_vk(*, players: list, show_buyins: bool = False) -> str:
+  def poker_buyin_candidates_vk(
+    *,
+    players: list,
+    show_buyins: bool = False,
+    action: str = "poker_buyin_select",
+  ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
       label = f"{player.player_name}: {int(player.buyins)}" if show_buyins else f"{player.player_name}"
@@ -980,7 +1004,7 @@ class InlineKbs:
               "type": "callback",
               "label": label[:40],
               "payload": {
-                "action": "poker_buyin_select",
+                "action": action,
                 "player_id": int(player.player_id),
               },
             },
@@ -1003,6 +1027,38 @@ class InlineKbs:
         }
       ]
     )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_buyin_correct_confirm_vk(*, player_id: int, new_buyins: int) -> str:
+    rows = [
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": Buttons.betting_inline.CONFIRM_YES.value[:40],
+            "payload": {
+              "action": "poker_buyin_correct_confirm_yes",
+              "player_id": int(player_id),
+              "new_buyins": int(new_buyins),
+            },
+          },
+          "color": "positive",
+        },
+        {
+          "action": {
+            "type": "callback",
+            "label": Buttons.betting_inline.CONFIRM_NO.value[:40],
+            "payload": {
+              "action": "poker_buyin_correct_confirm_no",
+              "player_id": int(player_id),
+              "new_buyins": int(new_buyins),
+            },
+          },
+          "color": "negative",
+        },
+      ]
+    ]
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod

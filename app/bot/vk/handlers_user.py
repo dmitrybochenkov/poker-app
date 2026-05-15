@@ -423,6 +423,21 @@ def _approved_vk_keyboard(user: User) -> str:
   return main_admin_entry_keyboard if user.is_admin else main_keyboard
 
 
+async def _post_bet_vk_keyboard_for_user(*, vk_id: int) -> str:
+  async with SessionFactory() as session:
+    user = await UserRepository(session).get_by_vk_id(vk_id)
+    if user is None:
+      return main_keyboard
+    active = await PokerRepository(session).get_started()
+    if active is None:
+      return _approved_vk_keyboard(user)
+    poker, _ = active
+    player = await PokerDataRepository(session).get_player(date=poker.date, player_id=int(user.row_id))
+    if player is not None:
+      return room_admin_keyboard if user.is_admin else room_keyboard
+    return _approved_vk_keyboard(user)
+
+
 async def _delete_event_message_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
   if peer_id is None or conversation_message_id is None:
     return
@@ -1026,6 +1041,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     elif status == "invalid_amount" or created is None:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
     else:
+      post_bet_keyboard = await _post_bet_vk_keyboard_for_user(vk_id=user_id)
       await send_vk_message(
         user_id=user_id,
         message=Text.user.BETTING_CREATED.value.format(
@@ -1034,7 +1050,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
           winner=winner_name,
           loser=loser_name,
         ),
-        keyboard=betting_keyboard,
+        keyboard=post_bet_keyboard,
       )
     return PlainTextResponse("ok")
 

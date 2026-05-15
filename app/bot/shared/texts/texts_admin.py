@@ -34,6 +34,7 @@ class AdminText(Enum):
   POKER_UNBAN_PLAYER_EMPTY = "Нет игроков с запретом повторного входа."
   POKER_UNBAN_PLAYER_SUCCESS = "Игроку снова разрешен вход в активный покер."
   POKER_BUYIN_CHOOSE = "Выбери игрока для закупа:"
+  POKER_BUYIN_CORRECT_CHOOSE = "🔧 Выбери игрока для корректировки закупов.\n❗ Для удаления нужно пользоваться другой кнопкой"
   POKER_BUYIN_EMPTY = "Некого закупать: в активном покере нет игроков."
   POKER_BUYIN_CASHIER_REQUIRED = "Закупы закрыты, пока не назначен кассир."
   POKER_BUYIN_PROMPT = "Выбери количество закупов:"

@@ -74,14 +74,25 @@ class BetUseCases:
     if amount_kopecks <= 0:
       return None, "invalid_amount"
 
-    poker = await self.get_active_bettable_poker()
-    if poker is None:
-      return None, "betting_closed"
-
     user = await self._get_approved_user(better_id=better_id)
     if user is None:
       return None, "user_not_approved"
     better_row_id = int(user.row_id)
+
+    started = await self.poker_repository.get_started()
+    if started is not None:
+      started_poker, _ = started
+      existing_before_check = await self.bet_repository.get_by_poker_user_and_tournament(
+        date=started_poker.date,
+        better_id=better_row_id,
+        tournament_type=tournament_type,
+      )
+      if existing_before_check is not None:
+        return None, "already_bet"
+
+    poker = await self.get_active_bettable_poker()
+    if poker is None:
+      return None, "betting_closed"
 
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
       date=poker.date,
@@ -166,13 +177,26 @@ class BetUseCases:
     await self.bet_repository.session.flush()
 
   async def get_bet_draft_data(self, *, better_id: int, tournament_type: str) -> tuple[BetParam | None, list[PokerData], str]:
-    poker = await self.get_active_bettable_poker()
-    if poker is None:
-      return None, [], "betting_closed"
     user = await self._get_approved_user(better_id=better_id)
     if user is None:
       return None, [], "user_not_approved"
     better_row_id = int(user.row_id)
+
+    started = await self.poker_repository.get_started()
+    if started is not None:
+      started_poker, _ = started
+      existing_before_check = await self.bet_repository.get_by_poker_user_and_tournament(
+        date=started_poker.date,
+        better_id=better_row_id,
+        tournament_type=tournament_type,
+      )
+      if existing_before_check is not None:
+        return None, [], "already_bet"
+
+    poker = await self.get_active_bettable_poker()
+    if poker is None:
+      return None, [], "betting_closed"
+
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
       date=poker.date,
       better_id=better_row_id,
