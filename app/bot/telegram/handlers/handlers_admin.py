@@ -900,7 +900,10 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
     cashier_text = f"{cashier_name} выбран кассиром."
     await _refresh_admin_room_status(session=session)
   if callback.message is not None:
-    await callback.message.edit_text(cashier_text)
+    try:
+      await callback.message.edit_text(cashier_text)
+    except Exception:
+      await callback.message.answer(cashier_text)
   await callback.answer(cashier_text)
 
 
