@@ -104,6 +104,24 @@ def _calculate_transfers(money_rows: list[dict[str, int | str]]) -> list[str]:
   return lines
 
 
+def _split_names_csv(value: str | None) -> set[str]:
+  if not value:
+    return set()
+  return {item.strip() for item in str(value).split(",") if item.strip()}
+
+
+def _winner_mark(*, is_streak: bool) -> str:
+  return "🛡️💍" if is_streak else "💍"
+
+
+def _bet_mark(*, guessed_winner: bool, guessed_loser: bool) -> str:
+  if guessed_winner and guessed_loser:
+    return "🍀🔮"
+  if guessed_winner or guessed_loser:
+    return "🍀"
+  return ""
+
+
 async def _notify_players_about_finish(*, players: list) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
@@ -1091,15 +1109,6 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       poker, params = active
       poker_data_repository = PokerDataRepository(session)
       players = await poker_data_repository.list_players(date=poker.date)
-      await CalculateBetScoresUseCase(
-        bet_repository=BetRepository(session),
-        bet_param_repository=BetParamRepository(session),
-        bet_tournament_param_repository=BetTournamentParamRepository(session),
-        poker_data_repository=poker_data_repository,
-      ).execute(
-        poker_id=poker.row_id,
-        poker_date=poker.date,
-      )
       await poker_repository.finish(poker)
     await _notify_players_about_finish(players=players)
     await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)
@@ -1164,6 +1173,53 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       winners_text = ", ".join(winners)
       loosers_text = ", ".join(loosers)
       transfers = _calculate_transfers(money_rows)
+
+      await CalculateBetScoresUseCase(
+        bet_repository=BetRepository(session),
+        bet_param_repository=BetParamRepository(session),
+        bet_tournament_param_repository=BetTournamentParamRepository(session),
+        poker_data_repository=poker_data_repository,
+      ).execute(
+        poker_id=poker.row_id,
+        poker_date=poker.date,
+      )
+      bets = await BetRepository(session).list_for_poker(date=poker.date)
+
+      all_pokers = await poker_repository.list_all()
+      prev_completed = None
+      for old in sorted(all_pokers, key=lambda x: int(x.row_id), reverse=True):
+        if int(old.row_id) == int(poker.row_id):
+          continue
+        if bool(old.winners):
+          prev_completed = old
+          break
+      prev_winners = _split_names_csv(prev_completed.winners if prev_completed is not None else None)
+      winner_line = ", ".join(f"{name} {_winner_mark(is_streak=(name in prev_winners))}" for name in winners)
+      loser_line = ", ".join(f"{name} ❌" for name in loosers)
+
+      approved_users = await user_repository.list_approved()
+      transfer_lines: list[str] = []
+      for line in transfers:
+        recipient_name = line.split(" ➡️ ")[1].split(" ")[0:2]
+        recipient_name_joined = " ".join(recipient_name).strip()
+        recipient_user = next((u for u in approved_users if u.name.startswith(recipient_name_joined)), None)
+        extra = ""
+        if recipient_user is not None and recipient_user.tel_number:
+          bank = f" ({recipient_user.bank_name})" if recipient_user.bank_name else ""
+          extra = f" [{recipient_user.tel_number}{bank}]"
+        transfer_lines.append(f"{line}{extra}")
+
+      bet_lines: list[str] = []
+      for bet in sorted(bets, key=lambda x: int(x.row_id)):
+        guessed_winner = bool(bet.winner_name) and bet.winner_name in winners
+        guessed_loser = bool(bet.loser_name) and bet.loser_name in loosers
+        mark = _bet_mark(guessed_winner=guessed_winner, guessed_loser=guessed_loser)
+        winner_guess = bet.winner_name or "-"
+        loser_guess = bet.loser_name or "-"
+        bet_lines.append(
+          f"{bet.better_name}: {_format_rub_from_kopecks(int(bet.amount_kopecks))} ₽ | "
+          f"💍 {winner_guess} / ❌ {loser_guess} | {mark} +{int(bet.score)}"
+        )
       await poker_repository.finish_chips_entering(
         poker,
         winners=winners_text,
@@ -1173,27 +1229,44 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       result_lines = [
         Text.admin.POKER_CALC_SUCCESS.value,
         "",
-        f"💍 {winners_text}",
-        f"❌ {loosers_text}",
+        f"{winner_line}",
+        f"{loser_line}",
         "",
         "💲 Переводы:",
       ]
-      result_lines.extend(transfers if transfers else ["Переводы не требуются"])
+      result_lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
+      result_lines.append("")
+      result_lines.append("🍀 Ставки:")
+      result_lines.extend(bet_lines if bet_lines else ["Ставок не было"])
       result_text = "\n".join(result_lines)
       await send_vk_message(user_id=user_id, message=result_text)
 
       from app.bot.telegram.runtime import telegram_bot
-      for player in players:
-        user = await user_repository.get_by_row_id(int(player.player_id))
+      recipient_row_ids = {int(p.player_id) for p in players} | {int(b.better_id) for b in bets}
+      for row_id in sorted(recipient_row_ids):
+        user = await user_repository.get_by_row_id(row_id)
         if user is None:
           continue
-        money = next((int(item["money"]) for item in money_rows if str(item["name"]) == player.player_name), 0)
+        money = 0
+        player = next((p for p in players if int(p.player_id) == row_id), None)
+        if player is not None:
+          money = next((int(item["money"]) for item in money_rows if str(item["name"]) == player.player_name), 0)
         reaction = _get_reaction("winner" if money >= 0 else "loser")
         player_text = (
           f"Твой итог по игре: {_format_rub_from_kopecks(money)} ₽ {reaction}\n"
           f"Победители: {winners_text}\n"
           f"Проигравшие: {loosers_text}"
         )
+        if bets:
+          own_bets = [b for b in bets if int(b.better_id) == int(row_id)]
+          if own_bets:
+            details = []
+            for b in own_bets:
+              guessed_winner = bool(b.winner_name) and b.winner_name in winners
+              guessed_loser = bool(b.loser_name) and b.loser_name in loosers
+              mark = _bet_mark(guessed_winner=guessed_winner, guessed_loser=guessed_loser)
+              details.append(f"{_format_rub_from_kopecks(int(b.amount_kopecks))} ₽ | {mark} +{int(b.score)}")
+            player_text += "\nСтавки: " + "; ".join(details)
         if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
           await telegram_bot.send_message(chat_id=user.telegram_id, text=player_text)
         elif user.notification_platform == "vk" and user.vk_id is not None:
