@@ -79,6 +79,20 @@ from app.services.stat_image import render_stat_table_png
 STAT_SNACKBAR = "Обновлено"
 
 
+def _clear_vk_bet_draft_state(user_id: int) -> None:
+  vk_user_states.pop(user_id, None)
+  ctx = vk_user_contexts.setdefault(user_id, {})
+  for key in (
+    "bet_tournament_type",
+    "bet_players",
+    "bet_better_name",
+    "bet_amount_kopecks",
+    "bet_winner_name",
+    "bet_loser_name",
+  ):
+    ctx.pop(key, None)
+
+
 def _month_bounds(month: date) -> tuple[date, date]:
   first = date(month.year, month.month, 1)
   if month.month == 12:
@@ -199,19 +213,11 @@ async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[di
   poker_rows.sort(key=lambda p: p.date)
   winners_by_date = {p.date: _split_names(p.winners) for p in poker_rows}
   losers_by_date = {p.date: _split_names(p.loosers) for p in poker_rows}
-  completed_dates = {p.date for p in poker_rows}
-  poker_data_rows = await PokerDataRepository(session).list_all()
-  player_game_dates: dict[str, list] = {}
-  for row in poker_data_rows:
-    if row.date in completed_dates:
-      player_game_dates.setdefault(row.player_name, []).append(row.date)
-  for name, dates in list(player_game_dates.items()):
-    player_game_dates[name] = sorted(set(dates))
+  last_five_dates = [p.date for p in poker_rows[-5:]]
 
   def player_marks(player_name: str) -> str:
-    player_dates = player_game_dates.get(player_name, [])[-5:]
     marks: list[str] = []
-    for d in player_dates:
+    for d in last_five_dates:
       if player_name in winners_by_date.get(d, set()):
         marks.append(" 🟢")
       elif player_name in losers_by_date.get(d, set()):
@@ -1655,8 +1661,20 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if vk_user_states.get(user_id) == WAITING_FOR_BET_AMOUNT:
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_SIZE_CHOOSE.value)
-    return PlainTextResponse("ok")
+    menu_buttons = {
+      Buttons.main.ROOM.value,
+      Buttons.main.POKER.value,
+      Buttons.main.BETTING.value,
+      Buttons.main.ADMIN.value,
+      Buttons.room.TO_MAIN.value,
+      Buttons.poker.TO_MAIN.value,
+      Buttons.betting.TO_MAIN.value,
+    }
+    if text in menu_buttons:
+      _clear_vk_bet_draft_state(user_id=user_id)
+    else:
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_SIZE_CHOOSE.value)
+      return PlainTextResponse("ok")
 
   if text == Buttons.main.ROOM.value:
     async with SessionFactory() as session:
