@@ -213,11 +213,19 @@ async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[di
   poker_rows.sort(key=lambda p: p.date)
   winners_by_date = {p.date: _split_names(p.winners) for p in poker_rows}
   losers_by_date = {p.date: _split_names(p.loosers) for p in poker_rows}
-  last_five_dates = [p.date for p in poker_rows[-5:]]
+  completed_dates = {p.date for p in poker_rows}
+  poker_data_rows = await PokerDataRepository(session).list_all()
+  player_game_dates: dict[str, list] = {}
+  for row in poker_data_rows:
+    if row.date in completed_dates:
+      player_game_dates.setdefault(row.player_name, []).append(row.date)
+  for name, dates in list(player_game_dates.items()):
+    player_game_dates[name] = sorted(set(dates))
 
   def player_marks(player_name: str) -> str:
+    player_dates = player_game_dates.get(player_name, [])[-5:]
     marks: list[str] = []
-    for d in last_five_dates:
+    for d in player_dates:
       if player_name in winners_by_date.get(d, set()):
         marks.append(" 🟢")
       elif player_name in losers_by_date.get(d, set()):
