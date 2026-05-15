@@ -31,8 +31,16 @@ class AdminRoomBtns(Enum):
   ADD_PLAYER = "👨 Добавить игрока"
   REMOVE_PLAYER = "❌ Удалить игрока"
   UNBAN_PLAYER = "✅ Разрешить обратно"
-  CORRECT_POKER = "🔧 Исправить данные"
+  CORRECT_POKER = "🔧 Корректировать покер"
   TO_ROOM = "♣️ В ПокерРум"
+
+
+class AdminRoomCorrectBtns(Enum):
+  SET_CASHIER = "🏦 Назначить кассира"
+  ADD_PLAYER = "👨 Добавить игрока"
+  REMOVE_PLAYER = "❌ Удалить игрока"
+  BUYIN_CORRECT = "🏦 Корректировать закупы"
+  TO_ADMIN_ROOM = "↩️ Назад"
 
 class BettingBtns(Enum):
   MAKE_BET = "🐔 Сделать ставку"

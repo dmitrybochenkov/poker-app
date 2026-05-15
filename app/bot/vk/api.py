@@ -93,6 +93,15 @@ async def clear_vk_message_keyboard_by_id(*, peer_id: int, message_id: int) -> N
   )
 
 
+async def delete_vk_message_by_id(*, peer_id: int, message_id: int) -> None:
+  await vk_api_call(
+    "messages.delete",
+    peer_id=peer_id,
+    message_ids=str(message_id),
+    delete_for_all=1,
+  )
+
+
 async def send_vk_photo(
   *,
   user_id: int,

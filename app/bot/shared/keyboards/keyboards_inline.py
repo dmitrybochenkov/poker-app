@@ -410,6 +410,14 @@ class InlineKbs:
         text=user.name,
         callback_data=f"pokeradd:{user.row_id}",
       )
+    keyboard.button(
+      text="🆕 Новый игрок",
+      callback_data="pokeraddnew:0",
+    )
+    keyboard.button(
+      text=Buttons.betting_inline.CONFIRM_NO.value,
+      callback_data="pokeraddcancel:0",
+    )
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -425,11 +433,55 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
+  def poker_room_admin_status_tg(*, players: list, can_start_betting: bool = False) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for player in players[:20]:
+      keyboard.button(
+        text=player.player_name[:40],
+        callback_data=f"pokerroommanage:{int(player.player_id)}",
+      )
+    if can_start_betting:
+      keyboard.button(
+        text=Buttons.admin_room.START_BETTING.value,
+        callback_data="pokerstartbetting:inline",
+      )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_room_manage_player_tg(*, player_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text="❌ Удалить",
+      callback_data=f"pokerremove:{int(player_id)}",
+    )
+    keyboard.button(
+      text="💼 Сделать кассиром",
+      callback_data=f"pokercashier:{int(player_id)}",
+    )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_room_approve_tg(*, player_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text="✅ Разрешить вход",
+      callback_data=f"pokerroomapprove:{int(player_id)}",
+    )
+    keyboard.button(
+      text="⛔ Запретить",
+      callback_data=f"pokerroomreject:{int(player_id)}",
+    )
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
   def poker_remove_player_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
       keyboard.button(
-        text=player.player_name,
+        text=f"{player.player_name}: {int(player.buyins)}",
         callback_data=f"pokerremove:{player.player_id}",
       )
     keyboard.adjust(1)
@@ -451,7 +503,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
       keyboard.button(
-        text=player.player_name,
+        text=f"{player.player_name}: {int(player.buyins)}",
         callback_data=f"pokerbuyin:{player.player_id}",
       )
     keyboard.button(
@@ -736,6 +788,34 @@ class InlineKbs:
           }
         ]
       )
+    rows.append(
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": "🆕 Новый игрок",
+            "payload": {
+              "action": "poker_add_player_new",
+            },
+          },
+          "color": "primary",
+        }
+      ]
+    )
+    rows.append(
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": Buttons.betting_inline.CONFIRM_NO.value[:40],
+            "payload": {
+              "action": "poker_add_player_cancel",
+            },
+          },
+          "color": "negative",
+        }
+      ]
+    )
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
@@ -760,7 +840,7 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
-  def poker_remove_player_candidates_vk(*, players: list) -> str:
+  def poker_room_admin_status_vk(*, players: list, can_start_betting: bool = False) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
       rows.append(
@@ -769,6 +849,92 @@ class InlineKbs:
             "action": {
               "type": "callback",
               "label": player.player_name[:40],
+              "payload": {
+                "action": "poker_room_manage_select",
+                "player_id": int(player.player_id),
+              },
+            },
+            "color": "primary",
+          }
+        ]
+      )
+    if can_start_betting:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": Buttons.admin_room.START_BETTING.value[:40],
+              "payload": {
+                "action": "poker_start_betting_inline",
+              },
+            },
+            "color": "positive",
+          }
+        ]
+      )
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_room_manage_player_vk(*, player_id: int) -> str:
+    rows = [
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": "❌ Удалить",
+            "payload": {"action": "poker_remove_player_select", "player_id": int(player_id)},
+          },
+          "color": "negative",
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": "💼 Сделать кассиром",
+            "payload": {"action": "poker_set_cashier_select", "player_id": int(player_id)},
+          },
+          "color": "primary",
+        }
+      ],
+    ]
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_room_approve_vk(*, player_id: int) -> str:
+    rows = [
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": "✅ Разрешить вход",
+            "payload": {"action": "poker_room_approve_select", "player_id": int(player_id)},
+          },
+          "color": "positive",
+        },
+        {
+          "action": {
+            "type": "callback",
+            "label": "⛔ Запретить",
+            "payload": {"action": "poker_room_reject_select", "player_id": int(player_id)},
+          },
+          "color": "negative",
+        },
+      ]
+    ]
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_remove_player_candidates_vk(*, players: list) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for player in players[:10]:
+      rows.append(
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": f"{player.player_name}: {int(player.buyins)}"[:40],
               "payload": {
                 "action": "poker_remove_player_select",
                 "player_id": int(player.player_id),
@@ -810,7 +976,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": player.player_name[:40],
+              "label": f"{player.player_name}: {int(player.buyins)}"[:40],
               "payload": {
                 "action": "poker_buyin_select",
                 "player_id": int(player.player_id),

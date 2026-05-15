@@ -30,6 +30,8 @@ from app.bot.telegram.keyboards import (
   poker_keyboard,
   poker_info_keyboard,
   poker_cashout_candidates_keyboard,
+  poker_room_admin_status_keyboard,
+  poker_room_approve_keyboard,
   room_admin_keyboard,
   room_keyboard,
   betting_confirm_keyboard,
@@ -53,11 +55,18 @@ from app.bot.telegram.keyboards import (
 from app.bot.telegram.notifications import notify_admins_about_registration
 from app.bot.telegram.states import RegistrationState
 from app.bot.vk.keyboards import (
+  poker_room_approve_keyboard as vk_poker_room_approve_keyboard,
+  poker_room_admin_status_keyboard as vk_poker_room_admin_status_keyboard,
   registration_link_review_keyboard as vk_registration_link_review_keyboard,
   registration_review_keyboard as vk_registration_review_keyboard,
 )
-from app.bot.vk.api import send_vk_message
-from app.bot.shared.chips_runtime import TG_ADMIN_CHIPS_STATUS_MSG_IDS, TG_USER_CHIPS_RESULT_MSG_IDS
+from app.bot.vk.api import delete_vk_message_by_id, send_vk_message, send_vk_message_with_id
+from app.bot.shared.chips_runtime import (
+  TG_ADMIN_CHIPS_STATUS_MSG_IDS,
+  TG_USER_CHIPS_RESULT_MSG_IDS,
+  TG_ADMIN_ROOM_STATUS_MSG_IDS,
+  VK_ADMIN_ROOM_STATUS_MSG_IDS,
+)
 from app.bot.vk.notifications import notify_admins_about_registration as notify_vk_admins_about_registration
 from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -106,17 +115,41 @@ def _format_waiting_players(players: list) -> str:
 
 
 def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered: int) -> str:
+  def money_from_chips(chips: int, buyins: int, buyin_size_chips: int, buyin_size_kopecks: int) -> int:
+    if buyin_size_chips <= 0:
+      return 0
+    return ((int(chips) - int(buyins) * int(buyin_size_chips)) * int(buyin_size_kopecks)) // int(buyin_size_chips)
+
+  def reaction(money_kopecks: int) -> str:
+    return "😎" if int(money_kopecks) >= 0 else "🤮"
+
+  buyin_size_chips = 200
+  buyin_size_kopecks = 20000
+  if players:
+    sample = players[0]
+    buyin_size_chips = int(getattr(sample, "_buyin_size_chips", buyin_size_chips))
+    buyin_size_kopecks = int(getattr(sample, "_buyin_size_kopecks", buyin_size_kopecks))
+
+  remainder = int(chips_in_game) - int(chips_entered)
   lines = [
     "🎰 Ввод фишек.",
     "",
-    f"Всего в игре было {chips_in_game} фишек. Введено: {chips_entered} фишек",
+    f"Закуплено: {chips_in_game}. Введено: {chips_entered}. Остаток: {remainder}",
     "",
   ]
   for p in players:
     if p.chips is None:
       lines.append(f"{p.player_name}: еще не ввел фишки")
     else:
-      lines.append(f"{p.player_name}: {int(p.chips)}")
+      money_kopecks = money_from_chips(
+        chips=int(p.chips),
+        buyins=int(p.buyins),
+        buyin_size_chips=buyin_size_chips,
+        buyin_size_kopecks=buyin_size_kopecks,
+      )
+      lines.append(
+        f"{p.player_name}: {int(p.chips)} → {_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction(int(money_kopecks))}"
+      )
   return "\n".join(lines)
 
 
@@ -128,12 +161,24 @@ async def _upsert_tg_user_chips_result(*, chat_id: int, text: str) -> None:
   prev_msg_id = TG_USER_CHIPS_RESULT_MSG_IDS.get(int(chat_id))
   if prev_msg_id is not None:
     try:
-      await telegram_bot.edit_message_text(chat_id=chat_id, message_id=prev_msg_id, text=text)
-      return
+      await telegram_bot.delete_message(chat_id=chat_id, message_id=prev_msg_id)
     except Exception:
       pass
   sent = await telegram_bot.send_message(chat_id=chat_id, text=text)
   TG_USER_CHIPS_RESULT_MSG_IDS[int(chat_id)] = int(sent.message_id)
+
+
+def _build_user_chips_text(*, chips: int | None, money_kopecks: int | None, reaction: str | None) -> str:
+  chips_text = str(chips) if chips is not None else "ты еще не ввел фишки"
+  if money_kopecks is None or reaction is None:
+    result_text = "ты еще не ввел фишки"
+  else:
+    result_text = f"{_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction}"
+  return (
+    "Покер завершен. Посчитай свои фишки и отправь число мне.\n"
+    f"Введено: {chips_text}\n"
+    f"Итог: {result_text}"
+  )
 
 
 async def _notify_admins_about_chips_entry(*, session, player, chips: int, money_kopecks: int) -> None:
@@ -150,19 +195,16 @@ async def _notify_admins_about_chips_entry(*, session, player, chips: int, money
     poker, params = ready
     if poker.date == player.date:
       chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
+      for p in players:
+        setattr(p, "_buyin_size_chips", int(params.buyin_size_chips))
+        setattr(p, "_buyin_size_kopecks", int(params.buyin_size_kopecks))
   full_text = _build_chips_status_text(players=players, chips_in_game=chips_in_game, chips_entered=chips_entered)
   for admin in admins:
     if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
       prev_msg_id = TG_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(admin.telegram_id))
       if prev_msg_id is not None:
         try:
-          await telegram_bot.edit_message_text(
-            chat_id=admin.telegram_id,
-            message_id=prev_msg_id,
-            text=full_text,
-            reply_markup=poker_calc_keyboard(),
-          )
-          continue
+          await telegram_bot.delete_message(chat_id=admin.telegram_id, message_id=prev_msg_id)
         except Exception:
           pass
       sent = await telegram_bot.send_message(
@@ -273,8 +315,23 @@ async def _notify_admins_about_room_join(
   from app.bot.telegram.runtime import telegram_bot
 
   repository = UserRepository(session)
+  poker_repository = PokerRepository(session)
+  poker_data_repository = PokerDataRepository(session)
   admin_tg_ids = await repository.list_telegram_admin_ids()
   admin_vk_ids = await repository.list_vk_admin_ids()
+  active = await poker_repository.get_started()
+  players = await poker_data_repository.list_players(date=active[0].date) if active is not None else []
+  can_start_betting = bool(
+    active is not None
+    and active[0].cashier_id is not None
+    and not bool(active[0].is_bettable)
+    and not bool(active[0].is_ready_for_chips_entering)
+  )
+  status_text = (
+    "🟢 Игроки в покер руме\n"
+    f"Сейчас в руме: {len(players)}\n\n"
+    "Подсказка: после входа большинства игроков назначь кассира."
+  )
   text = (
     "🟢 Новый игрок в покер руме\n"
     f"Игрок: {joined_user.name}\n"
@@ -286,11 +343,36 @@ async def _notify_admins_about_room_join(
       continue
     if telegram_bot is not None:
       await telegram_bot.send_message(chat_id=admin_id, text=text)
+      prev_mid = TG_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
+      if prev_mid is not None:
+        try:
+          await telegram_bot.delete_message(chat_id=int(admin_id), message_id=int(prev_mid))
+        except Exception:
+          pass
+      sent = await telegram_bot.send_message(
+        chat_id=int(admin_id),
+        text=status_text,
+        reply_markup=poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+      )
+      TG_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent.message_id)
 
   for admin_id in admin_vk_ids:
     if joined_user.vk_id is not None and int(admin_id) == int(joined_user.vk_id):
       continue
     await send_vk_message(user_id=admin_id, message=text)
+    prev_mid = VK_ADMIN_ROOM_STATUS_MSG_IDS.get(int(admin_id))
+    if prev_mid is not None:
+      try:
+        await delete_vk_message_by_id(peer_id=int(admin_id), message_id=int(prev_mid))
+      except Exception:
+        pass
+    sent_mid = await send_vk_message_with_id(
+      user_id=int(admin_id),
+      message=status_text,
+      keyboard=vk_poker_room_admin_status_keyboard(players=players, can_start_betting=can_start_betting),
+    )
+    if sent_mid is not None:
+      VK_ADMIN_ROOM_STATUS_MSG_IDS[int(admin_id)] = int(sent_mid)
 
 
 def _split_names(value: str | None) -> set[str]:
@@ -638,15 +720,34 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
     if active is None:
       await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
       return
-    created = await use_case.add_player_to_active_poker(player_id=int(user.row_id), player_name=user.name)
-    if created is None:
-      await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
+    poker, _ = active
+    if poker.cashier_id is None:
+      created = await use_case.add_player_to_active_poker(player_id=int(user.row_id), player_name=user.name)
+      if created is None:
+        await message.answer(Text.user.STATUS_ROOM_CLOSED.value)
+        return
+      await _notify_admins_about_room_join(
+        session=session,
+        joined_user=user,
+        platform_label="Telegram",
+      )
+    else:
+      admins = [u for u in await user_repository.list_approved() if u.is_admin and u.telegram_id is not None]
+      for admin in admins:
+        await message.bot.send_message(
+          chat_id=int(admin.telegram_id),
+          text=f"Новый вход в рум: {user.name}\nРазрешить?",
+          reply_markup=poker_room_approve_keyboard(player_id=int(user.row_id)),
+        )
+      vk_admins = [u for u in await user_repository.list_approved() if u.is_admin and u.vk_id is not None]
+      for admin in vk_admins:
+        await send_vk_message(
+          user_id=int(admin.vk_id),
+          message=f"Новый вход в рум: {user.name}\nРазрешить?",
+          keyboard=vk_poker_room_approve_keyboard(player_id=int(user.row_id)),
+        )
+      await message.answer("Запрос на вход отправлен админам. Ожидай подтверждение.")
       return
-    await _notify_admins_about_room_join(
-      session=session,
-      joined_user=user,
-      platform_label="Telegram",
-    )
 
   await message.answer(
     Text.user.ROOM_JOINED.value,
@@ -2307,9 +2408,9 @@ async def process_chips_input(message: Message, state: FSMContext) -> None:
     )
     await _upsert_tg_user_chips_result(
       chat_id=message.from_user.id,
-      text=Text.user.FINISH_CHIPS_SAVED.value.format(
-        chips=chips,
-        money_rub=_format_rub_from_kopecks(int(money_kopecks)),
+      text=_build_user_chips_text(
+        chips=int(chips),
+        money_kopecks=int(money_kopecks),
         reaction=_chips_reaction(int(money_kopecks)),
       ),
     )

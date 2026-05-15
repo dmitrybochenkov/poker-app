@@ -2,6 +2,7 @@ from app.bot.shared.buttons.buttons_inline import AdminInlineBtns, BettingInline
 from app.bot.shared.buttons.buttons_reply import (
   AdminMainBtns,
   AdminRoomBtns,
+  AdminRoomCorrectBtns,
   BettingBtns,
   BettingCurrentBtns,
   BettingInfoBtns,
@@ -22,6 +23,7 @@ class Buttons:
   admin_main = AdminMainBtns
   room = RoomBtns
   admin_room = AdminRoomBtns
+  admin_room_correct = AdminRoomCorrectBtns
   betting = BettingBtns
   betting_current = BettingCurrentBtns
   bettingInfo = BettingInfoBtns
