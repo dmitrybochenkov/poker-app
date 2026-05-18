@@ -73,6 +73,7 @@ from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 
 router = Router()
+TG_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
 
 
 async def _start_betting_flow(*, admin_tg_id: int) -> str:
@@ -401,17 +402,24 @@ async def _notify_players_about_finish(*, players: list) -> None:
     user_repository = UserRepository(session)
     for player in players:
       user = await user_repository.get_by_row_id(int(player.player_id))
-      if user is None or user.notification_platform is None:
+      if user is None or user.notification_platform is None or bool(user.is_admin):
         continue
 
       text = _build_user_chips_text(chips=None, money_kopecks=None, reaction=None)
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
-        await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+        await telegram_bot.send_message(chat_id=user.telegram_id, text=text, reply_markup=main_keyboard)
       elif user.notification_platform == "vk" and user.vk_id is not None:
-        await send_vk_message(user_id=user.vk_id, message=text)
+        await send_vk_message(user_id=user.vk_id, message=text, keyboard=vk_main_keyboard)
 
 
-async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: int) -> None:
+async def _notify_about_buyin(
+  *,
+  session,
+  poker,
+  updated_player,
+  buyins_count: int,
+  notify_admins: bool = True,
+) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
   user_repository = UserRepository(session)
@@ -428,6 +436,22 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
       await telegram_bot.send_message(chat_id=cashier.telegram_id, text=text)
     elif cashier.notification_platform == "vk" and cashier.vk_id is not None:
       await send_vk_message(user_id=cashier.vk_id, message=text)
+
+  if notify_admins:
+    recipients: dict[int, object] = {}
+    players = await PokerDataRepository(session).list_players(date=poker.date)
+    player_row_ids = {int(p.player_id) for p in players}
+    admins = await user_repository.list_approved()
+    for user in admins:
+      if user.is_admin and int(user.row_id) in player_row_ids:
+        recipients[int(user.row_id)] = user
+    if cashier is not None:
+      recipients.pop(int(cashier.row_id), None)
+    for user in recipients.values():
+      if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
+        await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+      elif user.notification_platform == "vk" and user.vk_id is not None:
+        await send_vk_message(user_id=user.vk_id, message=text)
 
   player_user = await user_repository.get_by_row_id(int(updated_player.player_id))
   if player_user is not None and player_user.notification_platform is not None:
@@ -719,57 +743,38 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
     lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
     lines.append("")
     lines.append("🍀 Ставки:")
-    lines.extend(bet_lines if bet_lines else ["Ставок не было"])
+    lines.extend(bet_lines if bet_lines else ["Успешных ставок не было"])
     result_text = "\n".join(lines)
-    await message.answer(result_text)
 
     from app.bot.telegram.runtime import telegram_bot
     recipient_row_ids = {int(p.player_id) for p in players} | {int(b.better_id) for b in bets}
+    sent_tg_ids: set[int] = set()
+    sent_vk_ids: set[int] = set()
     for row_id in sorted(recipient_row_ids):
       user = await user_repository.get_by_row_id(row_id)
       if user is None:
         continue
-      money = 0
-      player = next((p for p in players if int(p.player_id) == row_id), None)
-      if player is not None:
-        money = next((int(item["money"]) for item in money_rows if str(item["name"]) == player.player_name), 0)
-      reaction = _get_reaction("winner" if money >= 0 else "loser")
-      player_text = (
-        f"Твой итог по игре: {_format_rub_from_kopecks(money)} ₽ {reaction}\n"
-        f"Победители: {winners_text}\n"
-        f"Проигравшие: {loosers_text}"
-      )
-      if player is not None:
-        own_transfer_lines: list[str] = []
-        own_name = str(player.player_name)
-        for line in transfer_lines:
-          if line.startswith(f"{own_name} ➡️ ") or f"➡️ {own_name}:" in line:
-            own_transfer_lines.append(line)
-        player_text += "\n\n💲 Переводы:\n" + ("\n".join(own_transfer_lines) if own_transfer_lines else "Переводы не требуются")
-      if bets:
-        own_bets = [b for b in bets if int(b.better_id) == int(row_id)]
-        if own_bets:
-          details = []
-          for b in own_bets:
-            guessed_winner = bool(b.winner_name) and b.winner_name in winners
-            guessed_loser = bool(b.loser_name) and b.loser_name in loosers
-            mark = _bet_mark(
-              amount_kopecks=int(b.amount_kopecks),
-              guessed_winner=guessed_winner,
-              guessed_loser=guessed_loser,
-            )
-            details.append(
-              f"{_format_rub_from_kopecks(int(b.amount_kopecks))} ₽ | {mark} +{int(b.score)}"
-            )
-          player_text += "\n\n🍀 Ставки:\n" + "\n".join(details)
-        else:
-          player_text += "\n\n🍀 Ставки:\nСтавок не было"
-      else:
-        player_text += "\n\n🍀 Ставки:\nСтавок не было"
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
-        await telegram_bot.send_message(chat_id=user.telegram_id, text=player_text)
+        await telegram_bot.send_message(chat_id=user.telegram_id, text=result_text, reply_markup=main_keyboard)
+        sent_tg_ids.add(int(user.telegram_id))
       elif user.notification_platform == "vk" and user.vk_id is not None:
-        await send_vk_message(user_id=user.vk_id, message=player_text)
+        await send_vk_message(user_id=user.vk_id, message=result_text, keyboard=vk_main_keyboard)
+        sent_vk_ids.add(int(user.vk_id))
+    initiator_user = await user_repository.get_by_telegram_id(int(initiator_id))
+    if initiator_user is not None:
+      if (
+        initiator_user.notification_platform == "tg"
+        and initiator_user.telegram_id is not None
+        and telegram_bot is not None
+        and int(initiator_user.telegram_id) not in sent_tg_ids
+      ):
+        await telegram_bot.send_message(chat_id=initiator_user.telegram_id, text=result_text, reply_markup=main_keyboard)
+      elif (
+        initiator_user.notification_platform == "vk"
+        and initiator_user.vk_id is not None
+        and int(initiator_user.vk_id) not in sent_vk_ids
+      ):
+        await send_vk_message(user_id=initiator_user.vk_id, message=result_text, keyboard=vk_main_keyboard)
     await _clear_tg_admin_chips_calc_buttons()
 
 
@@ -1164,6 +1169,7 @@ async def add_player_callback(callback: CallbackQuery) -> None:
     await callback.message.answer(
       f"🎲 В покер добавлен новый игрок\nИмя: {user.name}: {int(self_player.buyins) if self_player is not None else 0}"
     )
+    TG_BUYIN_NOTIFY_CASHIER_ONLY.add((int(callback.from_user.id), int(user.row_id)))
     await callback.message.answer(
       Text.admin.POKER_BUYIN_PROMPT.value,
       reply_markup=poker_buyin_count_keyboard(
@@ -1258,6 +1264,7 @@ async def add_new_player_name_input(message: Message, state: FSMContext) -> None
   await message.answer(
     f"🎲 В покер добавлен новый игрок\nИмя: {created_user.name}: {int(self_player.buyins) if self_player is not None else 0}"
   )
+  TG_BUYIN_NOTIFY_CASHIER_ONLY.add((int(message.from_user.id), int(created_user.row_id)))
   await message.answer(
     Text.admin.POKER_BUYIN_PROMPT.value,
     reply_markup=poker_buyin_count_keyboard(
@@ -1727,11 +1734,17 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
     if updated is None:
       await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
       return
+    notify_admins = True
+    key = (int(callback.from_user.id), int(player_id))
+    if key in TG_BUYIN_NOTIFY_CASHIER_ONLY:
+      notify_admins = False
+      TG_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
     await _notify_about_buyin(
       session=session,
       poker=poker,
       updated_player=updated,
       buyins_count=buyins_count,
+      notify_admins=notify_admins,
     )
   if source_message is not None:
     try:

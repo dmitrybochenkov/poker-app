@@ -212,6 +212,8 @@ class StatUseCases:
     selected_pics = [indicator.pic for indicator in selected]
     if not selected_pics:
       selected_pics = ["💯"]
+    if mode in {"regular", "year"}:
+      selected_pics = ["🚨"] + [pic for pic in selected_pics if pic != "🚨"]
 
     rows: list[dict[str, str | int | float]] = []
     for user in users:
@@ -229,7 +231,8 @@ class StatUseCases:
         )
       if mode in {"regular", "year"}:
         # Current tournaments only: mark users with no unpaid bets.
-        row["🌟"] = "👮" if len([bet for bet in user_bets if not bool(bet.is_paid)]) == 0 else ""
+        better_row_id = int(user_bets[0].better_id) if user_bets else 0
+        row["🌟"] = "👮" if (better_row_id != 1 and len([bet for bet in user_bets if not bool(bet.is_paid)]) == 0) else ""
       rows.append(row)
 
     # Hide users with no values across all selected betting indicators.

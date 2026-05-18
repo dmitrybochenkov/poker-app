@@ -84,6 +84,8 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 
+VK_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
+
 
 def _shift_month(value: date, delta: int) -> date:
   total = value.year * 12 + (value.month - 1) + delta
@@ -286,6 +288,42 @@ async def _clear_vk_admin_chips_calc_buttons() -> None:
   VK_ADMIN_CHIPS_STATUS_MSG_IDS.clear()
 
 
+async def _upsert_vk_admin_chips_status(*, session, poker_date) -> None:
+  user_repository = UserRepository(session)
+  poker_repository = PokerRepository(session)
+  poker_data_repository = PokerDataRepository(session)
+  players = await poker_data_repository.list_players(date=poker_date)
+  chips_entered = sum(int(p.chips or 0) for p in players)
+  chips_in_game = 0
+  ready = await poker_repository.get_latest_ready_for_chips_with_params()
+  if ready is not None:
+    poker, params = ready
+    if poker.date == poker_date:
+      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
+      for p in players:
+        setattr(p, "_buyin_size_chips", int(params.buyin_size_chips))
+        setattr(p, "_buyin_size_kopecks", int(params.buyin_size_kopecks))
+  text = _build_chips_status_text(players=players, chips_in_game=chips_in_game, chips_entered=chips_entered)
+  player_row_ids = {int(p.player_id) for p in players}
+  admins = [u for u in await user_repository.list_approved() if u.is_admin and int(u.row_id) in player_row_ids]
+  for admin in admins:
+    if admin.vk_id is None:
+      continue
+    prev_mid = VK_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(admin.vk_id))
+    if prev_mid is not None:
+      try:
+        await delete_vk_message_by_id(peer_id=int(admin.vk_id), message_id=int(prev_mid))
+      except Exception:
+        pass
+    sent_mid = await send_vk_message_with_id(
+      user_id=int(admin.vk_id),
+      message=text,
+      keyboard=poker_calc_keyboard(),
+    )
+    if sent_mid is not None:
+      VK_ADMIN_CHIPS_STATUS_MSG_IDS[int(admin.vk_id)] = int(sent_mid)
+
+
 async def _notify_players_about_finish(*, players: list) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
@@ -293,17 +331,24 @@ async def _notify_players_about_finish(*, players: list) -> None:
     user_repository = UserRepository(session)
     for player in players:
       user = await user_repository.get_by_row_id(int(player.player_id))
-      if user is None or user.notification_platform is None:
+      if user is None or user.notification_platform is None or bool(user.is_admin):
         continue
 
-      text = Text.user.FINISH_CHIPS_PROMPT.value
+      text = _build_user_chips_text(chips=None, money_kopecks=None, reaction=None)
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
-        await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+        await telegram_bot.send_message(chat_id=user.telegram_id, text=text, reply_markup=tg_main_keyboard)
       elif user.notification_platform == "vk" and user.vk_id is not None:
-        await send_vk_message(user_id=user.vk_id, message=text)
+        await send_vk_message(user_id=user.vk_id, message=text, keyboard=main_keyboard)
 
 
-async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: int) -> None:
+async def _notify_about_buyin(
+  *,
+  session,
+  poker,
+  updated_player,
+  buyins_count: int,
+  notify_admins: bool = True,
+) -> None:
   from app.bot.telegram.runtime import telegram_bot
 
   user_repository = UserRepository(session)
@@ -320,6 +365,18 @@ async def _notify_about_buyin(*, session, poker, updated_player, buyins_count: i
       await telegram_bot.send_message(chat_id=cashier.telegram_id, text=text)
     elif cashier.notification_platform == "vk" and cashier.vk_id is not None:
       await send_vk_message(user_id=cashier.vk_id, message=text)
+  if notify_admins:
+    poker_players = await PokerDataRepository(session).list_players(date=poker.date)
+    player_row_ids = {int(p.player_id) for p in poker_players}
+    admins = [
+      u for u in await user_repository.list_approved()
+      if u.is_admin and int(u.row_id) in player_row_ids and (cashier is None or int(u.row_id) != int(cashier.row_id))
+    ]
+    for admin in admins:
+      if admin.notification_platform == "tg" and admin.telegram_id is not None and telegram_bot is not None:
+        await telegram_bot.send_message(chat_id=admin.telegram_id, text=text)
+      elif admin.notification_platform == "vk" and admin.vk_id is not None:
+        await send_vk_message(user_id=admin.vk_id, message=text)
 
   player_user = await user_repository.get_by_row_id(int(updated_player.player_id))
   if player_user is not None and player_user.notification_platform is not None:
@@ -759,6 +816,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             include_king_buyin = bool(self_player is not None and self_player.is_prev_winner)
             current_big_buyin_count = int(self_player.big_buyin_count) if self_player is not None else 0
             current_super_buyin_count = int(self_player.super_buyin_count) if self_player is not None else 0
+            VK_BUYIN_NOTIFY_CASHIER_ONLY.add((int(admin_user_id), int(user.row_id)))
             result_text = Text.admin.POKER_BUYIN_PROMPT.value
             result_added_text = f"🎲 В покер добавлен новый игрок\nИмя: {user.name}: {int(self_player.buyins) if self_player is not None else 0}"
             result_keyboard = poker_buyin_count_keyboard(
@@ -1360,11 +1418,17 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
             result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
           else:
             result_text = f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}"
+            notify_admins = True
+            key = (int(admin_user_id), int(player_id))
+            if key in VK_BUYIN_NOTIFY_CASHIER_ONLY:
+              notify_admins = False
+              VK_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
             await _notify_about_buyin(
               session=session,
               poker=poker,
               updated_player=updated,
               buyins_count=int(buyins_count),
+              notify_admins=notify_admins,
             )
     await send_vk_message_event_answer(
       event_id=event_id,
@@ -1417,30 +1481,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
               updated = await pdata.set_chips(date=poker.date, player_id=int(player_id), chips=chips)
               if updated is not None:
                 await pdata.set_cashout(date=poker.date, player_id=int(player_id), money_kopecks=int(money_kopecks))
-                all_players = await pdata.list_players(date=poker.date)
-                chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in all_players)
-                chips_entered = sum(int(p.chips or 0) for p in all_players)
-                for p in all_players:
-                  setattr(p, "_buyin_size_chips", int(params.buyin_size_chips))
-                  setattr(p, "_buyin_size_kopecks", int(params.buyin_size_kopecks))
-                status_text = _build_chips_status_text(
-                  players=all_players,
-                  chips_in_game=chips_in_game,
-                  chips_entered=chips_entered,
-                )
-                prev_mid = VK_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(admin_user_id))
-                if prev_mid is not None:
-                  try:
-                    await delete_vk_message_by_id(peer_id=int(admin_user_id), message_id=int(prev_mid))
-                  except Exception:
-                    pass
-                sent_mid = await send_vk_message_with_id(
-                  user_id=int(admin_user_id),
-                  message=status_text,
-                  keyboard=poker_calc_keyboard(),
-                )
-                if sent_mid is not None:
-                  VK_ADMIN_CHIPS_STATUS_MSG_IDS[int(admin_user_id)] = int(sent_mid)
+                await _upsert_vk_admin_chips_status(session=session, poker_date=poker.date)
               vk_user_contexts.setdefault(admin_user_id, {}).pop("cashout_input_value", None)
               target_user = await user_repository.get_by_row_id(int(player_id))
               if target_user is not None and target_user.vk_id is not None:
@@ -1636,6 +1677,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       include_king_buyin = bool(self_player is not None and self_player.is_prev_winner)
       current_big_buyin_count = int(self_player.big_buyin_count) if self_player is not None else 0
       current_super_buyin_count = int(self_player.super_buyin_count) if self_player is not None else 0
+      VK_BUYIN_NOTIFY_CASHIER_ONLY.add((int(user_id), int(created_user.row_id)))
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await send_vk_message(
@@ -1729,30 +1771,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         player_id=int(player_id),
         money_kopecks=int(money_kopecks),
       )
-      all_players = await PokerDataRepository(session).list_players(date=poker.date)
-      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in all_players)
-      chips_entered = sum(int(p.chips or 0) for p in all_players)
-      for p in all_players:
-        setattr(p, "_buyin_size_chips", int(params.buyin_size_chips))
-        setattr(p, "_buyin_size_kopecks", int(params.buyin_size_kopecks))
-      status_text = _build_chips_status_text(
-        players=all_players,
-        chips_in_game=chips_in_game,
-        chips_entered=chips_entered,
-      )
-      prev_mid = VK_ADMIN_CHIPS_STATUS_MSG_IDS.get(int(user_id))
-      if prev_mid is not None:
-        try:
-          await delete_vk_message_by_id(peer_id=int(user_id), message_id=int(prev_mid))
-        except Exception:
-          pass
-      sent_mid = await send_vk_message_with_id(
-        user_id=int(user_id),
-        message=status_text,
-        keyboard=poker_calc_keyboard(),
-      )
-      if sent_mid is not None:
-        VK_ADMIN_CHIPS_STATUS_MSG_IDS[int(user_id)] = int(sent_mid)
+      await _upsert_vk_admin_chips_status(session=session, poker_date=poker.date)
       target_user = await user_repository.get_by_row_id(int(player_id))
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
@@ -1880,23 +1899,8 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     await _notify_players_about_finish(players=players)
     await send_vk_message(user_id=user_id, message=Text.admin.POKER_FINISH_SUCCESS.value)
     if players:
-      chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
-      chips_entered = sum(int(p.chips or 0) for p in players)
-      for p in players:
-        setattr(p, "_buyin_size_chips", int(params.buyin_size_chips))
-        setattr(p, "_buyin_size_kopecks", int(params.buyin_size_kopecks))
-      status_text = _build_chips_status_text(
-        players=players,
-        chips_in_game=chips_in_game,
-        chips_entered=chips_entered,
-      )
-      sent_mid = await send_vk_message_with_id(
-        user_id=user_id,
-        message=status_text,
-        keyboard=poker_calc_keyboard(),
-      )
-      if sent_mid is not None:
-        VK_ADMIN_CHIPS_STATUS_MSG_IDS[int(user_id)] = int(sent_mid)
+      async with SessionFactory() as session:
+        await _upsert_vk_admin_chips_status(session=session, poker_date=players[0].date)
     return PlainTextResponse("ok")
 
   if text == Buttons.admin_room.CALCULATE_POKER.value:
@@ -2012,55 +2016,38 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       result_lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
       result_lines.append("")
       result_lines.append("🍀 Ставки:")
-      result_lines.extend(bet_lines if bet_lines else ["Ставок не было"])
+      result_lines.extend(bet_lines if bet_lines else ["Успешных ставок не было"])
       result_text = "\n".join(result_lines)
-      await send_vk_message(user_id=user_id, message=result_text)
 
       from app.bot.telegram.runtime import telegram_bot
       recipient_row_ids = {int(p.player_id) for p in players} | {int(b.better_id) for b in bets}
+      sent_tg_ids: set[int] = set()
+      sent_vk_ids: set[int] = set()
       for row_id in sorted(recipient_row_ids):
         user = await user_repository.get_by_row_id(row_id)
         if user is None:
           continue
-        money = 0
-        player = next((p for p in players if int(p.player_id) == row_id), None)
-        if player is not None:
-          money = next((int(item["money"]) for item in money_rows if str(item["name"]) == player.player_name), 0)
-        reaction = _get_reaction("winner" if money >= 0 else "loser")
-        player_text = (
-          f"Твой итог по игре: {_format_rub_from_kopecks(money)} ₽ {reaction}\n"
-          f"Победители: {winners_text}\n"
-          f"Проигравшие: {loosers_text}"
-        )
-        if player is not None:
-          own_transfer_lines: list[str] = []
-          own_name = str(player.player_name)
-          for line in transfer_lines:
-            if line.startswith(f"{own_name} ➡️ ") or f"➡️ {own_name}:" in line:
-              own_transfer_lines.append(line)
-          player_text += "\n\n💲 Переводы:\n" + ("\n".join(own_transfer_lines) if own_transfer_lines else "Переводы не требуются")
-        if bets:
-          own_bets = [b for b in bets if int(b.better_id) == int(row_id)]
-          if own_bets:
-            details = []
-            for b in own_bets:
-              guessed_winner = bool(b.winner_name) and b.winner_name in winners
-              guessed_loser = bool(b.loser_name) and b.loser_name in loosers
-              mark = _bet_mark(
-                amount_kopecks=int(b.amount_kopecks),
-                guessed_winner=guessed_winner,
-                guessed_loser=guessed_loser,
-              )
-              details.append(f"{_format_rub_from_kopecks(int(b.amount_kopecks))} ₽ | {mark} +{int(b.score)}")
-            player_text += "\n\n🍀 Ставки:\n" + "\n".join(details)
-          else:
-            player_text += "\n\n🍀 Ставки:\nСтавок не было"
-        else:
-          player_text += "\n\n🍀 Ставки:\nСтавок не было"
         if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
-          await telegram_bot.send_message(chat_id=user.telegram_id, text=player_text)
+          await telegram_bot.send_message(chat_id=user.telegram_id, text=result_text, reply_markup=tg_main_keyboard)
+          sent_tg_ids.add(int(user.telegram_id))
         elif user.notification_platform == "vk" and user.vk_id is not None:
-          await send_vk_message(user_id=user.vk_id, message=player_text)
+          await send_vk_message(user_id=user.vk_id, message=result_text, keyboard=main_keyboard)
+          sent_vk_ids.add(int(user.vk_id))
+      initiator = await user_repository.get_by_vk_id(int(user_id))
+      if initiator is not None:
+        if (
+          initiator.notification_platform == "tg"
+          and initiator.telegram_id is not None
+          and telegram_bot is not None
+          and int(initiator.telegram_id) not in sent_tg_ids
+        ):
+          await telegram_bot.send_message(chat_id=initiator.telegram_id, text=result_text, reply_markup=tg_main_keyboard)
+        elif (
+          initiator.notification_platform == "vk"
+          and initiator.vk_id is not None
+          and int(initiator.vk_id) not in sent_vk_ids
+        ):
+          await send_vk_message(user_id=initiator.vk_id, message=result_text, keyboard=main_keyboard)
       await _clear_vk_admin_chips_calc_buttons()
     return PlainTextResponse("ok")
 

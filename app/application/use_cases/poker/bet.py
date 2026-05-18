@@ -119,7 +119,7 @@ class BetUseCases:
       params_id=params_id,
       winner_name=winner_name,
       loser_name=loser_name,
-      is_paid=False,
+      is_paid=(better_row_id == 1),
     )
     await self._add_bet_to_current_tournament_banks(
       poker_date=poker.date,

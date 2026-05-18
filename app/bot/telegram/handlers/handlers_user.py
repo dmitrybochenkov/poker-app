@@ -754,14 +754,29 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
         platform_label="Telegram",
       )
     else:
-      admins = [u for u in await user_repository.list_approved() if u.is_admin and u.telegram_id is not None]
+      players_now = await poker_data_repository.list_players(date=poker.date)
+      player_row_ids = {int(item.player_id) for item in players_now}
+      approved = await user_repository.list_approved()
+      admins = [
+        u for u in approved
+        if u.is_admin
+        and int(u.row_id) in player_row_ids
+        and u.notification_platform == "tg"
+        and u.telegram_id is not None
+      ]
       for admin in admins:
         await message.bot.send_message(
           chat_id=int(admin.telegram_id),
           text=f"Новый вход в рум: {user.name}\nРазрешить?",
           reply_markup=poker_room_approve_keyboard(player_id=int(user.row_id)),
         )
-      vk_admins = [u for u in await user_repository.list_approved() if u.is_admin and u.vk_id is not None]
+      vk_admins = [
+        u for u in approved
+        if u.is_admin
+        and int(u.row_id) in player_row_ids
+        and u.notification_platform == "vk"
+        and u.vk_id is not None
+      ]
       for admin in vk_admins:
         await send_vk_message(
           user_id=int(admin.vk_id),
