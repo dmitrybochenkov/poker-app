@@ -258,6 +258,7 @@ class ReplyKbs:
       _button_labels(
         [
           Buttons.poker.POKER_STAT,
+          Buttons.poker.HISTORY,
           Buttons.poker.POKER_INFO,
           Buttons.poker.TO_MAIN,
         ]
@@ -271,6 +272,7 @@ class ReplyKbs:
       _button_labels(
         [
           Buttons.poker.POKER_STAT,
+          Buttons.poker.HISTORY,
           Buttons.poker.POKER_INFO,
           Buttons.poker.TO_MAIN,
         ]
@@ -317,7 +319,6 @@ class ReplyKbs:
         [
           Buttons.pokerInfo.POKER_ACH_INFO,
           Buttons.pokerInfo.POKER_STAT_INFO,
-          Buttons.pokerInfo.HISTORY,
           Buttons.pokerInfo.TO_MAIN,
         ]
       ),
@@ -331,7 +332,6 @@ class ReplyKbs:
         [
           Buttons.pokerInfo.POKER_ACH_INFO,
           Buttons.pokerInfo.POKER_STAT_INFO,
-          Buttons.pokerInfo.HISTORY,
           Buttons.pokerInfo.TO_MAIN,
         ]
       ),

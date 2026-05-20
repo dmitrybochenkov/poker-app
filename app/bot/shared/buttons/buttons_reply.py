@@ -62,6 +62,7 @@ class BettingCurrentBtns(Enum):
 
 class PokerBtns(Enum):
   POKER_STAT = "🦑 Статистика покера"
+  HISTORY = "⌛ История"
   POKER_INFO = "ℹ️ Информация про покер"
   POLL = "🗓 Опрос"
   TO_MAIN = "🏠 На главную"

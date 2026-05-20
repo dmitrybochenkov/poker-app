@@ -413,7 +413,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
   poker = next((item for item in poker_rows if item.date == target_date and not bool(item.is_going)), None)
   if poker is None:
     return "Игра не найдена."
-  params = await PokerParamRepository(session).get_by_id(row_id=int(poker.params_id))
+  params = await PokerParamRepository(session).get_by_row_id(row_id=int(poker.params_id))
   buyin_size_chips = int(params.buyin_size_chips) if params is not None else 200
   buyin_size_kopecks = int(params.buyin_size_kopecks) if params is not None else 20000
   players = await PokerDataRepository(session).list_players(date=target_date)
@@ -1158,7 +1158,7 @@ async def show_poker_achievement_info(message: Message) -> None:
   )
 
 
-@router.message(F.text == Buttons.pokerInfo.HISTORY.value)
+@router.message((F.text == Buttons.poker.HISTORY.value) | (F.text == Buttons.pokerInfo.HISTORY.value))
 async def show_poker_history_years(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return

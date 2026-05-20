@@ -318,7 +318,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
   poker = next((item for item in poker_rows if item.date == target_date and not bool(item.is_going)), None)
   if poker is None:
     return "Игра не найдена."
-  params = await PokerParamRepository(session).get_by_id(row_id=int(poker.params_id))
+  params = await PokerParamRepository(session).get_by_row_id(row_id=int(poker.params_id))
   buyin_size_chips = int(params.buyin_size_chips) if params is not None else 200
   buyin_size_kopecks = int(params.buyin_size_kopecks) if params is not None else 20000
   players = await PokerDataRepository(session).list_players(date=target_date)
@@ -1829,6 +1829,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.poker.POKER_INFO.value,
     Buttons.pokerInfo.POKER_ACH_INFO.value,
     Buttons.pokerInfo.POKER_STAT_INFO.value,
+    Buttons.poker.HISTORY.value,
     Buttons.poker.POKER_STAT.value,
   }:
     user = await _get_vk_user(user_id)
@@ -1952,7 +1953,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     )
     return PlainTextResponse("ok")
 
-  if text == Buttons.pokerInfo.HISTORY.value:
+  if text in {Buttons.poker.HISTORY.value, Buttons.pokerInfo.HISTORY.value}:
     async with SessionFactory() as session:
       pokers = await PokerRepository(session).list_all()
     years = sorted({int(item.date.year) for item in pokers if item.date is not None and not bool(item.is_going)}, reverse=True)
