@@ -312,14 +312,35 @@ def _format_poll_summary(*, month: date, selected_dates: list[date], month_count
   return "\n".join(lines)
 
 
-def _render_poll_results_chart(*, month: date, month_counts: list[tuple[date, int]], days: list[date] | None = None) -> bytes:
+def _render_poll_results_chart(
+  *,
+  month: date,
+  month_counts: list[tuple[date, int]],
+  month_votes: list[tuple[date, int]] | None = None,
+  user_names: dict[int, str] | None = None,
+  days: list[date] | None = None,
+) -> bytes:
   day_counts = {d: int(c) for d, c in month_counts}
   days = days or _poll_days_for_month(month)
   x_labels = [item.strftime("%d.%m") for item in days]
-  points = [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]
+  if month_votes and user_names:
+    day_to_index = {day: idx for idx, day in enumerate(days)}
+    day_user_voted: dict[tuple[int, int], int] = {}
+    for vote_day, player_row_id in month_votes:
+      if vote_day in day_to_index:
+        day_user_voted[(int(player_row_id), day_to_index[vote_day])] = 1
+    series: dict[str, list[tuple[int, int]]] = {}
+    for player_row_id, name in user_names.items():
+      points = [(idx, day_user_voted.get((int(player_row_id), idx), 0)) for idx in range(len(days))]
+      if any(value for _, value in points):
+        series[name] = points
+    if not series:
+      series = {"Голоса": [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]}
+  else:
+    series = {"Голоса": [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]}
   return render_buyins_session_chart_png(
     title=f"Голоса за даты покера ({month.strftime('%m.%Y')})",
-    series={"Голоса": points},
+    series=series,
     x_labels=x_labels,
     chart_type="bar",
   )
@@ -1031,9 +1052,23 @@ async def show_poll_results(message: Message) -> None:
       await message.answer(Text.user.POLL_NOT_ACTIVE.value, reply_markup=await _approved_tg_keyboard(user))
       return
     month_start, month_end = _month_bounds(month)
-    month_counts = await PollVoteRepository(session).get_month_counts(month_start=month_start, month_end=month_end)
+    poll_repo = PollVoteRepository(session)
+    month_counts = await poll_repo.get_month_counts(month_start=month_start, month_end=month_end)
+    month_votes = await poll_repo.get_month_votes(month_start=month_start, month_end=month_end)
+    user_ids = sorted({int(player_row_id) for _, player_row_id in month_votes})
+    user_repository = UserRepository(session)
+    user_names: dict[int, str] = {}
+    for row_id in user_ids:
+      poll_user = await user_repository.get_by_row_id(row_id)
+      user_names[row_id] = poll_user.name if poll_user is not None else f"ID {row_id}"
     all_days = await _poll_all_days_for_month(session=session, month=month)
-  image_bytes = _render_poll_results_chart(month=month, month_counts=month_counts, days=all_days)
+  image_bytes = _render_poll_results_chart(
+    month=month,
+    month_counts=month_counts,
+    month_votes=month_votes,
+    user_names=user_names,
+    days=all_days,
+  )
   await message.answer_photo(
     photo=BufferedInputFile(image_bytes, filename="poll_results.png"),
     caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",

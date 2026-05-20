@@ -57,6 +57,17 @@ class PollVoteRepository:
     rows = result.all()
     return [(item[0], int(item[1])) for item in rows]
 
+  async def get_month_votes(self, *, month_start: date, month_end: date) -> list[tuple[date, int]]:
+    result = await self.session.execute(
+      select(PollVote.poll_date, PollVote.player_row_id)
+      .where(PollVote.poll_date >= month_start)
+      .where(PollVote.poll_date <= month_end)
+      .where(PollVote.player_row_id > 0)
+      .order_by(PollVote.poll_date.asc(), PollVote.player_row_id.asc())
+    )
+    rows = result.all()
+    return [(item[0], int(item[1])) for item in rows]
+
   async def get_month_extra_dates(self, *, month_start: date, month_end: date) -> list[date]:
     result = await self.session.execute(
       select(PollVote.poll_date)

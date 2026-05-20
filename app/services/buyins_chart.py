@@ -104,7 +104,8 @@ def render_buyins_history_chart_png(
 
   legend_x = x1 + 24
   legend_y = y1 + 8
-  sorted_series = sorted(series.items(), key=lambda item: item[1][-1][1] if item[1] else 0, reverse=True)
+  sorted_series = sorted(series.items(), key=lambda item: sum(y for _, y in item[1]), reverse=True)
+  stacked_bottoms: dict[int, int] = {i: 0 for i in range(len(x_labels))}
 
   for idx, (name, points) in enumerate(sorted_series):
     if not points:
@@ -163,7 +164,14 @@ def render_buyins_session_chart_png(
     image.save(out, format="PNG", optimize=True)
     return out.getvalue()
 
-  max_y = max((max((y for _, y in points), default=0) for points in series.values()), default=1)
+  if chart_type == "bar":
+    stacked_totals: dict[int, int] = {}
+    for points in series.values():
+      for x_idx, y_val in points:
+        stacked_totals[int(x_idx)] = stacked_totals.get(int(x_idx), 0) + max(0, int(y_val))
+    max_y = max(stacked_totals.values(), default=1)
+  else:
+    max_y = max((max((y for _, y in points), default=0) for points in series.values()), default=1)
   y_max = max(1, max_y)
   y_steps = min(6, y_max)
 
@@ -219,13 +227,18 @@ def render_buyins_session_chart_png(
       bar_width = max(12, int(plot_w / max(1, len(x_labels)) * 0.6))
       for x_idx, y_val in points:
         x = x_for_index(int(x_idx))
-        y = int(round(y0 - (max(0, int(y_val)) / y_max) * plot_h))
+        value = max(0, int(y_val))
+        bottom_value = stacked_bottoms.get(int(x_idx), 0)
+        top_value = bottom_value + value
+        y_top = int(round(y0 - (top_value / y_max) * plot_h))
+        y_bottom = int(round(y0 - (bottom_value / y_max) * plot_h))
         draw.rectangle(
-          (x - bar_width // 2, y, x + bar_width // 2, y0),
+          (x - bar_width // 2, y_top, x + bar_width // 2, y_bottom),
           fill=color,
           outline="#ffffff",
           width=1,
         )
+        stacked_bottoms[int(x_idx)] = top_value
     else:
       coords: list[tuple[int, int]] = []
       for x_idx, y_val in points:
@@ -243,7 +256,8 @@ def render_buyins_session_chart_png(
 
     ly = legend_y + idx * 28
     draw.line([(legend_x, ly + 10), (legend_x + 24, ly + 10)], fill=color, width=3)
-    draw.text((legend_x + 34, ly), f"{name} ({points[-1][1]})", fill="#111827", font=small_font)
+    total = sum(y for _, y in points)
+    draw.text((legend_x + 34, ly), f"{name} ({total})", fill="#111827", font=small_font)
 
   y_caption = "Голоса" if chart_type == "bar" else "Закупы"
   x_caption = "Даты" if chart_type == "bar" else "Время"
