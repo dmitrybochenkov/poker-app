@@ -1192,7 +1192,6 @@ async def poker_history_year_pick(callback: CallbackQuery) -> None:
     pokers = await PokerRepository(session).list_all()
   dates = sorted(
     {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
-    reverse=True,
   )
   if not dates:
     await callback.answer("Нет игр за выбранный год", show_alert=True)
@@ -1218,7 +1217,6 @@ async def poker_history_page(callback: CallbackQuery) -> None:
     pokers = await PokerRepository(session).list_all()
   dates = sorted(
     {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
-    reverse=True,
   )
   await callback.message.edit_text(
     f"Выбери дату игры ({year}):",

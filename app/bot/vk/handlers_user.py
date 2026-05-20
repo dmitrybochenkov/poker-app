@@ -758,7 +758,6 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       pokers = await PokerRepository(session).list_all()
     dates = sorted(
       {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
-      reverse=True,
     )
     if not dates:
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Нет игр за выбранный год")
@@ -781,7 +780,6 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       pokers = await PokerRepository(session).list_all()
     dates = sorted(
       {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
-      reverse=True,
     )
     if not dates:
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Нет игр за выбранный год")
