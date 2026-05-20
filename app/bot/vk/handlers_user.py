@@ -98,6 +98,7 @@ from app.db.repositories.stat_indicator_repository import StatIndicatorRepositor
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
+from app.services.buyins_chart import render_buyins_history_chart_png
 
 STAT_SNACKBAR = "Обновлено"
 
@@ -381,6 +382,38 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
         f"{bet.better_name}: {size_mark}, W: {winner_name}, L: {loser_name} → {score_text} баллов"
       )
   return "\n".join(lines)
+
+
+async def _build_poker_history_buyins_chart(*, session, target_date: date) -> bytes | None:
+  poker_rows = await PokerRepository(session).list_all()
+  completed_dates = {
+    item.date for item in poker_rows if item.date is not None and not bool(item.is_going) and item.date <= target_date
+  }
+  if not completed_dates:
+    return None
+  current_players = await PokerDataRepository(session).list_players(date=target_date)
+  tracked_names = {str(item.player_name) for item in current_players}
+  if not tracked_names:
+    return None
+
+  all_rows = await PokerDataRepository(session).list_all()
+  series: dict[str, list[tuple[date, int]]] = {name: [] for name in tracked_names}
+  for row in all_rows:
+    if row.date not in completed_dates:
+      continue
+    name = str(row.player_name)
+    if name not in tracked_names:
+      continue
+    series[name].append((row.date, int(row.buyins or 0)))
+
+  series = {name: sorted(points, key=lambda item: item[0]) for name, points in series.items() if points}
+  if not series:
+    return None
+
+  return render_buyins_history_chart_png(
+    title=f"История закупов до {target_date.strftime('%d.%m.%Y')}",
+    series=series,
+  )
 
 
 async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[dict[str, str], str, str]:
@@ -823,9 +856,12 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       return PlainTextResponse("ok")
     async with SessionFactory() as session:
       report = await _build_poker_history_report(session=session, target_date=target_date)
+      chart_png = await _build_poker_history_buyins_chart(session=session, target_date=target_date)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=report, keyboard=poker_keyboard)
+    if chart_png is not None:
+      await send_vk_photo(user_id=user_id, image_bytes=chart_png, filename="poker_buyins_history.png")
     return PlainTextResponse("ok")
 
   if action == "registration_existing":
