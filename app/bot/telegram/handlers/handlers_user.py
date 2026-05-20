@@ -3,6 +3,7 @@ import random
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
@@ -1044,6 +1045,37 @@ async def poll_noop(callback: CallbackQuery) -> None:
   await callback.answer()
 
 
+async def _safe_edit_reply_markup(message: Message | None, reply_markup: InlineKeyboardMarkup | None) -> None:
+  if message is None:
+    return
+  try:
+    await message.edit_reply_markup(reply_markup=reply_markup)
+  except TelegramBadRequest as exc:
+    if "message is not modified" not in str(exc).lower():
+      raise
+
+
+async def _safe_callback_edit_reply_markup(
+  callback: CallbackQuery,
+  reply_markup: InlineKeyboardMarkup | None,
+) -> None:
+  await _safe_edit_reply_markup(callback.message, reply_markup)
+
+
+async def _safe_callback_edit_text(
+  callback: CallbackQuery,
+  text: str,
+  reply_markup: InlineKeyboardMarkup | None = None,
+) -> None:
+  if callback.message is None:
+    return
+  try:
+    await callback.message.edit_text(text=text, reply_markup=reply_markup)
+  except TelegramBadRequest as exc:
+    if "message is not modified" not in str(exc).lower():
+      raise
+
+
 @router.callback_query(F.data.startswith("poll_page:"))
 async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_callback_user(callback):
@@ -1057,10 +1089,10 @@ async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
   data = await state.get_data()
   selected = _parse_iso_dates(data.get("poll_selected", []))
   await state.update_data(poll_month=f"{month.year}-{month.month:02d}", poll_page=page)
-  if callback.message is not None:
-    await callback.message.edit_reply_markup(
-      reply_markup=poll_month_keyboard(month=month, page=page, selected_dates=selected, extra_dates=allowed_days),
-    )
+  await _safe_edit_reply_markup(
+    callback.message,
+    poll_month_keyboard(month=month, page=page, selected_dates=selected, extra_dates=allowed_days),
+  )
   await callback.answer()
 
 
@@ -1084,15 +1116,15 @@ async def poll_day_toggle(callback: CallbackQuery, state: FSMContext) -> None:
     poll_page=int(page_s),
     poll_selected=[item.isoformat() for item in selected],
   )
-  if callback.message is not None:
-    await callback.message.edit_reply_markup(
-      reply_markup=poll_month_keyboard(
-        month=date(day.year, day.month, 1),
-        page=int(page_s),
-        selected_dates=selected,
-        extra_dates=allowed_days,
-      ),
-    )
+  await _safe_edit_reply_markup(
+    callback.message,
+    poll_month_keyboard(
+      month=date(day.year, day.month, 1),
+      page=int(page_s),
+      selected_dates=selected,
+      extra_dates=allowed_days,
+    ),
+  )
   await callback.answer()
 
 

@@ -1765,19 +1765,6 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "❓ Предложить другой день",
-            "payload": {"action": "poll_suggest", "month": f"{month.year}-{month.month:02d}"},
-          },
-          "color": "secondary",
-        },
-      ]
-    )
-
-    rows.append(
-      [
-        {
-          "action": {
-            "type": "callback",
             "label": "⬅️",
             "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page - 1},
           },
@@ -1788,6 +1775,18 @@ class InlineKbs:
             "type": "callback",
             "label": "➡️",
             "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1},
+          },
+          "color": "secondary",
+        },
+      ]
+    )
+    rows.append(
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": "❓ Предложить другой день",
+            "payload": {"action": "poll_suggest", "month": f"{month.year}-{month.month:02d}"},
           },
           "color": "secondary",
         },
