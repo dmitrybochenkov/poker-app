@@ -16,3 +16,7 @@ class AdminPokerState(StatesGroup):
   waiting_for_cashout_amount = State()
   waiting_for_new_player_name = State()
   waiting_for_buyin_correct_amount = State()
+
+
+class PollState(StatesGroup):
+  waiting_for_custom_day = State()

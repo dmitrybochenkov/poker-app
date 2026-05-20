@@ -37,13 +37,20 @@ class InlineKbs:
     return date(year, month, 1)
 
   @staticmethod
-  def _poll_days_for_month(month: date) -> list[date]:
+  def _poll_days_for_month(month: date, extra_dates: list[date] | None = None) -> list[date]:
     days_in_month = calendar.monthrange(month.year, month.month)[1]
-    return [
+    base_days = [
       date(month.year, month.month, day)
       for day in range(1, days_in_month + 1)
       if date(month.year, month.month, day).weekday() in {4, 5}
     ]
+    if not extra_dates:
+      return base_days
+    merged = set(base_days)
+    for item in extra_dates:
+      if item.year == month.year and item.month == month.month:
+        merged.add(item)
+    return sorted(merged)
 
   @staticmethod
   def _month_label_ru(month: date) -> str:
@@ -1701,10 +1708,11 @@ class InlineKbs:
     month: date,
     page: int = 0,
     selected_dates: list[date] | None = None,
+    extra_dates: list[date] | None = None,
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = {item.isoformat() for item in (selected_dates or [])}
-    all_dates = InlineKbs._poll_days_for_month(month)
+    all_dates = InlineKbs._poll_days_for_month(month, extra_dates=extra_dates)
     start = page * InlineKbs.POLL_PAGE_SIZE
     end = start + InlineKbs.POLL_PAGE_SIZE
     batch = all_dates[start:end]
@@ -1716,10 +1724,11 @@ class InlineKbs:
       )
     keyboard.button(text="⬅️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page - 1}")
     keyboard.button(text=f"{page + 1}/{max(1, (len(all_dates) + InlineKbs.POLL_PAGE_SIZE - 1) // InlineKbs.POLL_PAGE_SIZE)}", callback_data="poll_noop")
+    keyboard.button(text="❓ Предложить другой день", callback_data=f"poll_suggest:{month.year}-{month.month:02d}")
     keyboard.button(text="🚀 Готово", callback_data="poll_done")
     keyboard.button(text="❌ Отмена", callback_data="poll_cancel")
     keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
-    keyboard.adjust(2, 2, 2, 4)
+    keyboard.adjust(2, 2, 2, 1, 2)
     return keyboard.as_markup()
 
   @staticmethod
@@ -1728,9 +1737,10 @@ class InlineKbs:
     month: date,
     page: int = 0,
     selected_dates: list[date] | None = None,
+    extra_dates: list[date] | None = None,
   ) -> str:
     selected = {item.isoformat() for item in (selected_dates or [])}
-    all_dates = InlineKbs._poll_days_for_month(month)
+    all_dates = InlineKbs._poll_days_for_month(month, extra_dates=extra_dates)
     start = page * InlineKbs.POLL_PAGE_SIZE_VK
     end = start + InlineKbs.POLL_PAGE_SIZE_VK
     batch = all_dates[start:end]
@@ -1750,6 +1760,19 @@ class InlineKbs:
           }
         )
       rows.append(row)
+
+    rows.append(
+      [
+        {
+          "action": {
+            "type": "callback",
+            "label": "❓ Предложить другой день",
+            "payload": {"action": "poll_suggest", "month": f"{month.year}-{month.month:02d}"},
+          },
+          "color": "secondary",
+        },
+      ]
+    )
 
     rows.append(
       [

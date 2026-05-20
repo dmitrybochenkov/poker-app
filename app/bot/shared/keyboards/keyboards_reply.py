@@ -104,57 +104,77 @@ class ReplyKbs:
 
   @classmethod
   def main_tg(cls) -> ReplyKeyboardMarkup:
-    return cls.make_tg(
-      _button_labels(
-        [
-          Buttons.main.ROOM,
-          Buttons.main.POKER,
-          Buttons.main.BETTING,
-          Buttons.main.ADMIN,
-        ]
-      ),
-      adjust=1,
-    )
+    return cls.main_dynamic_tg(is_admin=False, has_active_poker=False, has_active_poll=False)
 
   @classmethod
   def admin_main_entry_tg(cls) -> ReplyKeyboardMarkup:
-    return cls.make_tg(
-      _button_labels(
-        [
-          Buttons.main.ROOM,
-          Buttons.main.POKER,
-          Buttons.main.BETTING,
-          Buttons.main.ADMIN,
-        ]
-      ),
-      adjust=1,
-    )
+    return cls.main_dynamic_tg(is_admin=True, has_active_poker=False, has_active_poll=False)
 
   @classmethod
   def main_vk(cls) -> str:
-    return cls.make_vk(
-      _button_labels(
-        [
-          Buttons.main.ROOM,
-          Buttons.main.POKER,
-          Buttons.main.BETTING,
-          Buttons.main.ADMIN,
-        ]
-      ),
-      adjust=1,
-      one_time=False,
-      color="primary",
-    )
+    return cls.main_dynamic_vk(is_admin=False, has_active_poker=False, has_active_poll=False)
 
   @classmethod
   def admin_main_entry_vk(cls) -> str:
+    return cls.main_dynamic_vk(is_admin=True, has_active_poker=False, has_active_poll=False)
+
+  @classmethod
+  def main_dynamic_tg(
+    cls,
+    *,
+    is_admin: bool,
+    has_active_poker: bool,
+    has_active_poll: bool,
+  ) -> ReplyKeyboardMarkup:
+    buttons = []
+    if has_active_poker:
+      buttons.append(Buttons.main.ROOM)
+    elif has_active_poll:
+      buttons.append(Buttons.main.NEXT_POKER_DATE)
+    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING])
+    if is_admin:
+      buttons.append(Buttons.main.ADMIN)
+    return cls.make_tg(_button_labels(buttons), adjust=1)
+
+  @classmethod
+  def main_dynamic_vk(
+    cls,
+    *,
+    is_admin: bool,
+    has_active_poker: bool,
+    has_active_poll: bool,
+  ) -> str:
+    buttons = []
+    if has_active_poker:
+      buttons.append(Buttons.main.ROOM)
+    elif has_active_poll:
+      buttons.append(Buttons.main.NEXT_POKER_DATE)
+    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING])
+    if is_admin:
+      buttons.append(Buttons.main.ADMIN)
+    return cls.make_vk(_button_labels(buttons), adjust=1, one_time=False, color="primary")
+
+  @classmethod
+  def poll_menu_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.poll_menu.VOTE,
+          Buttons.poll_menu.RESULTS,
+          Buttons.poll_menu.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def poll_menu_vk(cls) -> str:
     return cls.make_vk(
       _button_labels(
         [
-          Buttons.main.ROOM,
-          Buttons.main.POKER,
-          Buttons.main.BETTING,
-          Buttons.main.ADMIN,
+          Buttons.poll_menu.VOTE,
+          Buttons.poll_menu.RESULTS,
+          Buttons.poll_menu.TO_MAIN,
         ]
       ),
       adjust=1,

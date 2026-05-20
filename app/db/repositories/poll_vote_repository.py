@@ -50,8 +50,38 @@ class PollVoteRepository:
       select(PollVote.poll_date, func.count(PollVote.row_id))
       .where(PollVote.poll_date >= month_start)
       .where(PollVote.poll_date <= month_end)
+      .where(PollVote.player_row_id > 0)
       .group_by(PollVote.poll_date)
       .order_by(PollVote.poll_date.asc())
     )
     rows = result.all()
     return [(item[0], int(item[1])) for item in rows]
+
+  async def get_month_extra_dates(self, *, month_start: date, month_end: date) -> list[date]:
+    result = await self.session.execute(
+      select(PollVote.poll_date)
+      .where(PollVote.player_row_id == 0)
+      .where(PollVote.poll_date >= month_start)
+      .where(PollVote.poll_date <= month_end)
+      .order_by(PollVote.poll_date.asc())
+    )
+    return list(result.scalars().all())
+
+  async def add_month_extra_date(self, *, poll_date: date) -> None:
+    existing = await self.session.execute(
+      select(PollVote.row_id)
+      .where(PollVote.player_row_id == 0)
+      .where(PollVote.poll_date == poll_date)
+      .limit(1)
+    )
+    if existing.scalar_one_or_none() is None:
+      now = datetime.utcnow()
+      self.session.add(
+        PollVote(
+          poll_date=poll_date,
+          player_row_id=0,
+          created_at=now,
+          updated_at=now,
+        )
+      )
+    await self.session.flush()

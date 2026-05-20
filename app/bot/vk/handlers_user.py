@@ -57,8 +57,9 @@ from app.bot.vk.keyboards import (
   stat_year_keyboard,
   stat_sort_keyboard,
   poll_month_keyboard,
+  poll_menu_keyboard,
   main_keyboard,
-  main_admin_entry_keyboard,
+  main_dynamic_keyboard,
   new_user_keyboard,
   room_admin_keyboard,
   room_keyboard,
@@ -78,6 +79,7 @@ from app.bot.vk.state import (
   WAITING_FOR_OPTIONAL_BANK,
   WAITING_FOR_OPTIONAL_DETAILS_ACTION,
   WAITING_FOR_OPTIONAL_PHONE,
+  WAITING_FOR_POLL_CUSTOM_DAY,
   WAITING_FOR_PLAYED_BEFORE,
   vk_user_contexts,
   vk_user_states,
@@ -188,6 +190,18 @@ def _poll_days_for_month(month: date) -> list[date]:
   return result
 
 
+def _parse_custom_day_input(raw: str, *, month: date) -> date | None:
+  digits = "".join(ch for ch in raw if ch.isdigit())
+  if not digits:
+    return None
+  day = int(digits)
+  try:
+    value = date(month.year, month.month, day)
+  except Exception:
+    return None
+  return value
+
+
 def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
   lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
   if selected_dates:
@@ -200,6 +214,24 @@ def _format_poll_summary(*, month: date, selected_dates: list[date], month_count
     for day, count in month_counts:
       lines.append(f"{day.day:02d}.{day.month:02d}: {count}")
   return "\n".join(lines)
+
+
+def _render_poll_results_chart(*, month: date, month_counts: list[tuple[date, int]], days: list[date] | None = None) -> bytes:
+  day_counts = {d: int(c) for d, c in month_counts}
+  days = days or _poll_days_for_month(month)
+  x_labels = [item.strftime("%d.%m") for item in days]
+  points = [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]
+  return render_buyins_session_chart_png(
+    title=f"Голоса за даты покера ({month.strftime('%m.%Y')})",
+    series={"Голоса": points},
+    x_labels=x_labels,
+  )
+
+
+async def _poll_all_days_for_month(*, session, month: date) -> list[date]:
+  month_start, month_end = _month_bounds(month)
+  extra_dates = await PollVoteRepository(session).get_month_extra_dates(month_start=month_start, month_end=month_end)
+  return sorted(set(_poll_days_for_month(month)) | set(extra_dates))
 
 
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
@@ -544,8 +576,15 @@ async def _is_vk_user_approved(user_id: int) -> bool:
   return bool(user and user.is_approved)
 
 
-def _approved_vk_keyboard(user: User) -> str:
-  return main_admin_entry_keyboard if user.is_admin else main_keyboard
+async def _approved_vk_keyboard(user: User) -> str:
+  async with SessionFactory() as session:
+    active = await PokerRepository(session).get_started()
+    poll_month = await PollConfigRepository(session).get_active_month()
+  return main_dynamic_keyboard(
+    is_admin=bool(user.is_admin),
+    has_active_poker=active is not None,
+    has_active_poll=poll_month is not None,
+  )
 
 
 async def _post_bet_vk_keyboard_for_user(*, vk_id: int) -> str:
@@ -555,12 +594,12 @@ async def _post_bet_vk_keyboard_for_user(*, vk_id: int) -> str:
       return main_keyboard
     active = await PokerRepository(session).get_started()
     if active is None:
-      return _approved_vk_keyboard(user)
+      return await _approved_vk_keyboard(user)
     poker, _ = active
     player = await PokerDataRepository(session).get_player(date=poker.date, player_id=int(user.row_id))
     if player is not None:
       return room_admin_keyboard if user.is_admin else room_keyboard
-    return _approved_vk_keyboard(user)
+    return await _approved_vk_keyboard(user)
 
 
 async def _delete_event_message_if_possible(*, peer_id: int | None, conversation_message_id: int | None) -> None:
@@ -644,7 +683,7 @@ async def _submit_registration_request(
       vk_user_states.pop(user_id, None)
       vk_user_contexts.pop(user_id, None)
       existing_user = await repository.get_by_vk_id(user_id)
-      keyboard = _approved_vk_keyboard(existing_user) if existing_user and existing_user.is_approved else new_user_keyboard
+      keyboard = (await _approved_vk_keyboard(existing_user)) if existing_user and existing_user.is_approved else new_user_keyboard
       await send_vk_message(user_id=user_id, message=Text.user.REGISTRATION_EXIST.value, keyboard=keyboard)
       return
     except UserRegistrationPendingError:
@@ -717,7 +756,8 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     if not isinstance(month_key, str) or not isinstance(page, int):
       return PlainTextResponse("ok")
     month = _parse_month_key(month_key)
-    allowed_days = _poll_days_for_month(month)
+    async with SessionFactory() as session:
+      allowed_days = await _poll_all_days_for_month(session=session, month=month)
     max_page = max(0, (len(allowed_days) - 1) // 6)
     page = max(0, min(int(page), max_page))
     ctx = vk_user_contexts.setdefault(user_id, {})
@@ -729,7 +769,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message(
       user_id=user_id,
       message=_poll_choose_text(month),
-      keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected),
+      keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected, extra_dates=allowed_days),
     )
     return PlainTextResponse("ok")
 
@@ -753,13 +793,28 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     ctx["poll_month"] = f"{day.year}-{day.month:02d}"
     ctx["poll_page"] = str(page)
     ctx["poll_selected"] = "|".join(item.isoformat() for item in selected_dates)
+    async with SessionFactory() as session:
+      allowed_days = await _poll_all_days_for_month(session=session, month=month)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(
       user_id=user_id,
       message=_poll_choose_text(month),
-      keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected_dates),
+      keyboard=poll_month_keyboard(month=month, page=page, selected_dates=selected_dates, extra_dates=allowed_days),
     )
+    return PlainTextResponse("ok")
+
+  if action == "poll_suggest":
+    month_key = callback_payload.get("month")
+    if not isinstance(month_key, str):
+      return PlainTextResponse("ok")
+    month = _parse_month_key(month_key)
+    vk_user_states[user_id] = WAITING_FOR_POLL_CUSTOM_DAY
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    ctx["poll_suggest_month"] = month_key
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=user_id, message=f"Введи число дня для {_month_name_ru_upper(month)}:")
     return PlainTextResponse("ok")
 
   if action == "poll_done":
@@ -770,7 +825,8 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     ctx = vk_user_contexts.setdefault(user_id, {})
     month = _parse_month_key(ctx.get("poll_month"))
     month_start, month_end = _month_bounds(month)
-    allowed = set(_poll_days_for_month(month))
+    async with SessionFactory() as session:
+      allowed = set(await _poll_all_days_for_month(session=session, month=month))
     selected = [item for item in _parse_iso_dates(ctx.get("poll_selected")) if item in allowed and month_start <= item <= month_end]
     async with SessionFactory() as session:
       repository = PollVoteRepository(session)
@@ -1865,6 +1921,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
 
   if text in {
     Buttons.main.BETTING.value,
+    Buttons.main.NEXT_POKER_DATE.value,
+    Buttons.poll_menu.VOTE.value,
+    Buttons.poll_menu.RESULTS.value,
+    Buttons.poll_menu.TO_MAIN.value,
     Buttons.betting.TO_MAIN.value,
     Buttons.betting.CURRENT_TOURS.value,
     Buttons.betting_current.REG_TOURNAMENT.value,
@@ -1902,7 +1962,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
     if not user.is_admin:
-      await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value, keyboard=main_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value, keyboard=await _approved_vk_keyboard(user))
       return PlainTextResponse("ok")
     await send_vk_message(user_id=user_id, message=Text.admin.ADMIN_PANEL.value, keyboard=admin_main_keyboard)
     return PlainTextResponse("ok")
@@ -1915,11 +1975,27 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if not user.is_approved:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=_approved_vk_keyboard(user))
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.main.BETTING.value:
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.main.NEXT_POKER_DATE.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      month = await PollConfigRepository(session).get_active_month()
+    if month is None:
+      await send_vk_message(user_id=user_id, message=Text.user.POLL_NOT_ACTIVE.value, keyboard=await _approved_vk_keyboard(user))
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message="Выбери действие:", keyboard=poll_menu_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.main.POKER.value:
@@ -1927,7 +2003,11 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.TO_MAIN.value:
-    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=main_keyboard)
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.TO_MAIN.value:
@@ -1935,7 +2015,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if user is None:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=_approved_vk_keyboard(user))
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.room.TO_MAIN.value:
@@ -1946,7 +2026,18 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     if not user.is_approved:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=_approved_vk_keyboard(user))
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
+    return PlainTextResponse("ok")
+
+  if text == Buttons.poll_menu.TO_MAIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.poker.POKER_INFO.value:
@@ -2146,10 +2237,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       user_repository = UserRepository(session)
       user = await user_repository.get_by_vk_id(user_id)
       if user is None:
-        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value)
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
         return PlainTextResponse("ok")
       if not user.is_approved:
-        await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value)
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
         return PlainTextResponse("ok")
 
       poker_repository = PokerRepository(session)
@@ -2251,7 +2342,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(user_id=user_id, message=Text.admin.ADMIN_PANEL.value, keyboard=admin_room_keyboard)
     return PlainTextResponse("ok")
 
-  if text == Buttons.poker.POLL.value:
+  if text in {Buttons.poker.POLL.value, Buttons.poll_menu.VOTE.value}:
     user = await _get_vk_user(user_id)
     if user is None:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
@@ -2262,7 +2353,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     async with SessionFactory() as session:
       month = await PollConfigRepository(session).get_active_month()
     if month is None:
-      await send_vk_message(user_id=user_id, message=Text.user.POLL_NOT_ACTIVE.value)
+      await send_vk_message(user_id=user_id, message=Text.user.POLL_NOT_ACTIVE.value, keyboard=await _approved_vk_keyboard(user))
       return PlainTextResponse("ok")
     month_start, month_end = _month_bounds(month)
     async with SessionFactory() as session:
@@ -2271,6 +2362,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
         month_start=month_start,
         month_end=month_end,
       )
+      all_days = await _poll_all_days_for_month(session=session, month=month)
     ctx = vk_user_contexts.setdefault(user_id, {})
     ctx["poll_month"] = f"{month.year}-{month.month:02d}"
     ctx["poll_page"] = "0"
@@ -2278,7 +2370,32 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(
       user_id=user_id,
       message=_poll_choose_text(month),
-      keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected),
+      keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected, extra_dates=all_days),
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.poll_menu.RESULTS.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    if not user.is_approved:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      month = await PollConfigRepository(session).get_active_month()
+      if month is None:
+        await send_vk_message(user_id=user_id, message=Text.user.POLL_NOT_ACTIVE.value, keyboard=await _approved_vk_keyboard(user))
+        return PlainTextResponse("ok")
+      month_start, month_end = _month_bounds(month)
+      month_counts = await PollVoteRepository(session).get_month_counts(month_start=month_start, month_end=month_end)
+      all_days = await _poll_all_days_for_month(session=session, month=month)
+    image_bytes = _render_poll_results_chart(month=month, month_counts=month_counts, days=all_days)
+    await send_vk_photo(user_id=user_id, image_bytes=image_bytes, filename="poll_results.png")
+    await send_vk_message(
+      user_id=user_id,
+      message=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+      keyboard=poll_menu_keyboard,
     )
     return PlainTextResponse("ok")
 
@@ -2287,10 +2404,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       user_repository = UserRepository(session)
       user = await user_repository.get_by_vk_id(user_id)
       if user is None:
-        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value)
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
         return PlainTextResponse("ok")
       if not user.is_approved:
-        await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value)
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_PENDING.value, keyboard=new_user_keyboard)
         return PlainTextResponse("ok")
 
       use_case = ManagePokerPlayersUseCase(
@@ -2369,7 +2486,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       await send_vk_message(
         user_id=user_id,
         message=Text.user.REGISTRATION_EXIST.value if existing_user.is_approved else Text.user.REGISTRATION_PENDING.value,
-        keyboard=_approved_vk_keyboard(existing_user) if existing_user.is_approved else new_user_keyboard,
+        keyboard=(await _approved_vk_keyboard(existing_user)) if existing_user.is_approved else new_user_keyboard,
       )
       return PlainTextResponse("ok")
     vk_user_states[user_id] = WAITING_FOR_PLAYED_BEFORE
@@ -2383,7 +2500,43 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(
       user_id=user_id,
       message=Text.user.BOT_INFO.value,
-      keyboard=_approved_vk_keyboard(existing_user) if existing_user and existing_user.is_approved else new_user_keyboard,
+      keyboard=(await _approved_vk_keyboard(existing_user)) if existing_user and existing_user.is_approved else new_user_keyboard,
+    )
+    return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_POLL_CUSTOM_DAY:
+    user = await _get_vk_user(user_id)
+    if user is None or not user.is_approved:
+      vk_user_states.pop(user_id, None)
+      vk_user_contexts.pop(user_id, None)
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    ctx = vk_user_contexts.setdefault(user_id, {})
+    month = _parse_month_key(ctx.get("poll_suggest_month"))
+    chosen = _parse_custom_day_input(text, month=month)
+    if chosen is None:
+      await send_vk_message(user_id=user_id, message=f"Некорректный день. Введи число для {_month_name_ru_upper(month)}.")
+      return PlainTextResponse("ok")
+    month_start, month_end = _month_bounds(month)
+    async with SessionFactory() as session:
+      repo = PollVoteRepository(session)
+      await repo.add_month_extra_date(poll_date=chosen)
+      selected = await repo.get_user_month_votes(
+        player_row_id=int(user.row_id),
+        month_start=month_start,
+        month_end=month_end,
+      )
+      all_days = await _poll_all_days_for_month(session=session, month=month)
+      await session.commit()
+    vk_user_states.pop(user_id, None)
+    ctx["poll_month"] = f"{month.year}-{month.month:02d}"
+    ctx["poll_page"] = "0"
+    ctx["poll_selected"] = "|".join(item.isoformat() for item in selected)
+    ctx.pop("poll_suggest_month", None)
+    await send_vk_message(
+      user_id=user_id,
+      message=_poll_choose_text(month),
+      keyboard=poll_month_keyboard(month=month, page=0, selected_dates=selected, extra_dates=all_days),
     )
     return PlainTextResponse("ok")
 

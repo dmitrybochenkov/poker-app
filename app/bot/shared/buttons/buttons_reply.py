@@ -6,10 +6,17 @@ class NewUserBtns(Enum):
   REGISTRATION = "💾 Зарегистрироваться"
 
 class MainBtns(Enum):
+  NEXT_POKER_DATE = "📅 Дата следующего покера"
   ROOM = "♣️ Покер рум"
   POKER = "💍 Про покер"
   BETTING = "🍀 Про ставки"
   ADMIN = "🔑 Админ панель"
+
+
+class PollMenuBtns(Enum):
+  VOTE = "✅ Проголосовать"
+  RESULTS = "📊 Посмотреть результаты"
+  TO_MAIN = "🏠 На главную"
 
 class AdminMainBtns(Enum):
   START_POKER = "🎲 Старт покера"

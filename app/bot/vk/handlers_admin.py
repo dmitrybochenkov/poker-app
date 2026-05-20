@@ -22,6 +22,7 @@ from app.bot.shared.guards import is_vk_admin
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import betting_keyboard as tg_betting_keyboard
 from app.bot.telegram.keyboards import main_keyboard as tg_main_keyboard
+from app.bot.telegram.keyboards import main_dynamic_keyboard as tg_main_dynamic_keyboard
 from app.bot.telegram.notifications import notify_user_about_approval
 from app.bot.vk.api import (
   clear_vk_message_keyboard_by_id,
@@ -31,6 +32,7 @@ from app.bot.vk.api import (
   send_vk_message,
   send_vk_message_event_answer,
   send_vk_message_with_id,
+  send_vk_photo,
   unpin_vk_message,
 )
 from app.bot.shared.chips_runtime import (
@@ -47,6 +49,7 @@ from app.bot.vk.keyboards import (
   link_candidates_keyboard,
   link_candidates_page_keyboard,
   main_keyboard,
+  main_dynamic_keyboard as vk_main_dynamic_keyboard,
   make_admin_candidates_keyboard,
   poker_add_player_candidates_keyboard,
   poker_buyin_candidates_keyboard,
@@ -83,6 +86,7 @@ from app.bot.vk.state import (
 from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
+from app.services.buyins_chart import render_buyins_session_chart_png
 
 VK_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
 
@@ -186,6 +190,38 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
         f"{p.player_name}: {int(p.chips)} → {_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction(int(money_kopecks))}"
       )
   return "\n".join(lines)
+
+
+async def _build_poker_buyins_session_chart(*, session, poker_date: date) -> bytes | None:
+  events = await BuyinDataRepository(session).list_for_date(poker_date=poker_date)
+  if not events:
+    return None
+
+  cumulative: dict[str, int] = {}
+  points: dict[str, list[tuple[int, int]]] = {}
+  x_labels: list[str] = []
+
+  for idx, event in enumerate(events):
+    x_labels.append(event.created_at.strftime("%H:%M") if event.created_at is not None else str(idx + 1))
+    for name in list(points.keys()):
+      points[name].append((idx, cumulative.get(name, 0)))
+    name = str(event.player_name)
+    cumulative[name] = cumulative.get(name, 0) + int(event.buyins_count or 0)
+    if name not in points:
+      points[name] = [(prev_idx, 0) for prev_idx in range(idx)]
+      points[name].append((idx, cumulative[name]))
+    else:
+      points[name][-1] = (idx, cumulative[name])
+
+  points = {name: vals for name, vals in points.items() if vals}
+  if not points:
+    return None
+
+  return render_buyins_session_chart_png(
+    title=f"Закупы за игру {poker_date.strftime('%d.%m.%Y')}",
+    series=points,
+    x_labels=x_labels,
+  )
 
 
 def _build_user_chips_text(*, chips: int | None, money_kopecks: int | None, reaction: str | None) -> str:
@@ -761,8 +797,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
               player_name=starter.name,
             )
           result_text = Text.admin.POKER_START_SUCCESS.value
-          tg_user_ids = await user_repository.list_approved_tg_ids()
-          vk_user_ids = await user_repository.list_approved_vk_ids()
+          approved_users = await user_repository.list_approved()
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -774,14 +809,30 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     if result_text == Text.admin.POKER_START_SUCCESS.value:
       from app.bot.telegram.runtime import telegram_bot
       if telegram_bot is not None:
-        for user_id in tg_user_ids:
+        for user in approved_users:
+          if user.telegram_id is None:
+            continue
           await telegram_bot.send_message(
-            chat_id=user_id,
+            chat_id=int(user.telegram_id),
             text=Text.user.START_POKER.value,
-            reply_markup=tg_main_keyboard,
+            reply_markup=tg_main_dynamic_keyboard(
+              is_admin=bool(user.is_admin),
+              has_active_poker=True,
+              has_active_poll=False,
+            ),
           )
-      for user_id in vk_user_ids:
-        await send_vk_message(user_id=user_id, message=Text.user.START_POKER.value, keyboard=main_keyboard)
+      for user in approved_users:
+        if user.vk_id is None:
+          continue
+        await send_vk_message(
+          user_id=int(user.vk_id),
+          message=Text.user.START_POKER.value,
+          keyboard=vk_main_dynamic_keyboard(
+            is_admin=bool(user.is_admin),
+            has_active_poker=True,
+            has_active_poll=False,
+          ),
+        )
     return None
 
   if action == "poker_add_player_select":
@@ -2018,6 +2069,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       result_lines.append("🍀 Ставки:")
       result_lines.extend(bet_lines if bet_lines else ["Успешных ставок не было"])
       result_text = "\n".join(result_lines)
+      chart_png = await _build_poker_buyins_session_chart(session=session, poker_date=poker.date)
 
       from app.bot.telegram.runtime import telegram_bot
       recipient_row_ids = {int(p.player_id) for p in players} | {int(b.better_id) for b in bets}
@@ -2029,9 +2081,19 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
           continue
         if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
           await telegram_bot.send_message(chat_id=user.telegram_id, text=result_text, reply_markup=tg_main_keyboard)
+          if chart_png is not None:
+            from aiogram.types import BufferedInputFile
+            await telegram_bot.send_photo(
+              chat_id=user.telegram_id,
+              photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
+              caption="📈 Закупы за игру",
+              reply_markup=tg_main_keyboard,
+            )
           sent_tg_ids.add(int(user.telegram_id))
         elif user.notification_platform == "vk" and user.vk_id is not None:
           await send_vk_message(user_id=user.vk_id, message=result_text, keyboard=main_keyboard)
+          if chart_png is not None:
+            await send_vk_photo(user_id=user.vk_id, image_bytes=chart_png, filename="poker_buyins_session.png")
           sent_vk_ids.add(int(user.vk_id))
       initiator = await user_repository.get_by_vk_id(int(user_id))
       if initiator is not None:
@@ -2042,12 +2104,22 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
           and int(initiator.telegram_id) not in sent_tg_ids
         ):
           await telegram_bot.send_message(chat_id=initiator.telegram_id, text=result_text, reply_markup=tg_main_keyboard)
+          if chart_png is not None:
+            from aiogram.types import BufferedInputFile
+            await telegram_bot.send_photo(
+              chat_id=initiator.telegram_id,
+              photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
+              caption="📈 Закупы за игру",
+              reply_markup=tg_main_keyboard,
+            )
         elif (
           initiator.notification_platform == "vk"
           and initiator.vk_id is not None
           and int(initiator.vk_id) not in sent_vk_ids
         ):
           await send_vk_message(user_id=initiator.vk_id, message=result_text, keyboard=main_keyboard)
+          if chart_png is not None:
+            await send_vk_photo(user_id=initiator.vk_id, image_bytes=chart_png, filename="poker_buyins_session.png")
       await _clear_vk_admin_chips_calc_buttons()
     return PlainTextResponse("ok")
 

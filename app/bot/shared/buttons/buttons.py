@@ -8,6 +8,7 @@ from app.bot.shared.buttons.buttons_reply import (
   BettingInfoBtns,
   MainBtns,
   NewUserBtns,
+  PollMenuBtns,
   PokerBtns,
   PokerInfoBtns,
   RoomBtns,
@@ -20,6 +21,7 @@ class Buttons:
   admin_inline = AdminInlineBtns
   betting_inline = BettingInlineBtns
   main = MainBtns
+  poll_menu = PollMenuBtns
   admin_main = AdminMainBtns
   room = RoomBtns
   admin_room = AdminRoomBtns

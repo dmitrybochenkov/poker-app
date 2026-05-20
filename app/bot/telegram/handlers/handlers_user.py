@@ -21,8 +21,9 @@ from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
   admin_room_keyboard,
   main_keyboard,
-  main_admin_entry_keyboard,
+  main_dynamic_keyboard,
   admin_main_keyboard,
+  poll_menu_keyboard,
   new_user_keyboard,
   betting_keyboard,
   betting_current_keyboard,
@@ -55,7 +56,7 @@ from app.bot.telegram.keyboards import (
   registration_review_keyboard,
 )
 from app.bot.telegram.notifications import notify_admins_about_registration
-from app.bot.telegram.states import RegistrationState
+from app.bot.telegram.states import PollState, RegistrationState
 from app.bot.vk.keyboards import (
   poker_room_approve_keyboard as vk_poker_room_approve_keyboard,
   poker_room_admin_status_keyboard as vk_poker_room_admin_status_keyboard,
@@ -284,6 +285,18 @@ def _poll_days_for_month(month: date) -> list[date]:
   return result
 
 
+def _parse_custom_day_input(raw: str, *, month: date) -> date | None:
+  digits = "".join(ch for ch in raw if ch.isdigit())
+  if not digits:
+    return None
+  day = int(digits)
+  try:
+    value = date(month.year, month.month, day)
+  except Exception:
+    return None
+  return value
+
+
 def _format_poll_summary(*, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]) -> str:
   lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
   if selected_dates:
@@ -296,6 +309,24 @@ def _format_poll_summary(*, month: date, selected_dates: list[date], month_count
     for day, count in month_counts:
       lines.append(f"{day.day:02d}.{day.month:02d}: {count}")
   return "\n".join(lines)
+
+
+def _render_poll_results_chart(*, month: date, month_counts: list[tuple[date, int]], days: list[date] | None = None) -> bytes:
+  day_counts = {d: int(c) for d, c in month_counts}
+  days = days or _poll_days_for_month(month)
+  x_labels = [item.strftime("%d.%m") for item in days]
+  points = [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]
+  return render_buyins_session_chart_png(
+    title=f"Голоса за даты покера ({month.strftime('%m.%Y')})",
+    series={"Голоса": points},
+    x_labels=x_labels,
+  )
+
+
+async def _poll_all_days_for_month(*, session, month: date) -> list[date]:
+  month_start, month_end = _month_bounds(month)
+  extra_dates = await PollVoteRepository(session).get_month_extra_dates(month_start=month_start, month_end=month_end)
+  return sorted(set(_poll_days_for_month(month)) | set(extra_dates))
 
 
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
@@ -573,8 +604,15 @@ async def _ensure_approved_telegram_user(message: Message) -> bool:
   return True
 
 
-def _approved_tg_keyboard(user: User):
-  return main_admin_entry_keyboard if user.is_admin else main_keyboard
+async def _approved_tg_keyboard(user: User):
+  async with SessionFactory() as session:
+    active = await PokerRepository(session).get_started()
+    poll_month = await PollConfigRepository(session).get_active_month()
+  return main_dynamic_keyboard(
+    is_admin=bool(user.is_admin),
+    has_active_poker=active is not None,
+    has_active_poll=poll_month is not None,
+  )
 
 
 async def _post_bet_tg_keyboard_for_user(*, telegram_id: int):
@@ -584,12 +622,12 @@ async def _post_bet_tg_keyboard_for_user(*, telegram_id: int):
       return main_keyboard
     active = await PokerRepository(session).get_started()
     if active is None:
-      return _approved_tg_keyboard(user)
+      return await _approved_tg_keyboard(user)
     poker, _ = active
     player = await PokerDataRepository(session).get_player(date=poker.date, player_id=int(user.row_id))
     if player is not None:
       return room_admin_keyboard if user.is_admin else room_keyboard
-    return _approved_tg_keyboard(user)
+    return await _approved_tg_keyboard(user)
 
 
 async def _ensure_approved_telegram_callback_user(callback: CallbackQuery) -> bool:
@@ -684,7 +722,7 @@ async def start_command(message: Message, state: FSMContext) -> None:
     repository = UserRepository(session)
     existing_user = await repository.get_by_telegram_id(message.from_user.id)
     if existing_user is not None and existing_user.is_approved:
-      reply_markup = _approved_tg_keyboard(existing_user)
+      reply_markup = await _approved_tg_keyboard(existing_user)
 
   await message.answer(
     Text.user.BOT_INFO.value,
@@ -710,7 +748,7 @@ async def start_registration(message: Message, state: FSMContext) -> None:
   if existing_user is not None:
     await state.clear()
     if existing_user.is_approved:
-      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=_approved_tg_keyboard(existing_user))
+      await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=await _approved_tg_keyboard(existing_user))
       return
     await message.answer(Text.user.REGISTRATION_PENDING.value, reply_markup=new_user_keyboard)
     return
@@ -734,7 +772,7 @@ async def show_bot_info(message: Message, state: FSMContext) -> None:
     repository = UserRepository(session)
     existing_user = await repository.get_by_telegram_id(message.from_user.id)
     if existing_user is not None and existing_user.is_approved:
-      reply_markup = _approved_tg_keyboard(existing_user)
+      reply_markup = await _approved_tg_keyboard(existing_user)
 
   await message.answer(
     Text.user.BOT_INFO.value,
@@ -752,10 +790,10 @@ async def show_user_status(message: Message) -> None:
     user_repository = UserRepository(session)
     user = await user_repository.get_by_telegram_id(message.from_user.id)
     if user is None:
-      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value)
+      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
       return
     if not user.is_approved:
-      await message.answer(Text.user.STATUS_PENDING.value)
+      await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
       return
 
     use_case = ManagePokerPlayersUseCase(
@@ -831,10 +869,10 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
     user_repository = UserRepository(session)
     user = await user_repository.get_by_telegram_id(message.from_user.id)
     if user is None:
-      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value)
+      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
       return
     if not user.is_approved:
-      await message.answer(Text.user.STATUS_PENDING.value)
+      await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
       return
 
     poker_repository = PokerRepository(session)
@@ -935,7 +973,7 @@ async def open_room_admin_panel(message: Message) -> None:
   await message.answer(Text.admin.ADMIN_PANEL.value, reply_markup=admin_room_keyboard)
 
 
-@router.message(F.text == Buttons.poker.POLL.value)
+@router.message((F.text == Buttons.poker.POLL.value) | (F.text == Buttons.poll_menu.VOTE.value))
 async def start_room_poll(message: Message, state: FSMContext) -> None:
   if message.from_user is None:
     await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
@@ -951,10 +989,11 @@ async def start_room_poll(message: Message, state: FSMContext) -> None:
   async with SessionFactory() as session:
     month = await PollConfigRepository(session).get_active_month()
   if month is None:
-    await message.answer(Text.user.POLL_NOT_ACTIVE.value)
+    await message.answer(Text.user.POLL_NOT_ACTIVE.value, reply_markup=await _approved_tg_keyboard(user))
     return
   month_start, month_end = _month_bounds(month)
   async with SessionFactory() as session:
+    all_days = await _poll_all_days_for_month(session=session, month=month)
     selected = await PollVoteRepository(session).get_user_month_votes(
       player_row_id=int(user.row_id),
       month_start=month_start,
@@ -967,7 +1006,36 @@ async def start_room_poll(message: Message, state: FSMContext) -> None:
   )
   await message.answer(
     _poll_choose_text(month),
-    reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected),
+    reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected, extra_dates=all_days),
+  )
+
+
+@router.message(F.text == Buttons.poll_menu.RESULTS.value)
+async def show_poll_results(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return
+
+  async with SessionFactory() as session:
+    month = await PollConfigRepository(session).get_active_month()
+    if month is None:
+      await message.answer(Text.user.POLL_NOT_ACTIVE.value, reply_markup=await _approved_tg_keyboard(user))
+      return
+    month_start, month_end = _month_bounds(month)
+    month_counts = await PollVoteRepository(session).get_month_counts(month_start=month_start, month_end=month_end)
+    all_days = await _poll_all_days_for_month(session=session, month=month)
+  image_bytes = _render_poll_results_chart(month=month, month_counts=month_counts, days=all_days)
+  await message.answer_photo(
+    photo=BufferedInputFile(image_bytes, filename="poll_results.png"),
+    caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+    reply_markup=poll_menu_keyboard,
   )
 
 
@@ -982,7 +1050,8 @@ async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
     return
   _, month_key, page_s = str(callback.data).split(":")
   month = _parse_month_key(month_key)
-  allowed_days = _poll_days_for_month(month)
+  async with SessionFactory() as session:
+    allowed_days = await _poll_all_days_for_month(session=session, month=month)
   max_page = max(0, (len(allowed_days) - 1) // 6)
   page = max(0, min(int(page_s), max_page))
   data = await state.get_data()
@@ -990,7 +1059,7 @@ async def poll_page_nav(callback: CallbackQuery, state: FSMContext) -> None:
   await state.update_data(poll_month=f"{month.year}-{month.month:02d}", poll_page=page)
   if callback.message is not None:
     await callback.message.edit_reply_markup(
-      reply_markup=poll_month_keyboard(month=month, page=page, selected_dates=selected),
+      reply_markup=poll_month_keyboard(month=month, page=page, selected_dates=selected, extra_dates=allowed_days),
     )
   await callback.answer()
 
@@ -1008,6 +1077,8 @@ async def poll_day_toggle(callback: CallbackQuery, state: FSMContext) -> None:
   else:
     selected_set.add(day_iso)
   selected = _parse_iso_dates(list(selected_set))
+  async with SessionFactory() as session:
+    allowed_days = await _poll_all_days_for_month(session=session, month=date(day.year, day.month, 1))
   await state.update_data(
     poll_month=f"{day.year}-{day.month:02d}",
     poll_page=int(page_s),
@@ -1015,9 +1086,68 @@ async def poll_day_toggle(callback: CallbackQuery, state: FSMContext) -> None:
   )
   if callback.message is not None:
     await callback.message.edit_reply_markup(
-      reply_markup=poll_month_keyboard(month=date(day.year, day.month, 1), page=int(page_s), selected_dates=selected),
+      reply_markup=poll_month_keyboard(
+        month=date(day.year, day.month, 1),
+        page=int(page_s),
+        selected_dates=selected,
+        extra_dates=allowed_days,
+      ),
     )
   await callback.answer()
+
+
+@router.callback_query(F.data.startswith("poll_suggest:"))
+async def poll_suggest_day(callback: CallbackQuery, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  month_key = str(callback.data).split(":", 1)[1]
+  month = _parse_month_key(month_key)
+  await state.set_state(PollState.waiting_for_custom_day)
+  await state.update_data(poll_suggest_month=f"{month.year}-{month.month:02d}")
+  await callback.answer()
+  if callback.message is not None:
+    await callback.message.answer(f"Введи число дня для {_month_name_ru_upper(month)}:")
+
+
+@router.message(PollState.waiting_for_custom_day)
+async def poll_suggest_day_input(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None or not user.is_approved:
+    await state.clear()
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  data = await state.get_data()
+  month = _parse_month_key(data.get("poll_suggest_month"))
+  chosen = _parse_custom_day_input(message.text or "", month=month)
+  if chosen is None:
+    await message.answer(f"Некорректный день. Введи число от 1 до 31 для {_month_name_ru_upper(month)}.")
+    return
+
+  month_start, month_end = _month_bounds(month)
+  async with SessionFactory() as session:
+    repo = PollVoteRepository(session)
+    await repo.add_month_extra_date(poll_date=chosen)
+    selected = await repo.get_user_month_votes(
+      player_row_id=int(user.row_id),
+      month_start=month_start,
+      month_end=month_end,
+    )
+    all_days = await _poll_all_days_for_month(session=session, month=month)
+    await session.commit()
+
+  await state.update_data(
+    poll_month=f"{month.year}-{month.month:02d}",
+    poll_page=0,
+    poll_selected=[item.isoformat() for item in selected],
+  )
+  await state.set_state(None)
+  await message.answer(
+    _poll_choose_text(month),
+    reply_markup=poll_month_keyboard(month=month, page=0, selected_dates=selected, extra_dates=all_days),
+  )
 
 
 @router.callback_query(F.data == "poll_done")
@@ -1032,7 +1162,8 @@ async def poll_done(callback: CallbackQuery, state: FSMContext) -> None:
   data = await state.get_data()
   month = _parse_month_key(data.get("poll_month"))
   month_start, month_end = _month_bounds(month)
-  allowed = set(_poll_days_for_month(month))
+  async with SessionFactory() as session:
+    allowed = set(await _poll_all_days_for_month(session=session, month=month))
   selected = [item for item in _parse_iso_dates(data.get("poll_selected", [])) if item in allowed and month_start <= item <= month_end]
   async with SessionFactory() as session:
     repository = PollVoteRepository(session)
@@ -1074,6 +1205,26 @@ async def open_poker_menu(message: Message) -> None:
   await message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
 
 
+@router.message(F.text == Buttons.main.NEXT_POKER_DATE.value)
+async def open_next_poker_date_menu(message: Message) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  if not user.is_approved:
+    await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
+    return
+  async with SessionFactory() as session:
+    month = await PollConfigRepository(session).get_active_month()
+  if month is None:
+    await message.answer(Text.user.POLL_NOT_ACTIVE.value, reply_markup=await _approved_tg_keyboard(user))
+    return
+  await message.answer("Выбери действие:", reply_markup=poll_menu_keyboard)
+
+
 @router.message(F.text == Buttons.main.ADMIN.value)
 async def open_admin_panel(message: Message) -> None:
   if message.from_user is None:
@@ -1087,7 +1238,7 @@ async def open_admin_panel(message: Message) -> None:
     await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
     return
   if not user.is_admin:
-    await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=main_keyboard)
+    await message.answer(Text.admin.NO_RIGHTS.value, reply_markup=await _approved_tg_keyboard(user))
     return
   await message.answer(Text.admin.ADMIN_PANEL.value, reply_markup=admin_main_keyboard)
 
@@ -1104,7 +1255,7 @@ async def back_from_admin_to_main(message: Message) -> None:
   if not user.is_approved:
     await message.answer(Text.user.STATUS_PENDING.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.betting.TO_MAIN.value)
@@ -1115,7 +1266,7 @@ async def back_to_main_from_betting(message: Message) -> None:
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.poker.TO_MAIN.value)
@@ -1126,7 +1277,7 @@ async def back_to_main_from_poker(message: Message) -> None:
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.room.TO_MAIN.value)
@@ -1137,7 +1288,18 @@ async def back_to_main_from_room(message: Message) -> None:
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
     return
-  await message.answer(Text.user.MAIN_MENU.value, reply_markup=_approved_tg_keyboard(user))
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
+
+
+@router.message(F.text == Buttons.poll_menu.TO_MAIN.value)
+async def back_to_main_from_poll_menu(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.poker.POKER_INFO.value)
@@ -2137,7 +2299,7 @@ async def _submit_registration_request(
       return
     except UserAlreadyRegisteredError:
       existing_user = await repository.get_by_telegram_id(telegram_id)
-      reply_markup = _approved_tg_keyboard(existing_user) if existing_user and existing_user.is_approved else new_user_keyboard
+      reply_markup = (await _approved_tg_keyboard(existing_user)) if existing_user and existing_user.is_approved else new_user_keyboard
       await message.answer(Text.user.REGISTRATION_EXIST.value, reply_markup=reply_markup)
       await state.clear()
       return

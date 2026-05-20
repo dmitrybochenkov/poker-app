@@ -2,6 +2,7 @@ from app.bot.shared.keyboards.keyboards import InlineKbs, ReplyKbs
 
 main_keyboard = ReplyKbs.main_tg()
 main_admin_entry_keyboard = ReplyKbs.admin_main_entry_tg()
+poll_menu_keyboard = ReplyKbs.poll_menu_tg()
 admin_main_keyboard = ReplyKbs.admin_main_tg()
 new_user_keyboard = ReplyKbs.new_user_tg()
 betting_keyboard = ReplyKbs.betting_tg()
@@ -50,3 +51,11 @@ poker_cashout_candidates_keyboard = InlineKbs.poker_cashout_candidates_tg
 poker_calc_keyboard = InlineKbs.poker_calc_tg
 registration_candidates_keyboard = InlineKbs.registration_candidates_tg
 registration_candidates_page_keyboard = InlineKbs.registration_candidates_tg_page
+
+
+def main_dynamic_keyboard(*, is_admin: bool, has_active_poker: bool, has_active_poll: bool):
+  return ReplyKbs.main_dynamic_tg(
+    is_admin=is_admin,
+    has_active_poker=has_active_poker,
+    has_active_poll=has_active_poll,
+  )
