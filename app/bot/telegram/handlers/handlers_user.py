@@ -74,6 +74,7 @@ from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
@@ -86,7 +87,7 @@ from app.db.repositories.stat_indicator_repository import StatIndicatorRepositor
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
-from app.services.buyins_chart import render_buyins_history_chart_png
+from app.services.buyins_chart import render_buyins_session_chart_png
 
 router = Router()
 
@@ -480,34 +481,35 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
 
 
 async def _build_poker_history_buyins_chart(*, session, target_date: date) -> bytes | None:
-  poker_rows = await PokerRepository(session).list_all()
-  completed_dates = {
-    item.date for item in poker_rows if item.date is not None and not bool(item.is_going) and item.date <= target_date
-  }
-  if not completed_dates:
-    return None
-  current_players = await PokerDataRepository(session).list_players(date=target_date)
-  tracked_names = {str(item.player_name) for item in current_players}
-  if not tracked_names:
+  buyin_events = await BuyinDataRepository(session).list_for_date(poker_date=target_date)
+  if not buyin_events:
     return None
 
-  all_rows = await PokerDataRepository(session).list_all()
-  series: dict[str, list[tuple[date, int]]] = {name: [] for name in tracked_names}
-  for row in all_rows:
-    if row.date not in completed_dates:
-      continue
-    name = str(row.player_name)
-    if name not in tracked_names:
-      continue
-    series[name].append((row.date, int(row.buyins or 0)))
+  cumulative: dict[str, int] = {}
+  points: dict[str, list[tuple[int, int]]] = {}
+  x_labels: list[str] = []
 
-  series = {name: sorted(points, key=lambda item: item[0]) for name, points in series.items() if points}
-  if not series:
+  for idx, event in enumerate(buyin_events):
+    label = event.created_at.strftime("%H:%M") if event.created_at is not None else str(idx + 1)
+    x_labels.append(label)
+    for name in list(points.keys()):
+      points[name].append((idx, cumulative.get(name, 0)))
+    name = str(event.player_name)
+    cumulative[name] = cumulative.get(name, 0) + int(event.buyins_count or 0)
+    if name not in points:
+      points[name] = [(prev_idx, 0) for prev_idx in range(idx)]
+      points[name].append((idx, cumulative[name]))
+    else:
+      points[name][-1] = (idx, cumulative[name])
+
+  points = {name: vals for name, vals in points.items() if vals}
+  if not points:
     return None
 
-  return render_buyins_history_chart_png(
-    title=f"История закупов до {target_date.strftime('%d.%m.%Y')}",
-    series=series,
+  return render_buyins_session_chart_png(
+    title=f"Закупы за игру {target_date.strftime('%d.%m.%Y')}",
+    series=points,
+    x_labels=x_labels,
   )
 
 

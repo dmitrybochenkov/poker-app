@@ -37,6 +37,14 @@ class BuyinDataRepository:
     )
     return list(result.scalars().all())
 
+  async def list_for_date(self, *, poker_date) -> list[BuyinData]:
+    result = await self.session.execute(
+      select(BuyinData)
+      .where(BuyinData.poker_date == poker_date)
+      .order_by(BuyinData.created_at.asc(), BuyinData.row_id.asc())
+    )
+    return list(result.scalars().all())
+
   async def delete_for_player_on_date(self, *, poker_date, player_id: int) -> int:
     result = await self.session.execute(
       delete(BuyinData)
