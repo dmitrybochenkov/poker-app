@@ -1161,6 +1161,10 @@ async def poll_suggest_day_input(message: Message, state: FSMContext) -> None:
   month_start, month_end = _month_bounds(month)
   async with SessionFactory() as session:
     repo = PollVoteRepository(session)
+    existing_days = await _poll_all_days_for_month(session=session, month=month)
+    if chosen in existing_days:
+      await message.answer("Этот день уже есть в голосовании.")
+      return
     await repo.add_month_extra_date(poll_date=chosen)
     selected = await repo.get_user_month_votes(
       player_row_id=int(user.row_id),

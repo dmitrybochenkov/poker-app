@@ -1716,18 +1716,41 @@ class InlineKbs:
     start = page * InlineKbs.POLL_PAGE_SIZE
     end = start + InlineKbs.POLL_PAGE_SIZE
     batch = all_dates[start:end]
+    date_buttons: list[tuple[str, str]] = []
     for item in batch:
       mark = "✔ " if item.isoformat() in selected else ""
-      keyboard.button(
-        text=f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}",
-        callback_data=f"poll_day:{item.isoformat()}:{page}",
-      )
-    keyboard.button(text="⬅️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page - 1}")
-    keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
-    keyboard.button(text="❓ Предложить другой день", callback_data=f"poll_suggest:{month.year}-{month.month:02d}")
-    keyboard.button(text="🚀 Готово", callback_data="poll_done")
-    keyboard.button(text="❌ Отмена", callback_data="poll_cancel")
-    keyboard.adjust(2, 2, 2, 1, 2)
+      date_buttons.append((f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}", f"poll_day:{item.isoformat()}:{page}"))
+    while len(date_buttons) < 4:
+      date_buttons.append(("·", "poll_noop"))
+
+    keyboard.row(
+      *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons[:2]],
+      width=2,
+    )
+    keyboard.row(
+      *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons[2:4]],
+      width=2,
+    )
+
+    left_data = f"poll_page:{month.year}-{month.month:02d}:{page - 1}" if start > 0 else "poll_noop"
+    right_data = f"poll_page:{month.year}-{month.month:02d}:{page + 1}" if end < len(all_dates) else "poll_noop"
+    keyboard.row(
+      InlineKeyboardButton(text="⬅️", callback_data=left_data),
+      InlineKeyboardButton(text="➡️", callback_data=right_data),
+      width=2,
+    )
+    keyboard.row(
+      InlineKeyboardButton(
+        text="❓ Предложить другой день",
+        callback_data=f"poll_suggest:{month.year}-{month.month:02d}",
+      ),
+      width=1,
+    )
+    keyboard.row(
+      InlineKeyboardButton(text="🚀 Готово", callback_data="poll_done"),
+      InlineKeyboardButton(text="❌ Отмена", callback_data="poll_cancel"),
+      width=2,
+    )
     return keyboard.as_markup()
 
   @staticmethod
@@ -1744,21 +1767,28 @@ class InlineKbs:
     end = start + InlineKbs.POLL_PAGE_SIZE_VK
     batch = all_dates[start:end]
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
-    for index in range(0, len(batch), 2):
-      row: list[dict[str, str | dict[str, int | str]]] = []
-      for item in batch[index:index + 2]:
-        mark = "✔ " if item.isoformat() in selected else ""
-        row.append(
-          {
-            "action": {
-              "type": "callback",
-              "label": f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}"[:40],
-              "payload": {"action": "poll_day", "date": item.isoformat(), "page": page},
-            },
-            "color": "primary",
-          }
-        )
-      rows.append(row)
+    labels: list[dict[str, str | dict[str, int | str]]] = []
+    for item in batch:
+      mark = "✔ " if item.isoformat() in selected else ""
+      labels.append(
+        {
+          "action": {
+            "type": "callback",
+            "label": f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}"[:40],
+            "payload": {"action": "poll_day", "date": item.isoformat(), "page": page},
+          },
+          "color": "primary",
+        }
+      )
+    while len(labels) < 4:
+      labels.append(
+        {
+          "action": {"type": "callback", "label": "·", "payload": {"action": "poll_noop"}},
+          "color": "secondary",
+        }
+      )
+    rows.append(labels[:2])
+    rows.append(labels[2:4])
 
     rows.append(
       [
@@ -1766,7 +1796,11 @@ class InlineKbs:
           "action": {
             "type": "callback",
             "label": "⬅️",
-            "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page - 1},
+            "payload": (
+              {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page - 1}
+              if start > 0
+              else {"action": "poll_noop"}
+            ),
           },
           "color": "secondary",
         },
@@ -1774,7 +1808,11 @@ class InlineKbs:
           "action": {
             "type": "callback",
             "label": "➡️",
-            "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1},
+            "payload": (
+              {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1}
+              if end < len(all_dates)
+              else {"action": "poll_noop"}
+            ),
           },
           "color": "secondary",
         },

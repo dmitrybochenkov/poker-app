@@ -2520,6 +2520,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     month_start, month_end = _month_bounds(month)
     async with SessionFactory() as session:
       repo = PollVoteRepository(session)
+      existing_days = await _poll_all_days_for_month(session=session, month=month)
+      if chosen in existing_days:
+        await send_vk_message(user_id=user_id, message="Этот день уже есть в голосовании.")
+        return PlainTextResponse("ok")
       await repo.add_month_extra_date(poll_date=chosen)
       selected = await repo.get_user_month_votes(
         player_row_id=int(user.row_id),
