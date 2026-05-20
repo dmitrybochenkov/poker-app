@@ -1069,11 +1069,18 @@ async def show_poll_results(message: Message) -> None:
     user_names=user_names,
     days=all_days,
   )
-  await message.answer_photo(
-    photo=BufferedInputFile(image_bytes, filename="poll_results.png"),
-    caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
-    reply_markup=poll_menu_keyboard,
-  )
+  try:
+    await message.answer_photo(
+      photo=BufferedInputFile(image_bytes, filename="poll_results.png"),
+      caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+      reply_markup=poll_menu_keyboard,
+    )
+  except Exception:
+    await message.answer_document(
+      document=BufferedInputFile(image_bytes, filename="poll_results.png"),
+      caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+      reply_markup=poll_menu_keyboard,
+    )
 
 
 @router.callback_query(F.data == "poll_noop")

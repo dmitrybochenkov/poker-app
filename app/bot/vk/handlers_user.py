@@ -2427,7 +2427,10 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       user_names=user_names,
       days=all_days,
     )
-    await send_vk_photo(user_id=user_id, image_bytes=image_bytes, filename="poll_results.png")
+    try:
+      await send_vk_photo(user_id=user_id, image_bytes=image_bytes, filename="poll_results.png")
+    except Exception:
+      await send_vk_message(user_id=user_id, message="Не удалось отправить график как фото. Попробуй еще раз.")
     await send_vk_message(
       user_id=user_id,
       message=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
