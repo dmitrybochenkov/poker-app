@@ -1813,14 +1813,18 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
-  def poll_admin_choose_tg(*, next_month: date) -> InlineKeyboardMarkup:
+  def poll_admin_choose_tg(*, current_month: date, next_month: date) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
+    keyboard.button(
+      text=InlineKbs._month_label_ru(current_month),
+      callback_data=f"polladmin_month:{current_month.year}-{current_month.month:02d}",
+    )
     keyboard.button(
       text=InlineKbs._month_label_ru(next_month),
       callback_data=f"polladmin_month:{next_month.year}-{next_month.month:02d}",
     )
-    keyboard.button(text="Другой месяц", callback_data="polladmin_other")
-    keyboard.adjust(1, 1)
+    keyboard.button(text="❌ Отмена", callback_data="polladmin_cancel")
+    keyboard.adjust(1, 1, 1)
     return keyboard.as_markup()
 
   @staticmethod
@@ -1835,9 +1839,19 @@ class InlineKbs:
     return keyboard.as_markup()
 
   @staticmethod
-  def poll_admin_choose_vk(*, next_month: date) -> str:
+  def poll_admin_choose_vk(*, current_month: date, next_month: date) -> str:
     return ReplyKbs.make_vk_callback(
       [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": InlineKbs._month_label_ru(current_month),
+              "payload": {"action": "polladmin_month", "month": f"{current_month.year}-{current_month.month:02d}"},
+            },
+            "color": "primary",
+          },
+        ],
         [
           {
             "action": {
@@ -1850,8 +1864,8 @@ class InlineKbs:
         ],
         [
           {
-            "action": {"type": "callback", "label": "Другой месяц", "payload": {"action": "polladmin_other"}},
-            "color": "secondary",
+            "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "polladmin_cancel"}},
+            "color": "negative",
           },
         ],
       ]

@@ -1606,6 +1606,17 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     await send_vk_message(user_id=admin_user_id, message=f"Опрос на {month:%m.%Y} создан.")
     return PlainTextResponse("ok")
 
+  if action == "polladmin_cancel":
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text="Отменено",
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=admin_user_id, message="Создание опроса отменено.")
+    return PlainTextResponse("ok")
+
   if action == "poker_calc_run":
     async with SessionFactory() as session:
       if not await is_vk_admin(session=session, vk_id=admin_user_id):
@@ -2186,11 +2197,12 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
       if not await is_vk_admin(session=session, vk_id=user_id):
         await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
         return PlainTextResponse("ok")
-    next_month = _shift_month(date.today().replace(day=1), 1)
+    current_month = date.today().replace(day=1)
+    next_month = _shift_month(current_month, 1)
     await send_vk_message(
       user_id=user_id,
       message="Выбери месяц для опроса:",
-      keyboard=poll_admin_choose_keyboard(next_month=next_month),
+      keyboard=poll_admin_choose_keyboard(current_month=current_month, next_month=next_month),
     )
     return PlainTextResponse("ok")
 

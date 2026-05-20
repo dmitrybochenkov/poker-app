@@ -916,10 +916,11 @@ async def create_poll_menu(message: Message) -> None:
   async with SessionFactory() as session:
     if not await _ensure_tg_admin_message(session=session, user_id=message.from_user.id, message=message):
       return
-  next_month = _shift_month(date.today().replace(day=1), 1)
+  current_month = date.today().replace(day=1)
+  next_month = _shift_month(current_month, 1)
   await message.answer(
     "Выбери месяц для опроса:",
-    reply_markup=poll_admin_choose_keyboard(next_month=next_month),
+    reply_markup=poll_admin_choose_keyboard(current_month=current_month, next_month=next_month),
   )
 
 
@@ -936,6 +937,14 @@ async def create_poll_choose_other(callback: CallbackQuery) -> None:
   if callback.message is not None:
     await callback.message.edit_reply_markup(reply_markup=poll_admin_other_keyboard(months=months))
   await callback.answer()
+
+
+@router.callback_query(F.data == "polladmin_cancel")
+async def create_poll_cancel(callback: CallbackQuery) -> None:
+  if callback.message is not None:
+    await _clear_inline_keyboard(callback)
+    await callback.message.answer("Создание опроса отменено.")
+  await callback.answer("Отменено")
 
 
 @router.callback_query(F.data.startswith("polladmin_month:"))
