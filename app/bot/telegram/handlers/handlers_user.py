@@ -321,6 +321,7 @@ def _render_poll_results_chart(*, month: date, month_counts: list[tuple[date, in
     title=f"Голоса за даты покера ({month.strftime('%m.%Y')})",
     series={"Голоса": points},
     x_labels=x_labels,
+    chart_type="bar",
   )
 
 

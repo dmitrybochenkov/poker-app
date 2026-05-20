@@ -138,6 +138,7 @@ def render_buyins_session_chart_png(
   title: str,
   series: dict[str, list[tuple[int, int]]],
   x_labels: list[str],
+  chart_type: str = "line",
 ) -> bytes:
   width = 1280
   height = 720
@@ -214,26 +215,40 @@ def render_buyins_session_chart_png(
     if not points:
       continue
     color = palette[idx % len(palette)]
-    coords: list[tuple[int, int]] = []
-    for x_idx, y_val in points:
-      x = x_for_index(int(x_idx))
-      y = int(round(y0 - (max(0, int(y_val)) / y_max) * plot_h))
-      coords.append((x, y))
-    if len(coords) >= 2:
-      draw.line(coords, fill=color, width=3, joint="curve")
-    elif len(coords) == 1:
-      x, y = coords[0]
-      draw.line([(x, y), (x, y)], fill=color, width=3)
-    for x, y in coords:
-      r = 4
-      draw.ellipse((x - r, y - r, x + r, y + r), fill=color, outline="#ffffff", width=1)
+    if chart_type == "bar":
+      bar_width = max(12, int(plot_w / max(1, len(x_labels)) * 0.6))
+      for x_idx, y_val in points:
+        x = x_for_index(int(x_idx))
+        y = int(round(y0 - (max(0, int(y_val)) / y_max) * plot_h))
+        draw.rectangle(
+          (x - bar_width // 2, y, x + bar_width // 2, y0),
+          fill=color,
+          outline="#ffffff",
+          width=1,
+        )
+    else:
+      coords: list[tuple[int, int]] = []
+      for x_idx, y_val in points:
+        x = x_for_index(int(x_idx))
+        y = int(round(y0 - (max(0, int(y_val)) / y_max) * plot_h))
+        coords.append((x, y))
+      if len(coords) >= 2:
+        draw.line(coords, fill=color, width=3, joint="curve")
+      elif len(coords) == 1:
+        x, y = coords[0]
+        draw.line([(x, y), (x, y)], fill=color, width=3)
+      for x, y in coords:
+        r = 4
+        draw.ellipse((x - r, y - r, x + r, y + r), fill=color, outline="#ffffff", width=1)
 
     ly = legend_y + idx * 28
     draw.line([(legend_x, ly + 10), (legend_x + 24, ly + 10)], fill=color, width=3)
     draw.text((legend_x + 34, ly), f"{name} ({points[-1][1]})", fill="#111827", font=small_font)
 
-  draw.text((pad_left, y1 - 34), "Закупы", fill="#6b7280", font=small_font)
-  draw.text((x1 - 58, y0 + 44), "Время", fill="#6b7280", font=small_font)
+  y_caption = "Голоса" if chart_type == "bar" else "Закупы"
+  x_caption = "Даты" if chart_type == "bar" else "Время"
+  draw.text((pad_left, y1 - 34), y_caption, fill="#6b7280", font=small_font)
+  draw.text((x1 - 58, y0 + 44), x_caption, fill="#6b7280", font=small_font)
 
   out = BytesIO()
   image.save(out, format="PNG", optimize=True)

@@ -1720,17 +1720,22 @@ class InlineKbs:
     for item in batch:
       mark = "✔ " if item.isoformat() in selected else ""
       date_buttons.append((f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}", f"poll_day:{item.isoformat()}:{page}"))
-    while len(date_buttons) < 4:
-      date_buttons.append(("·", "poll_noop"))
 
-    keyboard.row(
-      *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons[:2]],
-      width=2,
-    )
-    keyboard.row(
-      *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons[2:4]],
-      width=2,
-    )
+    if len(date_buttons) <= 2:
+      if date_buttons:
+        keyboard.row(
+          *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons],
+          width=max(1, len(date_buttons)),
+        )
+    else:
+      keyboard.row(
+        *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons[:2]],
+        width=2,
+      )
+      keyboard.row(
+        *[InlineKeyboardButton(text=text, callback_data=data) for text, data in date_buttons[2:]],
+        width=max(1, len(date_buttons[2:])),
+      )
 
     left_data = f"poll_page:{month.year}-{month.month:02d}:{page - 1}" if start > 0 else "poll_noop"
     right_data = f"poll_page:{month.year}-{month.month:02d}:{page + 1}" if end < len(all_dates) else "poll_noop"
@@ -1780,15 +1785,12 @@ class InlineKbs:
           "color": "primary",
         }
       )
-    while len(labels) < 4:
-      labels.append(
-        {
-          "action": {"type": "callback", "label": "·", "payload": {"action": "poll_noop"}},
-          "color": "secondary",
-        }
-      )
-    rows.append(labels[:2])
-    rows.append(labels[2:4])
+    if len(labels) <= 2:
+      if labels:
+        rows.append(labels)
+    else:
+      rows.append(labels[:2])
+      rows.append(labels[2:])
 
     rows.append(
       [
