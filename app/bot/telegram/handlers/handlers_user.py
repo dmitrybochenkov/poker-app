@@ -404,7 +404,7 @@ def _calculate_transfers_history(money_rows: list[dict[str, int | str]]) -> list
       break
     loser["money"] = int(loser["money"]) + transfer
     winner["money"] = int(winner["money"]) - transfer
-    lines.append(f"{loser['name']} ➡️ {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
+    lines.append(f"{loser['name']} → {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
   return lines
 
 
@@ -473,7 +473,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
       winner_name = str(bet.winner_name or "-")
       loser_name = str(bet.loser_name or "-")
       lines.append(
-        f"{bet.better_name}: {size_mark}, победитель: {winner_name}, проигравший: {loser_name} → {score_text} баллов"
+        f"{bet.better_name}: {size_mark}, W: {winner_name}, L: {loser_name} → {score_text} баллов"
       )
   return "\n".join(lines)
 
