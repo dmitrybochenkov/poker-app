@@ -420,7 +420,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
   if not players:
     return "Нет данных по игре."
 
-  player_lines: list[str] = []
+  player_rows: list[dict[str, int | str]] = []
   money_rows: list[dict[str, int | str]] = []
   for player in players:
     chips = int(player.chips or 0)
@@ -431,9 +431,22 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
       buyin_size_kopecks=buyin_size_kopecks,
     ))
     money_rows.append({"name": player.player_name, "money": money_kopecks})
-    player_lines.append(
-      f"{player.player_name}: {int(player.buyins)} закупов, {chips} фишек, {_format_rub_from_kopecks(money_kopecks)} рублей"
+    player_rows.append({
+      "name": player.player_name,
+      "buyins": int(player.buyins),
+      "chips": chips,
+      "money": money_kopecks,
+    })
+
+  player_rows.sort(key=lambda item: int(item["money"]), reverse=True)
+  player_lines = [
+    (
+      f"{str(item['name'])}: {int(item['buyins'])} закупов, {int(item['chips'])} фишек, "
+      f"{_format_rub_from_kopecks(int(item['money']))} рублей"
     )
+    for item in player_rows
+  ]
+  poker_money_by_name = {str(item["name"]): int(item["money"]) for item in player_rows}
 
   winners = [name.strip() for name in str(poker.winners or "").split(",") if name.strip()]
   losers = [name.strip() for name in str(poker.loosers or "").split(",") if name.strip()]
@@ -446,7 +459,14 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
   lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
   if bets:
     lines.extend(["", "🍀 Ставки"])
-    for bet in sorted(bets, key=lambda item: int(item.row_id)):
+    for bet in sorted(
+      bets,
+      key=lambda item: (
+        -int(item.score or 0),
+        -int(poker_money_by_name.get(str(item.better_name), 0)),
+        int(item.row_id),
+      ),
+    ):
       size_mark = "🐔" if int(bet.amount_kopecks or 0) >= 40000 else "🐤"
       score_value = int(bet.score or 0)
       score_text = f"+{score_value}" if score_value > 0 else str(score_value)
@@ -1236,6 +1256,10 @@ async def poker_history_date_pick(callback: CallbackQuery) -> None:
   if len(parts) != 4:
     await callback.answer("Некорректная дата", show_alert=True)
     return
+  try:
+    await callback.message.delete()
+  except Exception:
+    await _clear_inline_keyboard(callback)
   target_date = date.fromisoformat(parts[3])
   async with SessionFactory() as session:
     report = await _build_poker_history_report(session=session, target_date=target_date)
