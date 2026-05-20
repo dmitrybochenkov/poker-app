@@ -1613,7 +1613,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       peer_id=peer_id,
       text="Отменено",
     )
-    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message="Создание опроса отменено.")
     return PlainTextResponse("ok")
 

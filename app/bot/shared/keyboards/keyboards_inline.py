@@ -13,8 +13,8 @@ from app.db.models.user import User
 class InlineKbs:
   PAGE_SIZE = 5
   STAT_PAGE_SIZE = 4
-  POLL_PAGE_SIZE = 6
-  POLL_PAGE_SIZE_VK = 6
+  POLL_PAGE_SIZE = 4
+  POLL_PAGE_SIZE_VK = 4
 
   @staticmethod
   def _weekday_ru(value: date) -> str:
@@ -1723,11 +1723,10 @@ class InlineKbs:
         callback_data=f"poll_day:{item.isoformat()}:{page}",
       )
     keyboard.button(text="⬅️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page - 1}")
-    keyboard.button(text=f"{page + 1}/{max(1, (len(all_dates) + InlineKbs.POLL_PAGE_SIZE - 1) // InlineKbs.POLL_PAGE_SIZE)}", callback_data="poll_noop")
+    keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
     keyboard.button(text="❓ Предложить другой день", callback_data=f"poll_suggest:{month.year}-{month.month:02d}")
     keyboard.button(text="🚀 Готово", callback_data="poll_done")
     keyboard.button(text="❌ Отмена", callback_data="poll_cancel")
-    keyboard.button(text="➡️", callback_data=f"poll_page:{month.year}-{month.month:02d}:{page + 1}")
     keyboard.adjust(2, 2, 2, 1, 2)
     return keyboard.as_markup()
 
@@ -1787,11 +1786,15 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": f"{page + 1}/{max(1, (len(all_dates) + InlineKbs.POLL_PAGE_SIZE_VK - 1) // InlineKbs.POLL_PAGE_SIZE_VK)}",
-            "payload": {"action": "poll_noop"},
+            "label": "➡️",
+            "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1},
           },
           "color": "secondary",
         },
+      ]
+    )
+    rows.append(
+      [
         {
           "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "poll_done"}},
           "color": "positive",
@@ -1799,14 +1802,6 @@ class InlineKbs:
         {
           "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "poll_cancel"}},
           "color": "negative",
-        },
-        {
-          "action": {
-            "type": "callback",
-            "label": "➡️",
-            "payload": {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1},
-          },
-          "color": "secondary",
         },
       ]
     )

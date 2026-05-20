@@ -942,7 +942,13 @@ async def create_poll_choose_other(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "polladmin_cancel")
 async def create_poll_cancel(callback: CallbackQuery) -> None:
   if callback.message is not None:
-    await _clear_inline_keyboard(callback)
+    try:
+      await callback.message.delete()
+    except Exception:
+      await _clear_inline_keyboard(callback)
+      await callback.message.answer("Создание опроса отменено.")
+      await callback.answer("Отменено")
+      return
     await callback.message.answer("Создание опроса отменено.")
   await callback.answer("Отменено")
 

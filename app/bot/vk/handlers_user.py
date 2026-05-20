@@ -758,7 +758,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     month = _parse_month_key(month_key)
     async with SessionFactory() as session:
       allowed_days = await _poll_all_days_for_month(session=session, month=month)
-    max_page = max(0, (len(allowed_days) - 1) // 6)
+    max_page = max(0, (len(allowed_days) - 1) // 4)
     page = max(0, min(int(page), max_page))
     ctx = vk_user_contexts.setdefault(user_id, {})
     selected = _parse_iso_dates(ctx.get("poll_selected"))
