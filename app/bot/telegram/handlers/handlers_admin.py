@@ -704,8 +704,8 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         break
     prev_winners = _split_names_csv(prev_completed.winners if prev_completed is not None else None)
 
-    winner_line = ", ".join(f"{name} {_winner_mark(is_streak=(name in prev_winners))}" for name in winners)
-    loser_line = ", ".join(f"{name} ❌" for name in loosers)
+    winner_line = ", ".join(f"{_winner_mark(is_streak=(name in prev_winners))} {name}" for name in winners)
+    loser_line = ", ".join(f"❌ {name}" for name in loosers)
 
     transfer_lines: list[str] = []
     for line in transfers:

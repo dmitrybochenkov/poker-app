@@ -40,6 +40,8 @@ from app.bot.telegram.keyboards import (
   betting_stat_mode_keyboard,
   betting_stat_indicators_keyboard,
   poker_stat_indicators_keyboard,
+  poker_history_year_keyboard,
+  poker_history_dates_keyboard,
   poker_calc_keyboard,
   stat_year_keyboard,
   stat_sort_keyboard,
@@ -77,6 +79,7 @@ from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
@@ -386,6 +389,73 @@ def _split_names(value: str | None) -> set[str]:
   if not value:
     return set()
   return {item.strip() for item in str(value).split(",") if item.strip()}
+
+
+def _calculate_transfers_history(money_rows: list[dict[str, int | str]]) -> list[str]:
+  rows = [{"name": str(item["name"]), "money": int(item["money"])} for item in money_rows]
+  lines: list[str] = []
+  while True:
+    loser = min(rows, key=lambda x: int(x["money"]))
+    winner = max(rows, key=lambda x: int(x["money"]))
+    if int(loser["money"]) == 0 and int(winner["money"]) == 0:
+      break
+    transfer = min(-int(loser["money"]), int(winner["money"]))
+    if transfer <= 0:
+      break
+    loser["money"] = int(loser["money"]) + transfer
+    winner["money"] = int(winner["money"]) - transfer
+    lines.append(f"{loser['name']} ➡️ {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
+  return lines
+
+
+async def _build_poker_history_report(*, session, target_date: date) -> str:
+  poker_rows = await PokerRepository(session).list_all()
+  poker = next((item for item in poker_rows if item.date == target_date and not bool(item.is_going)), None)
+  if poker is None:
+    return "Игра не найдена."
+  params = await PokerParamRepository(session).get_by_id(row_id=int(poker.params_id))
+  buyin_size_chips = int(params.buyin_size_chips) if params is not None else 200
+  buyin_size_kopecks = int(params.buyin_size_kopecks) if params is not None else 20000
+  players = await PokerDataRepository(session).list_players(date=target_date)
+  if not players:
+    return "Нет данных по игре."
+
+  player_lines: list[str] = []
+  money_rows: list[dict[str, int | str]] = []
+  for player in players:
+    chips = int(player.chips or 0)
+    money_kopecks = int(player.money_kopecks or _money_kopecks_from_chips(
+      chips=chips,
+      buyins=int(player.buyins),
+      buyin_size_chips=buyin_size_chips,
+      buyin_size_kopecks=buyin_size_kopecks,
+    ))
+    money_rows.append({"name": player.player_name, "money": money_kopecks})
+    player_lines.append(
+      f"{player.player_name}: {int(player.buyins)} закупов, {chips} фишек, {_format_rub_from_kopecks(money_kopecks)} рублей"
+    )
+
+  winners = [name.strip() for name in str(poker.winners or "").split(",") if name.strip()]
+  losers = [name.strip() for name in str(poker.loosers or "").split(",") if name.strip()]
+  winner_line = ", ".join(f"💍 {name}" for name in winners) if winners else "💍 -"
+  loser_line = ", ".join(f"❌ {name}" for name in losers) if losers else "❌ -"
+  transfer_lines = _calculate_transfers_history(money_rows)
+  bets = await BetRepository(session).list_for_poker(date=target_date)
+
+  lines = [target_date.strftime("%d.%m.%Y"), "♣️ Покер", *player_lines, "", winner_line, loser_line, "", "💲 Переводы:"]
+  lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
+  if bets:
+    lines.extend(["", "🍀 Ставки"])
+    for bet in sorted(bets, key=lambda item: int(item.row_id)):
+      size_mark = "🐔" if int(bet.amount_kopecks or 0) >= 40000 else "🐤"
+      score_value = int(bet.score or 0)
+      score_text = f"+{score_value}" if score_value > 0 else str(score_value)
+      winner_name = str(bet.winner_name or "-")
+      loser_name = str(bet.loser_name or "-")
+      lines.append(
+        f"{bet.better_name}: {size_mark}, победитель: {winner_name}, проигравший: {loser_name} → {score_text} баллов"
+      )
+  return "\n".join(lines)
 
 
 async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[dict[str, str], str, str]:
@@ -1086,6 +1156,93 @@ async def show_poker_achievement_info(message: Message) -> None:
     reply_markup=poker_info_keyboard,
     parse_mode="HTML",
   )
+
+
+@router.message(F.text == Buttons.pokerInfo.HISTORY.value)
+async def show_poker_history_years(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  async with SessionFactory() as session:
+    pokers = await PokerRepository(session).list_all()
+  years = sorted({int(item.date.year) for item in pokers if item.date is not None and not bool(item.is_going)}, reverse=True)
+  if not years:
+    await message.answer("Нет завершенных игр.", reply_markup=poker_info_keyboard)
+    return
+  await message.answer(
+    "Выбери год:",
+    reply_markup=poker_history_year_keyboard(years=years),
+  )
+
+
+@router.callback_query(F.data == "pokerhist_cancel")
+async def poker_history_cancel(callback: CallbackQuery) -> None:
+  await _clear_inline_keyboard(callback)
+  await callback.answer("Отменено")
+
+
+@router.callback_query(F.data.startswith("pokerhistyear:"))
+async def poker_history_year_pick(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  year = int(str(callback.data).split(":", 1)[1])
+  async with SessionFactory() as session:
+    pokers = await PokerRepository(session).list_all()
+  dates = sorted(
+    {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
+    reverse=True,
+  )
+  if not dates:
+    await callback.answer("Нет игр за выбранный год", show_alert=True)
+    return
+  await callback.message.edit_text(
+    f"Выбери дату игры ({year}):",
+    reply_markup=poker_history_dates_keyboard(year=year, dates=list(dates), page=0),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pokerhistpage:"))
+async def poker_history_page(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  _, year_s, page_s = str(callback.data).split(":")
+  year = int(year_s)
+  page = int(page_s)
+  async with SessionFactory() as session:
+    pokers = await PokerRepository(session).list_all()
+  dates = sorted(
+    {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
+    reverse=True,
+  )
+  await callback.message.edit_text(
+    f"Выбери дату игры ({year}):",
+    reply_markup=poker_history_dates_keyboard(year=year, dates=list(dates), page=page),
+  )
+  await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pokerhistdate:"))
+async def poker_history_date_pick(callback: CallbackQuery) -> None:
+  if callback.message is None:
+    await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+    return
+  if not await _ensure_approved_telegram_callback_user(callback):
+    return
+  parts = str(callback.data).split(":")
+  if len(parts) != 4:
+    await callback.answer("Некорректная дата", show_alert=True)
+    return
+  target_date = date.fromisoformat(parts[3])
+  async with SessionFactory() as session:
+    report = await _build_poker_history_report(session=session, target_date=target_date)
+  await callback.message.answer(report, reply_markup=poker_info_keyboard)
+  await callback.answer()
 
 
 @router.message(F.text == Buttons.poker.POKER_STAT.value)

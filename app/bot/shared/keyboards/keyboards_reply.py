@@ -317,6 +317,7 @@ class ReplyKbs:
         [
           Buttons.pokerInfo.POKER_ACH_INFO,
           Buttons.pokerInfo.POKER_STAT_INFO,
+          Buttons.pokerInfo.HISTORY,
           Buttons.pokerInfo.TO_MAIN,
         ]
       ),
@@ -330,6 +331,7 @@ class ReplyKbs:
         [
           Buttons.pokerInfo.POKER_ACH_INFO,
           Buttons.pokerInfo.POKER_STAT_INFO,
+          Buttons.pokerInfo.HISTORY,
           Buttons.pokerInfo.TO_MAIN,
         ]
       ),

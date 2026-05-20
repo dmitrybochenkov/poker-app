@@ -52,6 +52,8 @@ from app.bot.vk.keyboards import (
   betting_stat_mode_keyboard,
   betting_stat_indicators_keyboard,
   poker_stat_indicators_keyboard,
+  poker_history_year_keyboard,
+  poker_history_dates_keyboard,
   stat_year_keyboard,
   stat_sort_keyboard,
   poll_month_keyboard,
@@ -89,6 +91,7 @@ from app.db.models.user import User
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
@@ -291,6 +294,73 @@ def _split_names(value: str | None) -> set[str]:
   if not value:
     return set()
   return {item.strip() for item in str(value).split(",") if item.strip()}
+
+
+def _calculate_transfers_history(money_rows: list[dict[str, int | str]]) -> list[str]:
+  rows = [{"name": str(item["name"]), "money": int(item["money"])} for item in money_rows]
+  lines: list[str] = []
+  while True:
+    loser = min(rows, key=lambda x: int(x["money"]))
+    winner = max(rows, key=lambda x: int(x["money"]))
+    if int(loser["money"]) == 0 and int(winner["money"]) == 0:
+      break
+    transfer = min(-int(loser["money"]), int(winner["money"]))
+    if transfer <= 0:
+      break
+    loser["money"] = int(loser["money"]) + transfer
+    winner["money"] = int(winner["money"]) - transfer
+    lines.append(f"{loser['name']} ➡️ {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
+  return lines
+
+
+async def _build_poker_history_report(*, session, target_date: date) -> str:
+  poker_rows = await PokerRepository(session).list_all()
+  poker = next((item for item in poker_rows if item.date == target_date and not bool(item.is_going)), None)
+  if poker is None:
+    return "Игра не найдена."
+  params = await PokerParamRepository(session).get_by_id(row_id=int(poker.params_id))
+  buyin_size_chips = int(params.buyin_size_chips) if params is not None else 200
+  buyin_size_kopecks = int(params.buyin_size_kopecks) if params is not None else 20000
+  players = await PokerDataRepository(session).list_players(date=target_date)
+  if not players:
+    return "Нет данных по игре."
+
+  player_lines: list[str] = []
+  money_rows: list[dict[str, int | str]] = []
+  for player in players:
+    chips = int(player.chips or 0)
+    money_kopecks = int(player.money_kopecks or _money_kopecks_from_chips(
+      chips=chips,
+      buyins=int(player.buyins),
+      buyin_size_chips=buyin_size_chips,
+      buyin_size_kopecks=buyin_size_kopecks,
+    ))
+    money_rows.append({"name": player.player_name, "money": money_kopecks})
+    player_lines.append(
+      f"{player.player_name}: {int(player.buyins)} закупов, {chips} фишек, {_format_rub_from_kopecks(money_kopecks)} рублей"
+    )
+
+  winners = [name.strip() for name in str(poker.winners or "").split(",") if name.strip()]
+  losers = [name.strip() for name in str(poker.loosers or "").split(",") if name.strip()]
+  winner_line = ", ".join(f"💍 {name}" for name in winners) if winners else "💍 -"
+  loser_line = ", ".join(f"❌ {name}" for name in losers) if losers else "❌ -"
+  transfer_lines = _calculate_transfers_history(money_rows)
+  bets = await BetRepository(session).list_for_poker(date=target_date)
+
+  lines = [target_date.strftime("%d.%m.%Y"), "♣️ Покер", *player_lines, "", winner_line, loser_line, "", "💲 Переводы:"]
+  lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
+  if bets:
+    lines.extend(["", "🍀 Ставки"])
+    for bet in sorted(bets, key=lambda item: int(item.row_id)):
+      size_mark = "🐔" if int(bet.amount_kopecks or 0) >= 40000 else "🐤"
+      score_value = int(bet.score or 0)
+      score_text = f"+{score_value}" if score_value > 0 else str(score_value)
+      winner_name = str(bet.winner_name or "-")
+      loser_name = str(bet.loser_name or "-")
+      lines.append(
+        f"{bet.better_name}: {size_mark}, победитель: {winner_name}, проигравший: {loser_name} → {score_text} баллов"
+      )
+  return "\n".join(lines)
 
 
 async def _build_bet_last_five_hints(*, session, players: list[str]) -> tuple[dict[str, str], str, str]:
@@ -673,6 +743,71 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=user_id, message=Text.user.POLL_CANCELED.value)
+    return PlainTextResponse("ok")
+
+  if action == "pokerhist_cancel":
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    return PlainTextResponse("ok")
+
+  if action == "pokerhistyear":
+    year = callback_payload.get("year")
+    if not isinstance(year, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      pokers = await PokerRepository(session).list_all()
+    dates = sorted(
+      {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
+      reverse=True,
+    )
+    if not dates:
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Нет игр за выбранный год")
+      return PlainTextResponse("ok")
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=f"Выбери дату игры ({int(year)}):",
+      keyboard=poker_history_dates_keyboard(year=int(year), dates=list(dates), page=0),
+    )
+    return PlainTextResponse("ok")
+
+  if action == "pokerhistpage":
+    year = callback_payload.get("year")
+    page = callback_payload.get("page")
+    if not isinstance(year, int) or not isinstance(page, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      pokers = await PokerRepository(session).list_all()
+    dates = sorted(
+      {item.date for item in pokers if item.date is not None and not bool(item.is_going) and int(item.date.year) == int(year)},
+      reverse=True,
+    )
+    if not dates:
+      await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Нет игр за выбранный год")
+      return PlainTextResponse("ok")
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(
+      user_id=user_id,
+      message=f"Выбери дату игры ({int(year)}):",
+      keyboard=poker_history_dates_keyboard(year=int(year), dates=list(dates), page=int(page)),
+    )
+    return PlainTextResponse("ok")
+
+  if action == "pokerhistdate":
+    target_date_raw = callback_payload.get("date")
+    if not isinstance(target_date_raw, str):
+      return PlainTextResponse("ok")
+    try:
+      target_date = date.fromisoformat(target_date_raw)
+    except Exception:
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      report = await _build_poker_history_report(session=session, target_date=target_date)
+    await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
+    await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    await send_vk_message(user_id=user_id, message=report, keyboard=poker_info_keyboard)
     return PlainTextResponse("ok")
 
   if action == "registration_existing":
@@ -1814,6 +1949,20 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       user_id=user_id,
       message=_format_achievement_info_report(achievements, indicators_by_id),
       keyboard=poker_info_keyboard,
+    )
+    return PlainTextResponse("ok")
+
+  if text == Buttons.pokerInfo.HISTORY.value:
+    async with SessionFactory() as session:
+      pokers = await PokerRepository(session).list_all()
+    years = sorted({int(item.date.year) for item in pokers if item.date is not None and not bool(item.is_going)}, reverse=True)
+    if not years:
+      await send_vk_message(user_id=user_id, message="Нет завершенных игр.", keyboard=poker_info_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(
+      user_id=user_id,
+      message="Выбери год:",
+      keyboard=poker_history_year_keyboard(years=years),
     )
     return PlainTextResponse("ok")
 

@@ -1972,8 +1972,8 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
           prev_completed = old
           break
       prev_winners = _split_names_csv(prev_completed.winners if prev_completed is not None else None)
-      winner_line = ", ".join(f"{name} {_winner_mark(is_streak=(name in prev_winners))}" for name in winners)
-      loser_line = ", ".join(f"{name} ❌" for name in loosers)
+      winner_line = ", ".join(f"{_winner_mark(is_streak=(name in prev_winners))} {name}" for name in winners)
+      loser_line = ", ".join(f"❌ {name}" for name in loosers)
 
       approved_users = await user_repository.list_approved()
       transfer_lines: list[str] = []

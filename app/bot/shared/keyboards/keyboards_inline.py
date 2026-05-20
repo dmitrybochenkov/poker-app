@@ -1614,6 +1614,88 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(rows)
 
   @staticmethod
+  def poker_history_year_tg(*, years: list[int]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for year in years:
+      keyboard.button(text=str(int(year)), callback_data=f"pokerhistyear:{int(year)}")
+    keyboard.button(text="❌ Отмена", callback_data="pokerhist_cancel")
+    keyboard.adjust(1, *(1 for _ in years[1:]), 1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_history_year_vk(*, years: list[int]) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    for year in years:
+      rows.append([
+        {
+          "action": {"type": "callback", "label": str(int(year)), "payload": {"action": "pokerhistyear", "year": int(year)}},
+          "color": "primary",
+        }
+      ])
+    rows.append([
+      {
+        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "pokerhist_cancel"}},
+        "color": "negative",
+      }
+    ])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def poker_history_dates_tg(*, year: int, dates: list[date], page: int = 0) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    page_size = 6
+    start = page * page_size
+    end = start + page_size
+    batch = dates[start:end]
+    for item in batch:
+      keyboard.button(text=item.strftime("%d.%m"), callback_data=f"pokerhistdate:{int(year)}:{int(page)}:{item.isoformat()}")
+    if page > 0:
+      keyboard.button(text="⬅️", callback_data=f"pokerhistpage:{int(year)}:{int(page - 1)}")
+    if end < len(dates):
+      keyboard.button(text="➡️", callback_data=f"pokerhistpage:{int(year)}:{int(page + 1)}")
+    sizes = [3, 3]
+    nav_count = int(page > 0) + int(end < len(dates))
+    if nav_count:
+      sizes.append(nav_count)
+    keyboard.adjust(*sizes)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def poker_history_dates_vk(*, year: int, dates: list[date], page: int = 0) -> str:
+    rows: list[list[dict[str, str | dict[str, int | str]]]] = []
+    page_size = 6
+    start = page * page_size
+    end = start + page_size
+    batch = dates[start:end]
+    for index in range(0, len(batch), 3):
+      row_items = batch[index:index + 3]
+      row: list[dict[str, str | dict[str, int | str]]] = []
+      for item in row_items:
+        row.append(
+          {
+            "action": {
+              "type": "callback",
+              "label": item.strftime("%d.%m"),
+              "payload": {"action": "pokerhistdate", "year": int(year), "page": int(page), "date": item.isoformat()},
+            },
+            "color": "primary",
+          }
+        )
+      rows.append(row)
+    nav_row: list[dict[str, str | dict[str, int | str]]] = []
+    if page > 0:
+      nav_row.append(
+        {"action": {"type": "callback", "label": "⬅️", "payload": {"action": "pokerhistpage", "year": int(year), "page": int(page - 1)}}, "color": "secondary"}
+      )
+    if end < len(dates):
+      nav_row.append(
+        {"action": {"type": "callback", "label": "➡️", "payload": {"action": "pokerhistpage", "year": int(year), "page": int(page + 1)}}, "color": "secondary"}
+      )
+    if nav_row:
+      rows.append(nav_row)
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
   def poll_month_tg(
     *,
     month: date,

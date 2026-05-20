@@ -69,4 +69,5 @@ class PokerBtns(Enum):
 class PokerInfoBtns(Enum):
   POKER_ACH_INFO = "ℹ️🌟 Ачивки для покера"
   POKER_STAT_INFO = "ℹ️📊 Показатели для покера"
+  HISTORY = "⌛ История"
   TO_MAIN = "🏠 На главную"
