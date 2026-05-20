@@ -1263,7 +1263,7 @@ async def poker_history_date_pick(callback: CallbackQuery) -> None:
   target_date = date.fromisoformat(parts[3])
   async with SessionFactory() as session:
     report = await _build_poker_history_report(session=session, target_date=target_date)
-  await callback.message.answer(report, reply_markup=poker_info_keyboard)
+  await callback.message.answer(report, reply_markup=poker_keyboard)
   await callback.answer()
 
 

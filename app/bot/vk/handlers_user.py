@@ -825,7 +825,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       report = await _build_poker_history_report(session=session, target_date=target_date)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=STAT_SNACKBAR)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    await send_vk_message(user_id=user_id, message=report, keyboard=poker_info_keyboard)
+    await send_vk_message(user_id=user_id, message=report, keyboard=poker_keyboard)
     return PlainTextResponse("ok")
 
   if action == "registration_existing":
