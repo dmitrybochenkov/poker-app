@@ -5,7 +5,7 @@ from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, CallbackQuery, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardMarkup, Message
 
 from app.application.exceptions import (
   UserAlreadyRegisteredError,

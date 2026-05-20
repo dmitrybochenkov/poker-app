@@ -2,8 +2,9 @@ from datetime import date
 import random
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, CallbackQuery, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardMarkup, Message
 from types import SimpleNamespace
 
 from app.application.exceptions import (
@@ -77,6 +78,33 @@ from app.services.buyins_chart import render_buyins_session_chart_png
 
 router = Router()
 TG_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
+
+
+async def _safe_callback_edit_reply_markup(
+  callback: CallbackQuery,
+  reply_markup: InlineKeyboardMarkup | None,
+) -> None:
+  if callback.message is None:
+    return
+  try:
+    await callback.message.edit_reply_markup(reply_markup=reply_markup)
+  except TelegramBadRequest as exc:
+    if "message is not modified" not in str(exc).lower():
+      raise
+
+
+async def _safe_callback_edit_text(
+  callback: CallbackQuery,
+  text: str,
+  reply_markup: InlineKeyboardMarkup | None = None,
+) -> None:
+  if callback.message is None:
+    return
+  try:
+    await callback.message.edit_text(text=text, reply_markup=reply_markup)
+  except TelegramBadRequest as exc:
+    if "message is not modified" not in str(exc).lower():
+      raise
 
 
 async def _start_betting_flow(*, admin_tg_id: int) -> str:
@@ -215,7 +243,7 @@ async def _clear_inline_keyboard(callback: CallbackQuery) -> None:
   if callback.message is None:
     return
   try:
-    await callback.message.edit_reply_markup(reply_markup=None)
+    await _safe_callback_edit_reply_markup(callback, reply_markup=None)
   except Exception:
     return
 
@@ -646,7 +674,7 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
     )
 
   if callback.message is not None:
-    await callback.message.edit_text(Text.admin.POKER_START_SUCCESS.value)
+    await _safe_callback_edit_text(callback, Text.admin.POKER_START_SUCCESS.value)
   await callback.answer(Text.admin.POKER_START_SUCCESS.value)
 
 
@@ -935,7 +963,7 @@ async def create_poll_choose_other(callback: CallbackQuery) -> None:
   current = date.today().replace(day=1)
   months = [current, _shift_month(current, 1), _shift_month(current, 2)]
   if callback.message is not None:
-    await callback.message.edit_reply_markup(reply_markup=poll_admin_other_keyboard(months=months))
+    await _safe_callback_edit_reply_markup(callback, reply_markup=poll_admin_other_keyboard(months=months))
   await callback.answer()
 
 
@@ -1105,7 +1133,8 @@ async def poker_room_manage_callback(callback: CallbackQuery) -> None:
       return
   if callback.message is not None:
     try:
-      await callback.message.edit_reply_markup(
+      await _safe_callback_edit_reply_markup(
+        callback,
         reply_markup=poker_room_manage_player_keyboard(player_id=int(player_id_s)),
       )
     except Exception:
@@ -1502,7 +1531,7 @@ async def unban_player_callback(callback: CallbackQuery) -> None:
     if unbanned_user is not None:
       await _notify_user_unbanned_for_room(user=unbanned_user)
   if callback.message is not None:
-    await callback.message.edit_text(Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
+    await _safe_callback_edit_text(callback, Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
   await callback.answer(Text.admin.POKER_UNBAN_PLAYER_SUCCESS.value)
 
 
@@ -2041,9 +2070,10 @@ async def make_admin_select_callback(callback: CallbackQuery) -> None:
       return
 
   if callback.message is not None:
-    await callback.message.edit_text(
+    await _safe_callback_edit_text(
+      callback,
       f"{Text.admin.MAKE_ADMIN_SUCCESS.value}\n\n"
-      f"Имя: {user.name}"
+      f"Имя: {user.name}",
     )
   await callback.answer(Text.admin.MAKE_ADMIN_SUCCESS.value)
 
@@ -2085,7 +2115,8 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
     await notify_user_about_approval(telegram_id=user.telegram_id, approved=True)
 
   if callback.message is not None:
-    await callback.message.edit_text(
+    await _safe_callback_edit_text(
+      callback,
       f"Заявка #{row_id} одобрена.\nИмя: {user.name}\nTelegram ID: {user.telegram_id}",
     )
   await callback.answer(Text.admin.APPROVE_ACTION.value)
@@ -2243,7 +2274,8 @@ async def reject_registration_callback(callback: CallbackQuery) -> None:
     await notify_user_about_approval(telegram_id=user_telegram_id, approved=False)
 
   if callback.message is not None:
-    await callback.message.edit_text(
+    await _safe_callback_edit_text(
+      callback,
       f"Заявка #{row_id} отклонена.\nИмя: {user_name}\nTelegram ID: {user_telegram_id}",
     )
   await callback.answer(Text.admin.REJECT_ACTION.value)
@@ -2307,13 +2339,14 @@ async def choose_link_target_callback(callback: CallbackQuery) -> None:
       return
 
   if callback.message is not None:
-    await callback.message.edit_text(
+    await _safe_callback_edit_text(
+      callback,
       f"{Text.admin.LINK_SUCCESS.value}\n\n"
       f"Pending row_id: {pending_row_id}\n"
       f"Linked to row_id: {user.row_id}\n"
       f"Имя: {user.name}\n"
       f"Telegram ID: {user.telegram_id}\n"
-      f"VK ID: {user.vk_id}"
+      f"VK ID: {user.vk_id}",
     )
   await callback.answer(Text.admin.LINK_SUCCESS.value)
 
@@ -2329,11 +2362,12 @@ async def choose_link_target_page_callback(callback: CallbackQuery) -> None:
   async with SessionFactory() as session:
     repository = UserRepository(session)
     approved_users = await repository.list_approved()
-  await callback.message.edit_reply_markup(
+  await _safe_callback_edit_reply_markup(
+    callback,
     reply_markup=link_candidates_page_keyboard(
       pending_row_id=pending_row_id,
       users=approved_users,
       page=page,
-    )
+    ),
   )
   await callback.answer()
