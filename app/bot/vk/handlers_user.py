@@ -256,7 +256,7 @@ def _render_poll_results_chart(
     title=f"Голоса за даты покера ({month.strftime('%m.%Y')})",
     series=series,
     x_labels=x_labels,
-    chart_type="bar",
+    chart_type="barh",
   )
 
 

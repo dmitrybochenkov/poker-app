@@ -163,7 +163,7 @@ def render_buyins_session_chart_png(
     image.save(out, format="PNG", optimize=True)
     return out.getvalue()
 
-  if chart_type == "bar":
+  if chart_type in {"bar", "barh"}:
     stacked_totals: dict[int, int] = {}
     for points in series.values():
       for x_idx, y_val in points:
@@ -200,14 +200,21 @@ def render_buyins_session_chart_png(
       return int(round(x0 + ratio * plot_w))
     return int(round(x0 + (idx / max_x_index) * plot_w))
 
-  tick_step = max(1, len(x_labels) // 6)
-  tick_indices = list(range(0, len(x_labels), tick_step))
-  if tick_indices[-1] != len(x_labels) - 1:
-    tick_indices.append(len(x_labels) - 1)
-  for idx in tick_indices:
-    x = x_for_index(idx)
-    draw.line([(x, y0), (x, y0 + 8)], fill="#9ca3af", width=1)
-    draw.text((x - 26, y0 + 14), x_labels[idx], fill="#6b7280", font=small_font)
+  if chart_type == "barh":
+    row_step = plot_h / max(1, len(x_labels))
+    for idx, label in enumerate(x_labels):
+      y_center = int(round(y1 + (idx + 0.5) * row_step))
+      draw.line([(x0 - 8, y_center), (x0, y_center)], fill="#9ca3af", width=1)
+      draw.text((x0 - 82, y_center - 12), label.replace("\n", " "), fill="#6b7280", font=small_font)
+  else:
+    tick_step = max(1, len(x_labels) // 6)
+    tick_indices = list(range(0, len(x_labels), tick_step))
+    if tick_indices[-1] != len(x_labels) - 1:
+      tick_indices.append(len(x_labels) - 1)
+    for idx in tick_indices:
+      x = x_for_index(idx)
+      draw.line([(x, y0), (x, y0 + 8)], fill="#9ca3af", width=1)
+      draw.text((x - 26, y0 + 14), x_labels[idx], fill="#6b7280", font=small_font)
 
   palette = [
     "#2563eb",
@@ -246,6 +253,23 @@ def render_buyins_session_chart_png(
           width=1,
         )
         stacked_bottoms[int(x_idx)] = top_value
+    elif chart_type == "barh":
+      row_step = plot_h / max(1, len(x_labels))
+      bar_height = max(12, int(row_step * 0.6))
+      for row_idx, y_val in points:
+        value = max(0, int(y_val))
+        left_value = stacked_bottoms.get(int(row_idx), 0)
+        right_value = left_value + value
+        x_left = int(round(x0 + (left_value / y_max) * plot_w))
+        x_right = int(round(x0 + (right_value / y_max) * plot_w))
+        y_center = int(round(y1 + (int(row_idx) + 0.5) * row_step))
+        draw.rectangle(
+          (x_left, y_center - bar_height // 2, x_right, y_center + bar_height // 2),
+          fill=color,
+          outline="#ffffff",
+          width=1,
+        )
+        stacked_bottoms[int(row_idx)] = right_value
     else:
       coords: list[tuple[int, int]] = []
       for x_idx, y_val in points:
@@ -266,11 +290,22 @@ def render_buyins_session_chart_png(
     total = sum(y for _, y in points)
     draw.text((legend_x + 34, ly), f"{name} ({total})", fill="#111827", font=small_font)
 
-  y_caption = "Голоса" if chart_type == "bar" else "Закупы"
-  x_caption = "Даты" if chart_type == "bar" else "Время"
+  if chart_type == "barh":
+    y_caption = "Даты"
+    x_caption = "Голоса"
+  elif chart_type == "bar":
+    y_caption = "Голоса"
+    x_caption = "Даты"
+  else:
+    y_caption = "Закупы"
+    x_caption = "Время"
   draw.text((pad_left, y1 - 34), y_caption, fill="#6b7280", font=small_font)
-  x_caption_x = x1 - 42 if chart_type == "bar" else x1 - 58
-  x_caption_y = y0 + 52 if chart_type == "bar" else y0 + 44
+  if chart_type == "barh":
+    x_caption_x = x1 - 56
+    x_caption_y = y0 + 44
+  else:
+    x_caption_x = x1 - 42 if chart_type == "bar" else x1 - 58
+    x_caption_y = y0 + 52 if chart_type == "bar" else y0 + 44
   draw.text((x_caption_x, x_caption_y), x_caption, fill="#6b7280", font=small_font)
 
   out = BytesIO()
