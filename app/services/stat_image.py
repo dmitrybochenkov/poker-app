@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 from unicodedata import category
 
 from PIL import Image, ImageDraw, ImageFont
@@ -8,6 +9,9 @@ from PIL import Image, ImageDraw, ImageFont
 EMOJI_SCALE = 1.35
 EMOJI_MAX_CELL_RATIO = 1.35
 EMOJI_PAIR_GAP_RATIO = 0.35
+EMOJI_ASSET_MAX_CELL_RATIO = 1.2
+EMOJI_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "emoji"
+_EMOJI_ASSET_CACHE: dict[str, Image.Image | None] = {}
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
@@ -57,6 +61,28 @@ def _is_emoji_char(ch: str) -> bool:
   )
 
 
+def _emoji_asset_path(ch: str) -> Path:
+  code = "-".join(f"{ord(item):x}" for item in ch)
+  return EMOJI_ASSET_DIR / f"{code}.png"
+
+
+def _get_emoji_asset(ch: str) -> Image.Image | None:
+  if ch in _EMOJI_ASSET_CACHE:
+    cached = _EMOJI_ASSET_CACHE[ch]
+    return cached.copy() if cached is not None else None
+  asset_path = _emoji_asset_path(ch)
+  if not asset_path.exists():
+    _EMOJI_ASSET_CACHE[ch] = None
+    return None
+  try:
+    image = Image.open(asset_path).convert("RGBA")
+  except Exception:
+    _EMOJI_ASSET_CACHE[ch] = None
+    return None
+  _EMOJI_ASSET_CACHE[ch] = image
+  return image.copy()
+
+
 def _line_width(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.ImageFont, emoji_font: ImageFont.ImageFont) -> int:
   cell_bbox = draw.textbbox((0, 0), "M", font=text_font)
   cell_w = max(1, cell_bbox[2] - cell_bbox[0])
@@ -104,6 +130,23 @@ def _draw_line(
       cursor_x += max(1, int(round(cell_w * EMOJI_PAIR_GAP_RATIO)))
     font = emoji_font if is_emoji else text_font
     if is_emoji:
+      asset_image = _get_emoji_asset(ch)
+      if asset_image is not None:
+        src_w, src_h = asset_image.size
+        if src_w > 0 and src_h > 0:
+          target_h = max(16, int(round((text_bbox[3] - text_bbox[1]) * EMOJI_SCALE)))
+          max_cell_w = max(1, int(round(cell_w * EMOJI_ASSET_MAX_CELL_RATIO)))
+          scale = min(target_h / src_h, max_cell_w / src_w)
+          draw_w = max(1, int(round(src_w * scale)))
+          draw_h = max(1, int(round(src_h * scale)))
+          resized = asset_image.resize((draw_w, draw_h), Image.Resampling.LANCZOS)
+          paste_x = cursor_x + max(0, (cell_w - draw_w) // 2)
+          paste_y = y + max(0, (line_h - draw_h) // 2)
+          image.paste(resized, (paste_x, paste_y), resized)
+          cursor_x += cell_w
+          prev_was_emoji = True
+          continue
+
       bbox = draw.textbbox((0, 0), ch, font=font)
       glyph_w = max(1, bbox[2] - bbox[0])
       glyph_h = max(1, bbox[3] - bbox[1])
