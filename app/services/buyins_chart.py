@@ -189,12 +189,20 @@ def render_buyins_session_chart_png(
   draw.line([(x0, y0), (x1, y0)], fill="#374151", width=2)
   draw.line([(x0, y0), (x0, y1)], fill="#374151", width=2)
 
-  for i in range(y_steps + 1):
-    ratio = i / y_steps if y_steps else 0
-    value = int(round(y_max * ratio))
-    y = int(round(y0 - ratio * plot_h))
-    draw.line([(x0, y), (x1, y)], fill="#e5e7eb", width=1)
-    draw.text((x0 - 52, y - 10), str(value), fill="#6b7280", font=small_font)
+  if chart_type == "barh":
+    for i in range(y_steps + 1):
+      ratio = i / y_steps if y_steps else 0
+      value = int(round(y_max * ratio))
+      x = int(round(x0 + ratio * plot_w))
+      draw.line([(x, y0), (x, y1)], fill="#e5e7eb", width=1)
+      draw.text((x - 10, y0 + 14), str(value), fill="#6b7280", font=small_font)
+  else:
+    for i in range(y_steps + 1):
+      ratio = i / y_steps if y_steps else 0
+      value = int(round(y_max * ratio))
+      y = int(round(y0 - ratio * plot_h))
+      draw.line([(x0, y), (x1, y)], fill="#e5e7eb", width=1)
+      draw.text((x0 - 52, y - 10), str(value), fill="#6b7280", font=small_font)
 
   max_x_index = max(len(x_labels) - 1, 1)
   bar_side_pad = 0.0
