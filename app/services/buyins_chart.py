@@ -104,8 +104,7 @@ def render_buyins_history_chart_png(
 
   legend_x = x1 + 24
   legend_y = y1 + 8
-  sorted_series = sorted(series.items(), key=lambda item: sum(y for _, y in item[1]), reverse=True)
-  stacked_bottoms: dict[int, int] = {i: 0 for i in range(len(x_labels))}
+  sorted_series = sorted(series.items(), key=lambda item: item[1][-1][1] if item[1] else 0, reverse=True)
 
   for idx, (name, points) in enumerate(sorted_series):
     if not points:
@@ -217,7 +216,8 @@ def render_buyins_session_chart_png(
   ]
   legend_x = x1 + 24
   legend_y = y1 + 8
-  sorted_series = sorted(series.items(), key=lambda item: item[1][-1][1] if item[1] else 0, reverse=True)
+  sorted_series = sorted(series.items(), key=lambda item: sum(y for _, y in item[1]), reverse=True)
+  stacked_bottoms: dict[int, int] = {i: 0 for i in range(len(x_labels))}
 
   for idx, (name, points) in enumerate(sorted_series):
     if not points:
