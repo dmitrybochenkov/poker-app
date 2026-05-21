@@ -189,8 +189,15 @@ def render_buyins_session_chart_png(
     draw.text((x0 - 52, y - 10), str(value), fill="#6b7280", font=small_font)
 
   max_x_index = max(len(x_labels) - 1, 1)
+  bar_side_pad = 0.0
+  if chart_type == "bar" and len(x_labels) >= 2:
+    bar_side_pad = 0.12
 
   def x_for_index(idx: int) -> int:
+    if chart_type == "bar" and len(x_labels) >= 2:
+      ratio = (idx / max_x_index)
+      ratio = bar_side_pad + ratio * (1.0 - 2.0 * bar_side_pad)
+      return int(round(x0 + ratio * plot_w))
     return int(round(x0 + (idx / max_x_index) * plot_w))
 
   tick_step = max(1, len(x_labels) // 6)
@@ -262,7 +269,9 @@ def render_buyins_session_chart_png(
   y_caption = "Голоса" if chart_type == "bar" else "Закупы"
   x_caption = "Даты" if chart_type == "bar" else "Время"
   draw.text((pad_left, y1 - 34), y_caption, fill="#6b7280", font=small_font)
-  draw.text((x1 - 58, y0 + 44), x_caption, fill="#6b7280", font=small_font)
+  x_caption_x = x1 - 42 if chart_type == "bar" else x1 - 58
+  x_caption_y = y0 + 52 if chart_type == "bar" else y0 + 44
+  draw.text((x_caption_x, x_caption_y), x_caption, fill="#6b7280", font=small_font)
 
   out = BytesIO()
   image.save(out, format="PNG", optimize=True)
