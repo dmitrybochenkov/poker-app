@@ -315,7 +315,7 @@ def render_buyins_session_chart_png(
   else:
     y_caption = "Закупы"
     x_caption = "Время"
-  y_caption_x = pad_left - 30 if chart_type == "barh" else pad_left
+  y_caption_x = pad_left - 82 if chart_type == "barh" else pad_left
   draw.text((y_caption_x, y1 - 34), y_caption, fill="#6b7280", font=small_font)
   if chart_type == "barh":
     x_caption_x = x1 - 56
