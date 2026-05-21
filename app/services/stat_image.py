@@ -159,23 +159,16 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
   if not lines:
     lines = ["Нет данных"]
 
-  title_font = _load_font(28)
   body_font = _load_font(24)
   emoji_font = _load_emoji_font(24)
-  title_emoji_font = _load_emoji_font(28)
   left_pad = 36
   right_pad = 36
   top_pad = 28
   bottom_pad = 28
   line_gap = 10
-  section_gap = 22
 
   probe = Image.new("RGB", (32, 32), "white")
   draw = ImageDraw.Draw(probe)
-
-  title_bbox = draw.textbbox((0, 0), title, font=title_font)
-  title_height = max(title_bbox[3] - title_bbox[1], _line_height(draw, title, title_font))
-  title_width = _line_width(draw, title, title_font, title_emoji_font)
 
   line_heights: list[int] = []
   max_line_width = 0
@@ -189,16 +182,14 @@ def render_stat_table_png(*, title: str, report: str) -> bytes:
     max_line_width = max(max_line_width, w)
     line_heights.append(h)
 
-  width = max(480, left_pad + max(title_width, max_line_width) + right_pad)
-  height = top_pad + title_height + section_gap
+  width = max(480, left_pad + max_line_width + right_pad)
+  height = top_pad
   height += sum(line_heights) + line_gap * max(0, len(line_heights) - 1)
   height += bottom_pad
 
   image = Image.new("RGBA", (width, height), "#ffffff")
   draw = ImageDraw.Draw(image)
-  _draw_line(image, draw, x=left_pad, y=top_pad, text=title, fill="#1f2937", text_font=title_font, emoji_font=title_emoji_font)
-
-  y = top_pad + title_height + section_gap
+  y = top_pad
   for i, line in enumerate(lines):
     if line != "":
       _draw_line(image, draw, x=left_pad, y=y, text=line, fill="#111827", text_font=body_font, emoji_font=emoji_font)

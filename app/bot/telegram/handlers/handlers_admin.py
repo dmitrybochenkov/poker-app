@@ -469,9 +469,17 @@ async def _notify_players_about_finish(*, players: list) -> None:
 
       text = _build_user_chips_text(chips=None, money_kopecks=None, reaction=None)
       if user.notification_platform == "tg" and user.telegram_id is not None and telegram_bot is not None:
-        await telegram_bot.send_message(chat_id=user.telegram_id, text=text, reply_markup=main_keyboard)
+        await telegram_bot.send_message(
+          chat_id=user.telegram_id,
+          text=text,
+          reply_markup=await tg_main_dynamic_keyboard(user),
+        )
       elif user.notification_platform == "vk" and user.vk_id is not None:
-        await send_vk_message(user_id=user.vk_id, message=text, keyboard=vk_main_keyboard)
+        await send_vk_message(
+          user_id=user.vk_id,
+          message=text,
+          keyboard=await vk_main_dynamic_keyboard(user),
+        )
 
 
 async def _notify_about_buyin(
@@ -991,7 +999,31 @@ async def create_poll_set_month(callback: CallbackQuery) -> None:
       return
     month = _parse_month_key(str(callback.data).split(":", 1)[1])
     await PollConfigRepository(session).set_active_month(month=month)
+    approved_users = await UserRepository(session).list_approved()
     await session.commit()
+  notify_text = "📊 Стартовал опрос на дату следующего покера.\n❗ Не забудь проголосовать."
+  from app.bot.telegram.runtime import telegram_bot
+  if telegram_bot is not None:
+    for user in approved_users:
+      if user.telegram_id is not None:
+        try:
+          await telegram_bot.send_message(
+            chat_id=int(user.telegram_id),
+            text=notify_text,
+            reply_markup=await tg_main_dynamic_keyboard(user),
+          )
+        except Exception:
+          pass
+  for user in approved_users:
+    if user.vk_id is not None:
+      try:
+        await send_vk_message(
+          user_id=int(user.vk_id),
+          message=notify_text,
+          keyboard=await vk_main_dynamic_keyboard(user),
+        )
+      except Exception:
+        pass
   await _clear_inline_keyboard(callback)
   if callback.message is not None:
     await callback.message.answer(f"Опрос на {month:%m.%Y} создан.")

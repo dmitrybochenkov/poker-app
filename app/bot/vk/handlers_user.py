@@ -280,6 +280,24 @@ def _default_betting_indicator(*, indicators, mode: str):
   return item
 
 
+def _format_stat_caption(
+  *,
+  report_type: str,
+  indicators: list,
+  years: list[int] | None = None,
+  include_period: bool = False,
+) -> str:
+  lines = [report_type]
+  if include_period:
+    year_values = sorted({int(y) for y in (years or [])})
+    period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
+    lines.append(f"Период: {period}.")
+  pics = [str(getattr(item, "pic", "")).strip() for item in indicators if str(getattr(item, "pic", "")).strip()]
+  if pics:
+    lines.append(f"Показатели: {', '.join(pics)}.")
+  return "\n".join(lines)
+
+
 def _strip_html_tags(text: str) -> str:
   return text.replace("<b>", "").replace("</b>", "")
 
@@ -1518,12 +1536,17 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         ).get_poker_stat(indicators=selected, years=selected_years, sort_pic=selected[0].pic)
         await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
         await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-        image_bytes = render_stat_table_png(title="Статистика покера", report=report)
+        image_bytes = render_stat_table_png(title="", report=report)
         await send_vk_photo(
           user_id=user_id,
           image_bytes=image_bytes,
           filename="poker_stat.png",
-          message="Статистика покера",
+          message=_format_stat_caption(
+            report_type="Статистика покера",
+            indicators=selected,
+            years=selected_years,
+            include_period=True,
+          ),
           keyboard=poker_keyboard,
         )
         vk_user_contexts.setdefault(user_id, {})["pokerstat_years"] = ""
@@ -1612,12 +1635,17 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       ).get_poker_stat(indicators=selected, years=selected_years, sort_pic=sort_pic)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    image_bytes = render_stat_table_png(title="Статистика покера", report=report)
+    image_bytes = render_stat_table_png(title="", report=report)
     await send_vk_photo(
       user_id=user_id,
       image_bytes=image_bytes,
       filename="poker_stat.png",
-      message="Статистика покера",
+      message=_format_stat_caption(
+        report_type="Статистика покера",
+        indicators=selected,
+        years=selected_years,
+        include_period=True,
+      ),
       keyboard=poker_keyboard,
     )
     vk_user_contexts.setdefault(user_id, {})["pokerstat_years"] = ""
@@ -1718,12 +1746,19 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         ).get_betting_stat(indicators=selected, mode=mode, years=selected_years, sort_pic=selected[0].pic)
         await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
         await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-        image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
+        image_bytes = render_stat_table_png(title="", report=report)
         await send_vk_photo(
           user_id=user_id,
           image_bytes=image_bytes,
           filename="betting_stat.png",
-          message="Статистика ставок",
+          message=_format_stat_caption(
+            report_type=(
+              "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+            ),
+            indicators=selected,
+            years=selected_years,
+            include_period=(mode == "all"),
+          ),
         )
         vk_user_contexts.setdefault(user_id, {})["betstat_years"] = ""
         vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""
@@ -1819,12 +1854,19 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       ).get_betting_stat(indicators=selected, mode=mode, years=selected_years, sort_pic=sort_pic)
     await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово")
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
+    image_bytes = render_stat_table_png(title="", report=report)
     await send_vk_photo(
       user_id=user_id,
       image_bytes=image_bytes,
       filename="betting_stat.png",
-      message="Статистика ставок",
+      message=_format_stat_caption(
+        report_type=(
+          "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+        ),
+        indicators=selected,
+        years=selected_years,
+        include_period=(mode == "all"),
+      ),
     )
     vk_user_contexts.setdefault(user_id, {})["betstat_years"] = ""
     vk_user_contexts.setdefault(user_id, {})["betstat_selected_ids"] = ""

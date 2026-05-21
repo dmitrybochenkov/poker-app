@@ -376,6 +376,24 @@ def _default_betting_indicator(*, indicators, mode: str):
   return item
 
 
+def _format_stat_caption(
+  *,
+  report_type: str,
+  indicators: list,
+  years: list[int] | None = None,
+  include_period: bool = False,
+) -> str:
+  lines = [report_type]
+  if include_period:
+    year_values = sorted({int(y) for y in (years or [])})
+    period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
+    lines.append(f"Период: {period}.")
+  pics = [str(getattr(item, "pic", "")).strip() for item in indicators if str(getattr(item, "pic", "")).strip()]
+  if pics:
+    lines.append(f"Показатели: {', '.join(pics)}.")
+  return "\n".join(lines)
+
+
 async def _notify_admins_about_room_join(
   *,
   session,
@@ -1750,10 +1768,15 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         years=selected_years,
         sort_pic=selected[0].pic,
       )
-      image_bytes = render_stat_table_png(title="Статистика покера", report=report)
+      image_bytes = render_stat_table_png(title="", report=report)
       await callback.message.answer_photo(
         photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
-        caption="Статистика покера",
+        caption=_format_stat_caption(
+          report_type="Статистика покера",
+          indicators=selected,
+          years=selected_years,
+          include_period=True,
+        ),
         reply_markup=poker_keyboard,
       )
       await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
@@ -1883,10 +1906,15 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
       years=selected_years,
       sort_pic=sort_pic,
     )
-  image_bytes = render_stat_table_png(title="Статистика покера", report=report)
+  image_bytes = render_stat_table_png(title="", report=report)
   await callback.message.answer_photo(
     photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
-    caption="Статистика покера",
+    caption=_format_stat_caption(
+      report_type="Статистика покера",
+      indicators=selected,
+      years=selected_years,
+      include_period=True,
+    ),
     reply_markup=poker_keyboard,
   )
   await state.update_data(pokerstat_years=[], pokerstat_selected_ids=[], pokerstat_sort_id=None)
@@ -2158,10 +2186,17 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         years=selected_years,
         sort_pic=selected[0].pic,
       )
-      image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
+      image_bytes = render_stat_table_png(title="", report=report)
       await callback.message.answer_photo(
         photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
-        caption="Статистика ставок",
+        caption=_format_stat_caption(
+          report_type=(
+            "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+          ),
+          indicators=selected,
+          years=selected_years,
+          include_period=(mode == "all"),
+        ),
       )
       await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
       await callback.answer()
@@ -2296,10 +2331,17 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
       years=selected_years,
       sort_pic=sort_pic,
     )
-  image_bytes = render_stat_table_png(title="Статистика ставок", report=report)
+  image_bytes = render_stat_table_png(title="", report=report)
   await callback.message.answer_photo(
     photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
-    caption="Статистика ставок",
+    caption=_format_stat_caption(
+      report_type=(
+        "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+      ),
+      indicators=selected,
+      years=selected_years,
+      include_period=(mode == "all"),
+    ),
   )
   await state.update_data(betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None)
   await callback.answer()

@@ -6,7 +6,7 @@ class NewUserBtns(Enum):
   REGISTRATION = "💾 Зарегистрироваться"
 
 class MainBtns(Enum):
-  NEXT_POKER_DATE = "📅 Дата следующего покера"
+  NEXT_POKER_DATE = "📅 Следующий покер"
   ROOM = "♣️ Покер рум"
   POKER = "💍 Про покер"
   BETTING = "🍀 Про ставки"

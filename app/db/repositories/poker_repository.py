@@ -26,8 +26,8 @@ class PokerRepository:
     return result.first()
 
   async def finish(self, poker: Poker) -> Poker:
-    # Move poker to chips-entry stage, but keep it "going" until final calculation.
-    poker.is_going = True
+    # Move poker to chips-entry stage and close room/betting access.
+    poker.is_going = False
     poker.is_bettable = False
     poker.is_ready_for_chips_entering = True
     await self.session.commit()
