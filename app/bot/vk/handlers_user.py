@@ -37,7 +37,7 @@ from app.bot.shared.chips_runtime import (
 )
 from app.bot.vk.keyboards import (
   admin_main_keyboard,
-  betting_keyboard,
+  betting_dynamic_keyboard,
   betting_current_keyboard,
   betting_info_keyboard,
   poker_keyboard,
@@ -637,6 +637,13 @@ async def _approved_vk_keyboard(user: User) -> str:
   )
 
 
+async def _betting_vk_keyboard() -> str:
+  async with SessionFactory() as session:
+    active = await PokerRepository(session).get_started()
+  is_open = bool(active is not None and bool(active[0].is_bettable))
+  return betting_dynamic_keyboard(include_make_bet=is_open)
+
+
 async def _post_bet_vk_keyboard_for_user(*, vk_id: int) -> str:
   async with SessionFactory() as session:
     user = await UserRepository(session).get_by_vk_id(vk_id)
@@ -1174,7 +1181,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
         text=Text.user.BETTING_NOT_OPEN.value,
       )
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=await _betting_vk_keyboard())
       return PlainTextResponse("ok")
     context = vk_user_contexts.setdefault(user_id, {})
     context["bet_tournament_type"] = tournament_type
@@ -1294,7 +1301,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       vk_user_contexts.pop(user_id, None)
       await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_MENU.value)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=await _betting_vk_keyboard())
       return PlainTextResponse("ok")
     context = vk_user_contexts.get(user_id, {})
     tournament_type = context.get("bet_tournament_type")
@@ -1326,17 +1333,17 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       vk_user_states.pop(user_id, None)
       vk_user_contexts.pop(user_id, None)
       await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=await _betting_vk_keyboard())
       return PlainTextResponse("ok")
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
     await _delete_event_message_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     if status == "already_bet":
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_ALREADY_EXISTS.value, keyboard=betting_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_ALREADY_EXISTS.value, keyboard=await _betting_vk_keyboard())
     elif status in {"betting_closed", "user_not_approved", "invalid_tournament", "missing_params"}:
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=await _betting_vk_keyboard())
     elif status == "invalid_amount" or created is None:
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=betting_keyboard)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_NOT_OPEN.value, keyboard=await _betting_vk_keyboard())
     else:
       post_bet_keyboard = await _post_bet_vk_keyboard_for_user(vk_id=user_id)
       await send_vk_message(
@@ -1753,7 +1760,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
           filename="betting_stat.png",
           message=_format_stat_caption(
             report_type=(
-              "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+              "Регулярный турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
             ),
             indicators=selected,
             years=selected_years,
@@ -1861,7 +1868,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
       filename="betting_stat.png",
       message=_format_stat_caption(
         report_type=(
-          "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+          "Регулярный турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
         ),
         indicators=selected,
         years=selected_years,
@@ -2053,7 +2060,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.main.BETTING.value:
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=await _betting_vk_keyboard())
     return PlainTextResponse("ok")
 
   if text == Buttons.main.NEXT_POKER_DATE.value:
@@ -2249,7 +2256,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.betting_current.TO_MAIN.value:
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=await _betting_vk_keyboard())
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.MAKE_BET.value:

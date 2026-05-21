@@ -59,3 +59,7 @@ def main_dynamic_keyboard(*, is_admin: bool, has_active_poker: bool, has_active_
     has_active_poker=has_active_poker,
     has_active_poll=has_active_poll,
   )
+
+
+def betting_dynamic_keyboard(*, include_make_bet: bool) -> str:
+  return ReplyKbs.betting_dynamic_vk(include_make_bet=include_make_bet)

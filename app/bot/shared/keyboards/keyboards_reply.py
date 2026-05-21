@@ -214,31 +214,45 @@ class ReplyKbs:
 
   @classmethod
   def betting_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.betting_dynamic_tg(include_make_bet=True)
+
+  @classmethod
+  def betting_dynamic_tg(cls, *, include_make_bet: bool) -> ReplyKeyboardMarkup:
+    buttons = []
+    if include_make_bet:
+      buttons.append(Buttons.betting.MAKE_BET)
+    buttons.extend(
+      [
+        Buttons.betting.CURRENT_TOURS,
+        Buttons.betting.BETTING_STAT,
+        Buttons.betting.BETTING_INFO,
+        Buttons.betting.TO_MAIN,
+      ]
+    )
     return cls.make_tg(
-      _button_labels(
-        [
-          Buttons.betting.MAKE_BET,
-          Buttons.betting.CURRENT_TOURS,
-          Buttons.betting.BETTING_STAT,
-          Buttons.betting.BETTING_INFO,
-          Buttons.betting.TO_MAIN,
-        ]
-      ),
+      _button_labels(buttons),
       adjust=1,
     )
 
   @classmethod
   def betting_vk(cls) -> str:
+    return cls.betting_dynamic_vk(include_make_bet=True)
+
+  @classmethod
+  def betting_dynamic_vk(cls, *, include_make_bet: bool) -> str:
+    buttons = []
+    if include_make_bet:
+      buttons.append(Buttons.betting.MAKE_BET)
+    buttons.extend(
+      [
+        Buttons.betting.CURRENT_TOURS,
+        Buttons.betting.BETTING_STAT,
+        Buttons.betting.BETTING_INFO,
+        Buttons.betting.TO_MAIN,
+      ]
+    )
     return cls.make_vk(
-      _button_labels(
-        [
-          Buttons.betting.MAKE_BET,
-          Buttons.betting.CURRENT_TOURS,
-          Buttons.betting.BETTING_STAT,
-          Buttons.betting.BETTING_INFO,
-          Buttons.betting.TO_MAIN,
-        ]
-      ),
+      _button_labels(buttons),
       adjust=1,
       one_time=False,
       color="primary",

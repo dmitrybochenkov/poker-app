@@ -26,7 +26,7 @@ from app.bot.telegram.keyboards import (
   admin_main_keyboard,
   poll_menu_keyboard,
   new_user_keyboard,
-  betting_keyboard,
+  betting_dynamic_keyboard,
   betting_current_keyboard,
   betting_info_keyboard,
   poker_keyboard,
@@ -666,6 +666,13 @@ async def _approved_tg_keyboard(user: User):
   )
 
 
+async def _betting_tg_keyboard():
+  async with SessionFactory() as session:
+    active = await PokerRepository(session).get_started()
+  is_open = bool(active is not None and bool(active[0].is_bettable))
+  return betting_dynamic_keyboard(include_make_bet=is_open)
+
+
 async def _post_bet_tg_keyboard_for_user(*, telegram_id: int):
   async with SessionFactory() as session:
     user = await UserRepository(session).get_by_telegram_id(telegram_id)
@@ -1302,7 +1309,7 @@ async def poll_cancel(callback: CallbackQuery, state: FSMContext) -> None:
 async def open_betting_menu(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=await _betting_tg_keyboard())
 
 
 @router.message(F.text == Buttons.main.POKER.value)
@@ -1977,7 +1984,7 @@ async def show_year_betting_tournament_stat(message: Message, state: FSMContext)
 async def back_to_betting_from_current_tournaments(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
+  await message.answer(Text.user.BETTING_MENU.value, reply_markup=await _betting_tg_keyboard())
 
 
 @router.message(F.text == Buttons.betting.BETTING_STAT.value)
@@ -2191,7 +2198,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
         caption=_format_stat_caption(
           report_type=(
-            "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+            "Регулярный турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
           ),
           indicators=selected,
           years=selected_years,
@@ -2336,7 +2343,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
     photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
     caption=_format_stat_caption(
       report_type=(
-        "Текущий турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
+        "Регулярный турнир" if mode == "regular" else "Годовой турнир" if mode == "year" else "Статистика ставок"
       ),
       indicators=selected,
       years=selected_years,
@@ -2692,7 +2699,7 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
     user = await user_repository.get_by_telegram_id(callback.from_user.id)
     if user is None or not user.is_approved:
       await state.clear()
-      await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+      await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=await _betting_tg_keyboard())
       await callback.answer()
       return
     use_case = BetUseCases(
@@ -2710,7 +2717,7 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
     )
   if status != "ok" or bet_params is None:
     await state.clear()
-    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=await _betting_tg_keyboard())
     await callback.answer()
     return
   await state.set_state(RegistrationState.waiting_for_bet_amount)
@@ -2837,7 +2844,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
   await _delete_message_if_possible(callback)
   if choice != "yes":
     await state.clear()
-    await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_keyboard)
+    await callback.message.answer(Text.user.BETTING_MENU.value, reply_markup=await _betting_tg_keyboard())
     await callback.answer()
     return
   data = await state.get_data()
@@ -2869,17 +2876,17 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
         loser_name=loser_name,
       )
   except Exception:
-    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=await _betting_tg_keyboard())
     await state.clear()
     await callback.answer()
     return
 
   if status == "already_bet":
-    await callback.message.answer(Text.user.BETTING_ALREADY_EXISTS.value, reply_markup=betting_keyboard)
+    await callback.message.answer(Text.user.BETTING_ALREADY_EXISTS.value, reply_markup=await _betting_tg_keyboard())
   elif status in {"betting_closed", "user_not_approved", "invalid_tournament", "missing_params"}:
-    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=await _betting_tg_keyboard())
   elif status == "invalid_amount" or created is None:
-    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=betting_keyboard)
+    await callback.message.answer(Text.user.BETTING_NOT_OPEN.value, reply_markup=await _betting_tg_keyboard())
   else:
     post_bet_keyboard = await _post_bet_tg_keyboard_for_user(telegram_id=callback.from_user.id)
     await callback.message.answer(
