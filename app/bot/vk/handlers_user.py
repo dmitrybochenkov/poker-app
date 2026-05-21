@@ -226,7 +226,17 @@ def _render_poll_results_chart(
 ) -> bytes:
   day_counts = {d: int(c) for d, c in month_counts}
   days = days or _poll_days_for_month(month)
-  x_labels = [item.strftime("%d.%m") for item in days]
+  days = [item for item in days if int(day_counts.get(item, 0)) > 0]
+  weekday_short = {
+    0: "пн",
+    1: "вт",
+    2: "ср",
+    3: "чт",
+    4: "пт",
+    5: "сб",
+    6: "вс",
+  }
+  x_labels = [f"{item.strftime('%d.%m')}\n{weekday_short[item.weekday()]}" for item in days]
   if month_votes and user_names:
     day_to_index = {day: idx for idx, day in enumerate(days)}
     day_user_voted: dict[tuple[int, int], int] = {}
