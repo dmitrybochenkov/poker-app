@@ -28,6 +28,17 @@ BACKUP_MODELS: list[type] = [
 ]
 
 
+def _column_bindings(model: type) -> list[tuple[str, str]]:
+  mapper = sa_inspect(model)
+  return [
+    (
+      str(attr.columns[0].name),
+      str(attr.key),
+    )
+    for attr in mapper.column_attrs
+  ]
+
+
 def _normalize_value(value: Any) -> Any:
   if value is None:
     return ""
@@ -192,8 +203,8 @@ async def backup_tables_to_google(session: AsyncSession) -> None:
 
   for model in BACKUP_MODELS:
     table_name = str(model.__tablename__)
-    mapper = sa_inspect(model)
-    columns = [column.key for column in mapper.columns]
+    bindings = _column_bindings(model)
+    header_columns = [db_name for db_name, _ in bindings]
     state = await _get_sync_state(session=session, table_name=table_name)
     changed_rows = await _read_changed_rows(session=session, model=model, state=state)
     if not changed_rows:
@@ -210,7 +221,7 @@ async def backup_tables_to_google(session: AsyncSession) -> None:
       service=service,
       spreadsheet_id=spreadsheet_id,
       sheet_name=table_name,
-      columns=columns,
+      columns=header_columns,
     )
     row_map = await asyncio.to_thread(
       _read_row_id_map_sync,
@@ -222,7 +233,7 @@ async def backup_tables_to_google(session: AsyncSession) -> None:
     max_row_id = int(state.last_synced_row_id or 0)
     max_updated_at = state.last_synced_updated_at
     for row in changed_rows:
-      row_values = [_normalize_value(getattr(row, col)) for col in columns]
+      row_values = [_normalize_value(getattr(row, attr_key)) for _, attr_key in bindings]
       row_id = int(getattr(row, "row_id"))
       row_updated_at = getattr(row, "updated_at", None)
       target_row = row_map.get(row_id)
@@ -271,14 +282,14 @@ async def dump_all_tables_to_single_sheet_test(session: AsyncSession, *, sheet_n
   values: list[list[Any]] = []
   for model in BACKUP_MODELS:
     table_name = str(model.__tablename__)
-    mapper = sa_inspect(model)
-    columns = [column.key for column in mapper.columns]
+    bindings = _column_bindings(model)
+    header_columns = [db_name for db_name, _ in bindings]
     result = await session.execute(select(model).order_by(model.row_id.asc()))
     rows = list(result.scalars().all())
     values.append([f"=== {table_name} ==="])
-    values.append(columns)
+    values.append(header_columns)
     for row in rows:
-      values.append([_normalize_value(getattr(row, col)) for col in columns])
+      values.append([_normalize_value(getattr(row, attr_key)) for _, attr_key in bindings])
     values.append([])
 
   await asyncio.to_thread(

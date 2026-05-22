@@ -33,3 +33,5 @@ htmlcov/
 
 # Alembic cache
 alembic/__pycache__/
+
+credentials.json
