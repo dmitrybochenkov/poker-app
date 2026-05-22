@@ -2441,7 +2441,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
         return PlainTextResponse("ok")
       bet_repository = BetRepository(session)
-      unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
+      unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
       if not unpaid:
         await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_EMPTY.value, keyboard=await _betting_vk_keyboard())
         vk_user_states.pop(user_id, None)
@@ -2506,7 +2506,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
         return PlainTextResponse("ok")
       bet_repository = BetRepository(session)
       receipt_repository = BetPaymentReceiptRepository(session)
-      unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
+      unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
       if not unpaid:
         vk_user_states.pop(user_id, None)
         await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_EMPTY.value, keyboard=await _betting_vk_keyboard())
@@ -2576,7 +2576,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
             await backup_tables_to_google(session=session)
           except Exception:
             logger.exception("Failed to sync Google backup after VK is_paid update")
-          remain = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
+          remain = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
           remain_kopecks = sum(int(item.amount_kopecks) for item in remain)
           vk_user_states.pop(user_id, None)
           await send_vk_message(

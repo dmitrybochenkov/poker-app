@@ -2479,7 +2479,7 @@ async def start_pay_bet(message: Message, state: FSMContext) -> None:
       await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
       return
     bet_repository = BetRepository(session)
-    unpaid = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
+    unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
     if not unpaid:
       await message.answer(Text.user.BETTING_PAY_EMPTY.value, reply_markup=await _betting_tg_keyboard())
       await state.clear()
@@ -3079,7 +3079,7 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
     user_repository = UserRepository(session)
     bet_repository = BetRepository(session)
     receipt_repository = BetPaymentReceiptRepository(session)
-    unpaid = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
+    unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
     if not unpaid:
       await state.clear()
       await message.answer(Text.user.BETTING_PAY_EMPTY.value, reply_markup=await _betting_tg_keyboard())
@@ -3150,7 +3150,7 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
           await backup_tables_to_google(session=session)
         except Exception:
           logger.exception("Failed to sync Google backup after TG is_paid update")
-        remaining = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
+        remaining = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
         remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
         await state.clear()
         await message.answer(
