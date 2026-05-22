@@ -1,5 +1,6 @@
 from datetime import date
 import io
+import logging
 import random
 
 from aiogram import F, Router
@@ -93,6 +94,7 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 from app.services.buyins_chart import render_buyins_session_chart_png
+from app.services.google_backup import backup_tables_to_google
 from app.services.receipt_ocr import (
   extract_amount_rub,
   extract_operation_id,
@@ -102,6 +104,7 @@ from app.services.receipt_ocr import (
 )
 
 router = Router()
+logger = logging.getLogger(__name__)
 PAYMENT_OWNER_ROW_ID = 1
 
 
@@ -3134,6 +3137,10 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
           status="accepted",
         )
         await session.commit()
+        try:
+          await backup_tables_to_google(session=session)
+        except Exception:
+          logger.exception("Failed to sync Google backup after TG is_paid update")
         remaining = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
         remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
         await state.clear()

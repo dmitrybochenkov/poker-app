@@ -22,6 +22,7 @@ from app.db.models.stat_indicator import StatIndicator
 from app.db.models.achievement import Achievement
 from app.db.models.user import User
 from app.db.models.sync_state import SyncState
+from app.db.models.bet_payment_receipt import BetPaymentReceipt
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ BACKUP_MODELS: list[type] = [
   Poker,
   PokerData,
   Bet,
+  BetPaymentReceipt,
   BuyinData,
   BetTournament,
 ]

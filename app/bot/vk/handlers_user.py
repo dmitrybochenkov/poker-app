@@ -1,6 +1,7 @@
 from fastapi.responses import PlainTextResponse
 from datetime import date, datetime
 import asyncio
+import logging
 import random
 import urllib.request
 
@@ -107,6 +108,7 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 from app.services.buyins_chart import render_buyins_session_chart_png
+from app.services.google_backup import backup_tables_to_google
 from app.services.receipt_ocr import (
   extract_amount_rub,
   extract_operation_id,
@@ -117,6 +119,7 @@ from app.services.receipt_ocr import (
 
 STAT_SNACKBAR = "Обновлено"
 PAYMENT_OWNER_ROW_ID = 1
+logger = logging.getLogger(__name__)
 
 
 def _clear_vk_bet_draft_state(user_id: int) -> None:
@@ -2560,6 +2563,10 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
             status="accepted",
           )
           await session.commit()
+          try:
+            await backup_tables_to_google(session=session)
+          except Exception:
+            logger.exception("Failed to sync Google backup after VK is_paid update")
           remain = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
           remain_kopecks = sum(int(item.amount_kopecks) for item in remain)
           vk_user_states.pop(user_id, None)
