@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, func
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,3 +24,5 @@ class Poker(Base):
   is_ready_for_chips_entering: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   winners: Mapped[str | None] = mapped_column(nullable=True)
   loosers: Mapped[str | None] = mapped_column(nullable=True)
+  created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+  updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
   vk_api_version: str = "5.199"
 
   database_url: str = "sqlite+aiosqlite:///./poker_app.db"
+  google_backup_enabled: bool = False
+  google_spreadsheet_id: str = ""
+  google_credentials_path: str = "credentials.json"
 
   model_config = SettingsConfigDict(
     env_file=".env",

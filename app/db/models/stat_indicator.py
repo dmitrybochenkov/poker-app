@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Integer, String
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -14,3 +16,5 @@ class StatIndicator(Base):
   pic: Mapped[str] = mapped_column(String(32), nullable=False)
   for_current_tournaments: Mapped[str] = mapped_column(String(16), nullable=False)
   is_for_achievement: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+  created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+  updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

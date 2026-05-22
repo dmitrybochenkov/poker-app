@@ -12,6 +12,7 @@ from app.db.models.achievement import Achievement
 from app.db.models.poker_room_denied import PokerRoomDenied
 from app.db.models.poll_vote import PollVote
 from app.db.models.poll_config import PollConfig
+from app.db.models.sync_state import SyncState
 
 __all__ = [
   "User",
@@ -28,4 +29,5 @@ __all__ = [
   "PokerRoomDenied",
   "PollVote",
   "PollConfig",
+  "SyncState",
 ]

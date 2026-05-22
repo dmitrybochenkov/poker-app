@@ -12,4 +12,5 @@ class PollConfig(Base):
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
   poll_month: Mapped[date | None] = mapped_column(Date, nullable=True)
   is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+  created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
   updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

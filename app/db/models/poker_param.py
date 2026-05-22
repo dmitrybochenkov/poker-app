@@ -1,4 +1,6 @@
-from sqlalchemy import BigInteger, Integer, String
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -19,3 +21,5 @@ class PokerParam(Base):
   king_buyin_pic: Mapped[str | None] = mapped_column(String(16), nullable=True)
   super_buyin: Mapped[int | None] = mapped_column(Integer, nullable=True)
   super_buyin_pic: Mapped[str | None] = mapped_column(String(16), nullable=True)
+  created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+  updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

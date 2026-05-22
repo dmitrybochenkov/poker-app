@@ -400,10 +400,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for p in params[:20]:
       keyboard.button(
-        text=(
-          f"ID {p.row_id}: {p.buyin_size_chips}/"
-          f"{InlineKbs._format_rub_from_kopecks(p.buyin_size_kopecks)}, BB {p.bb_size_chips}"
-        ),
+        text=f"ID {p.row_id}",
         callback_data=f"pokerstart:{p.row_id}",
       )
     keyboard.adjust(1)
@@ -781,10 +778,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": (
-                f"ID {p.row_id}: {p.buyin_size_chips}/"
-                f"{InlineKbs._format_rub_from_kopecks(p.buyin_size_kopecks)}, BB {p.bb_size_chips}"
-              )[:40],
+              "label": f"ID {p.row_id}"[:40],
               "payload": {
                 "action": "poker_start_param",
                 "params_id": p.row_id,

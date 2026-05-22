@@ -2,6 +2,7 @@ from fastapi.responses import PlainTextResponse
 from datetime import date
 from types import SimpleNamespace
 import random
+import logging
 
 from app.application.exceptions import (
   UserAlreadyApprovedError,
@@ -87,8 +88,10 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
+from app.services.google_backup import backup_tables_to_google
 
 VK_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
+logger = logging.getLogger(__name__)
 
 
 def _shift_month(value: date, delta: int) -> date:
@@ -1970,7 +1973,20 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         return PlainTextResponse("ok")
     await send_vk_message(
       user_id=user_id,
-      message=Text.admin.POKER_PARAMS_CHOOSE.value,
+      message="\n\n".join(
+        [
+          Text.admin.POKER_PARAMS_CHOOSE.value,
+          *[
+            (
+              f"🎲 ID: {p.row_id}\n"
+              f"Закуп: ⭕ {p.buyin_size_chips} / 💲 {int(p.buyin_size_kopecks) // 100}\n"
+              f"ББ: {p.bb_size_chips} | 🔝 Макс закуп: {p.max_buyins}\n"
+              f"Большой / Супер закуп: 💸 {p.big_buyin} / 🤑 {p.super_buyin}"
+            )
+            for p in params
+          ],
+        ]
+      ),
       keyboard=poker_params_keyboard(params=params),
     )
     return PlainTextResponse("ok")
@@ -2098,6 +2114,10 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
         winners=winners_text,
         loosers=loosers_text,
       )
+      try:
+        await backup_tables_to_google(session=session)
+      except Exception:
+        logger.exception("Google backup failed after poker calculation (VK).")
 
       result_lines = [
         Text.admin.POKER_CALC_SUCCESS.value,

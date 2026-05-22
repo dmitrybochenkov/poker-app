@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, Integer, String
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -28,6 +31,8 @@ class User(Base):
   notification_platform: Mapped[str | None] = mapped_column(String(2), nullable=True)
   tel_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
   bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+  created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+  updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
   __table_args__ = (
     CheckConstraint(
