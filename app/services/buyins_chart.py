@@ -112,7 +112,7 @@ def render_buyins_history_chart_png(
 
   legend_x = x1 + 24
   legend_y = y1 + 8
-  sorted_series = sorted(series.items(), key=lambda item: item[1][-1][1] if item[1] else 0, reverse=True)
+  sorted_series = sorted(series.items(), key=lambda item: max((y for _, y in item[1]), default=0), reverse=True)
 
   for idx, (name, points) in enumerate(sorted_series):
     if not points:
@@ -131,9 +131,10 @@ def render_buyins_history_chart_png(
 
     ly = legend_y + idx * 28
     draw.line([(legend_x, ly + 10), (legend_x + 24, ly + 10)], fill=color, width=3)
-    draw.text((legend_x + 34, ly), f"{name} ({points[-1][1]})", fill="#111827", font=small_font)
+    max_value = max((int(y) for _, y in points), default=0)
+    draw.text((legend_x + 34, ly), f"{name} ({max_value})", fill="#111827", font=small_font)
 
-  draw.text((pad_left, y1 - 34), "Закупы", fill="#6b7280", font=small_font)
+  draw.text((x0 - 62, y1 - 34), "Закупы", fill="#6b7280", font=small_font)
   draw.text((x1 - 32, y0 + 44), "Время", fill="#6b7280", font=small_font)
 
   out = BytesIO()
@@ -147,6 +148,7 @@ def render_buyins_session_chart_png(
   series: dict[str, list[tuple[int, int]]],
   x_labels: list[str],
   chart_type: str = "line",
+  legend_value_mode: str = "sum",
 ) -> bytes:
   width = 1280
   height = 720
@@ -246,7 +248,10 @@ def render_buyins_session_chart_png(
   ]
   legend_x = x1 + 24
   legend_y = y1 + 8
-  sorted_series = sorted(series.items(), key=lambda item: sum(y for _, y in item[1]), reverse=True)
+  if chart_type == "line":
+    sorted_series = sorted(series.items(), key=lambda item: max((y for _, y in item[1]), default=0), reverse=True)
+  else:
+    sorted_series = sorted(series.items(), key=lambda item: sum(y for _, y in item[1]), reverse=True)
   stacked_bottoms: dict[int, int] = {i: 0 for i in range(len(x_labels))}
 
   for idx, (name, points) in enumerate(sorted_series):
@@ -303,8 +308,11 @@ def render_buyins_session_chart_png(
 
     ly = legend_y + idx * 28
     draw.line([(legend_x, ly + 10), (legend_x + 24, ly + 10)], fill=color, width=3)
-    total = sum(y for _, y in points)
-    draw.text((legend_x + 34, ly), f"{name} ({total})", fill="#111827", font=small_font)
+    if legend_value_mode == "max":
+      legend_value = max((int(y) for _, y in points), default=0)
+    else:
+      legend_value = sum(int(y) for _, y in points)
+    draw.text((legend_x + 34, ly), f"{name} ({legend_value})", fill="#111827", font=small_font)
 
   if chart_type == "barh":
     y_caption = "Даты"
@@ -315,7 +323,7 @@ def render_buyins_session_chart_png(
   else:
     y_caption = "Закупы"
     x_caption = "Время"
-  y_caption_x = pad_left - 82 if chart_type == "barh" else pad_left
+  y_caption_x = pad_left - 82 if chart_type == "barh" else x0 - 62
   draw.text((y_caption_x, y1 - 34), y_caption, fill="#6b7280", font=small_font)
   if chart_type == "barh":
     x_caption_x = x1 - 56

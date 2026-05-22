@@ -233,6 +233,7 @@ async def _build_poker_buyins_session_chart(*, session, poker_date: date) -> byt
     title=f"Закупы за игру {poker_date.strftime('%d.%m.%Y')}",
     series=points,
     x_labels=x_labels,
+    legend_value_mode="max",
   )
 
 

@@ -678,6 +678,7 @@ async def _build_poker_history_buyins_chart(*, session, target_date: date) -> by
     title=f"Закупы за игру {target_date.strftime('%d.%m.%Y')}",
     series=points,
     x_labels=x_labels,
+    legend_value_mode="max",
   )
 
 
