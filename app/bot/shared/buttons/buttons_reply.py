@@ -21,8 +21,8 @@ class PollMenuBtns(Enum):
 
 
 class MainInfoBtns(Enum):
-  POKER_INFO = "💍 Про покер"
-  BETTING_INFO = "🍀 Про ставки"
+  POKER_INFO = "ℹ️💍 Про покер"
+  BETTING_INFO = "ℹ️🍀 Про ставки"
   TO_MAIN = "🏠 На главную"
 
 class AdminMainBtns(Enum):
