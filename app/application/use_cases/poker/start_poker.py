@@ -28,6 +28,4 @@ class StartPokerUseCase:
     param = await self.poker_param_repository.get_by_row_id(params_id)
     if param is None:
       return None
-    if self.poker_room_denied_repository is not None:
-      await self.poker_room_denied_repository.clear_all()
     return await self.poker_repository.create(params_id=params_id)

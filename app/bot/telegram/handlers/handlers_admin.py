@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, timezone
 import random
 import logging
+from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -351,9 +352,17 @@ async def _build_poker_buyins_session_chart(*, session, poker_date: date) -> byt
   cumulative: dict[str, int] = {}
   points: dict[str, list[tuple[int, int]]] = {}
   x_labels: list[str] = []
+  msk_tz = ZoneInfo("Europe/Moscow")
 
   for idx, event in enumerate(events):
-    x_labels.append(event.created_at.strftime("%H:%M") if event.created_at is not None else str(idx + 1))
+    if event.created_at is not None:
+      event_dt = event.created_at
+      if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+      event_dt_msk = event_dt.astimezone(msk_tz)
+      x_labels.append(event_dt_msk.strftime("%H:%M"))
+    else:
+      x_labels.append(str(idx + 1))
     for name in list(points.keys()):
       points[name].append((idx, cumulative.get(name, 0)))
     name = str(event.player_name)
@@ -720,6 +729,7 @@ async def finish_poker(message: Message) -> None:
     poker_data_repository = PokerDataRepository(session)
     players = await poker_data_repository.list_players(date=poker.date)
     await poker_repository.finish(poker)
+    await PokerRoomDeniedRepository(session).clear_all()
   await _notify_players_about_finish(players=players)
   await message.answer(Text.admin.POKER_FINISH_SUCCESS.value)
   if players:

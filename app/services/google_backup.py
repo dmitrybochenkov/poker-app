@@ -11,15 +11,27 @@ from sqlalchemy.inspection import inspect as sa_inspect
 
 from app.config.settings import settings
 from app.db.models.bet import Bet
+from app.db.models.bet_param import BetParam
 from app.db.models.bet_tournament import BetTournament
+from app.db.models.bet_tournament_param import BetTournamentParam
 from app.db.models.buyin_data import BuyinData
 from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
+from app.db.models.poker_param import PokerParam
+from app.db.models.stat_indicator import StatIndicator
+from app.db.models.achievement import Achievement
+from app.db.models.user import User
 from app.db.models.sync_state import SyncState
 
 logger = logging.getLogger(__name__)
 
 BACKUP_MODELS: list[type] = [
+  User,
+  PokerParam,
+  BetParam,
+  BetTournamentParam,
+  StatIndicator,
+  Achievement,
   Poker,
   PokerData,
   Bet,
