@@ -40,6 +40,32 @@ def phone_tail_matches(text: str, tel_number: str | None) -> bool | None:
   return tail in text_digits
 
 
+def extract_phone_tail4(text: str, tel_number: str | None) -> str | None:
+  if not tel_number:
+    return None
+  digits = "".join(ch for ch in tel_number if ch.isdigit())
+  if len(digits) < 4:
+    return None
+  tail = digits[-4:]
+  text_digits = re.sub(r"\D", "", text or "")
+  return tail if tail in text_digits else None
+
+
+def extract_operation_id(text: str) -> str | None:
+  if not text:
+    return None
+  normalized = " ".join((text or "").replace("\n", " ").split())
+  patterns = [
+    r"(?:операц(?:ия|ии|ией)?|operation|op|id)\s*[:№#]?\s*([A-Za-z0-9\-]{6,40})",
+    r"(?:чек|квитанц(?:ия|ии)?)\s*[:№#]?\s*([A-Za-z0-9\-]{6,40})",
+  ]
+  for pattern in patterns:
+    match = re.search(pattern, normalized, flags=re.IGNORECASE)
+    if match:
+      return match.group(1).strip().lower()
+  return None
+
+
 def ocr_text_from_image_bytes(image_bytes: bytes) -> str:
   if not image_bytes or pytesseract is None:
     return ""

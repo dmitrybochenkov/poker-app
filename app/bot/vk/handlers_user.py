@@ -89,6 +89,7 @@ from app.bot.vk.state import (
   vk_user_states,
 )
 from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_payment_receipt_repository import BetPaymentReceiptRepository
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
@@ -106,7 +107,13 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 from app.services.buyins_chart import render_buyins_session_chart_png
-from app.services.receipt_ocr import extract_amount_rub, ocr_text_from_image_bytes, phone_tail_matches
+from app.services.receipt_ocr import (
+  extract_amount_rub,
+  extract_operation_id,
+  extract_phone_tail4,
+  ocr_text_from_image_bytes,
+  phone_tail_matches,
+)
 
 STAT_SNACKBAR = "Обновлено"
 PAYMENT_OWNER_ROW_ID = 1
@@ -185,6 +192,25 @@ def _extract_vk_attachment_url(raw_message: dict | None) -> str | None:
       url = doc.get("url")
       if isinstance(url, str) and url:
         return url
+  return None
+
+
+def _extract_vk_external_file_id(raw_message: dict | None) -> str | None:
+  attachments = (raw_message or {}).get("attachments") or []
+  for item in attachments:
+    item_type = str(item.get("type") or "")
+    if item_type == "photo":
+      photo = item.get("photo") or {}
+      owner_id = photo.get("owner_id")
+      photo_id = photo.get("id")
+      if owner_id is not None and photo_id is not None:
+        return f"photo:{owner_id}_{photo_id}"
+    if item_type == "doc":
+      doc = item.get("doc") or {}
+      owner_id = doc.get("owner_id")
+      doc_id = doc.get("id")
+      if owner_id is not None and doc_id is not None:
+        return f"doc:{owner_id}_{doc_id}"
   return None
 
 
@@ -2451,17 +2477,13 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
       )
       return PlainTextResponse("ok")
 
-    entered_rub = int(text_value) if text_value.isdigit() and int(text_value) > 0 else None
     has_receipt = bool((raw_message or {}).get("attachments"))
-    ocr_text = ""
-    ocr_phone_match: bool | None = None
-    if entered_rub is None and has_receipt:
-      receipt_bytes = await _download_vk_receipt_bytes(raw_message)
-      ocr_text = ocr_text_from_image_bytes(receipt_bytes or b"")
-      entered_rub = extract_amount_rub(ocr_text)
-    if entered_rub is None and not has_receipt:
+    if not has_receipt:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_AMOUNT_INVALID.value, keyboard=await _betting_vk_keyboard())
       return PlainTextResponse("ok")
+    receipt_bytes = await _download_vk_receipt_bytes(raw_message)
+    ocr_text = ocr_text_from_image_bytes(receipt_bytes or b"")
+    entered_rub = extract_amount_rub(ocr_text)
 
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
@@ -2471,22 +2493,72 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
         await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
         return PlainTextResponse("ok")
       bet_repository = BetRepository(session)
+      receipt_repository = BetPaymentReceiptRepository(session)
       unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
       if not unpaid:
         vk_user_states.pop(user_id, None)
         await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_EMPTY.value, keyboard=await _betting_vk_keyboard())
         return PlainTextResponse("ok")
 
-      if entered_rub is not None:
-        owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
-        if has_receipt and ocr_text:
-          ocr_phone_match = phone_tail_matches(ocr_text, owner.tel_number if owner is not None else None)
-        else:
-          ocr_phone_match = None
+      external_file_id = _extract_vk_external_file_id(raw_message)
+      if external_file_id:
+        existing_by_file = await receipt_repository.get_by_platform_and_external_file_id(
+          platform="vk",
+          external_file_id=external_file_id,
+        )
+        if existing_by_file is not None:
+          admin_text = (
+            "⚠️ Дубликат квитанции по ставкам\n"
+            "reason: duplicate_file\n"
+            f"Игрок: {user.name}\n"
+            f"external_file_id: {external_file_id}"
+          )
+          from app.bot.telegram.runtime import telegram_bot
+          for admin_id in await user_repository.list_telegram_admin_ids():
+            if telegram_bot is not None:
+              await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+          for admin_vk_id in await user_repository.list_vk_admin_ids():
+            await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+          vk_user_states.pop(user_id, None)
+          await send_vk_message(user_id=user_id, message="Эта квитанция уже была обработана.", keyboard=await _betting_vk_keyboard())
+          return PlainTextResponse("ok")
+
+      owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
+      operation_id = extract_operation_id(ocr_text)
+      if operation_id:
+        existing_by_op = await receipt_repository.get_by_operation_id(operation_id=operation_id)
+        if existing_by_op is not None:
+          admin_text = (
+            "⚠️ Дубликат операции по ставкам\n"
+            "reason: duplicate_operation\n"
+            f"Игрок: {user.name}\n"
+            f"operation_id: {operation_id}"
+          )
+          from app.bot.telegram.runtime import telegram_bot
+          for admin_id in await user_repository.list_telegram_admin_ids():
+            if telegram_bot is not None:
+              await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+          for admin_vk_id in await user_repository.list_vk_admin_ids():
+            await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+          vk_user_states.pop(user_id, None)
+          await send_vk_message(user_id=user_id, message="Эта операция уже была обработана.", keyboard=await _betting_vk_keyboard())
+          return PlainTextResponse("ok")
+      ocr_phone_match = phone_tail_matches(ocr_text, owner.tel_number if owner is not None else None)
+      recipient_tail4 = extract_phone_tail4(ocr_text, owner.tel_number if owner is not None else None)
+      if entered_rub is not None and ocr_phone_match is True:
         paid_kopecks = int(entered_rub) * 100
         to_close = _pick_fifo_bets_to_close(bets=unpaid, paid_kopecks=paid_kopecks)
-        if to_close and (ocr_phone_match is not False):
+        if to_close:
           await bet_repository.mark_paid(bets=to_close)
+          await receipt_repository.create(
+            user_row_id=int(user.row_id),
+            platform="vk",
+            external_file_id=external_file_id,
+            operation_id=operation_id,
+            amount_kopecks_ocr=paid_kopecks,
+            recipient_tail4_ocr=recipient_tail4,
+            status="accepted",
+          )
           await session.commit()
           remain = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
           remain_kopecks = sum(int(item.amount_kopecks) for item in remain)
@@ -2501,28 +2573,23 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
           )
           return PlainTextResponse("ok")
 
-        total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
-        admin_text = (
-          "⚠️ Нужна ручная проверка оплаты ставки\n"
-          f"Игрок: {user.name}\n"
-          f"Сумма от игрока: {entered_rub} ₽\n"
-          f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
-          f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
-        )
-        from app.bot.telegram.runtime import telegram_bot
-        for admin_id in await user_repository.list_telegram_admin_ids():
-          if telegram_bot is not None:
-            await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
-        for admin_vk_id in await user_repository.list_vk_admin_ids():
-          await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
-        vk_user_states.pop(user_id, None)
-        await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_NEED_MANUAL.value, keyboard=await _betting_vk_keyboard())
-        return PlainTextResponse("ok")
-
+      total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
       admin_text = (
-        "🧾 Получена квитанция по ставкам\n"
+        "⚠️ Нужна ручная проверка оплаты ставки\n"
+        "reason: manual_mismatch\n"
         f"Игрок: {user.name}\n"
-        "Проверьте сумму вручную."
+        f"Сумма OCR: {entered_rub if entered_rub is not None else 'не определена'} ₽\n"
+        f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
+        f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
+      )
+      await receipt_repository.create(
+        user_row_id=int(user.row_id),
+        platform="vk",
+        external_file_id=external_file_id,
+        operation_id=operation_id,
+        amount_kopecks_ocr=(int(entered_rub) * 100) if entered_rub is not None else None,
+        recipient_tail4_ocr=recipient_tail4,
+        status="manual",
       )
       from app.bot.telegram.runtime import telegram_bot
       for admin_id in await user_repository.list_telegram_admin_ids():
@@ -2530,8 +2597,9 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
           await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
       for admin_vk_id in await user_repository.list_vk_admin_ids():
         await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+      await session.commit()
       vk_user_states.pop(user_id, None)
-      await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_RECEIPT_SENT.value, keyboard=await _betting_vk_keyboard())
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_NEED_MANUAL.value, keyboard=await _betting_vk_keyboard())
       return PlainTextResponse("ok")
 
   if text == Buttons.main.ROOM.value:
