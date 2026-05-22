@@ -1,9 +1,10 @@
 from fastapi.responses import PlainTextResponse
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import asyncio
 import logging
 import random
 import urllib.request
+from zoneinfo import ZoneInfo
 
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
@@ -585,9 +586,16 @@ async def _build_poker_history_buyins_chart(*, session, target_date: date) -> by
   cumulative: dict[str, int] = {}
   points: dict[str, list[tuple[int, int]]] = {}
   x_labels: list[str] = []
+  msk_tz = ZoneInfo("Europe/Moscow")
 
   for idx, event in enumerate(buyin_events):
-    label = event.created_at.strftime("%H:%M") if event.created_at is not None else str(idx + 1)
+    if event.created_at is not None:
+      event_dt = event.created_at
+      if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+      label = event_dt.astimezone(msk_tz).strftime("%H:%M")
+    else:
+      label = str(idx + 1)
     x_labels.append(label)
     for name in list(points.keys()):
       points[name].append((idx, cumulative.get(name, 0)))
