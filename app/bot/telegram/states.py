@@ -10,6 +10,7 @@ class RegistrationState(StatesGroup):
   waiting_for_phone = State()
   waiting_for_corrected_name = State()
   waiting_for_bet_amount = State()
+  waiting_for_bet_payment_receipt = State()
 
 
 class AdminPokerState(StatesGroup):

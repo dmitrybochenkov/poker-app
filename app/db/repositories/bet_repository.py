@@ -93,3 +93,16 @@ class BetRepository:
       select(Bet).order_by(Bet.row_id.desc())
     )
     return list(result.scalars().all())
+
+  async def list_unpaid_for_user(self, *, better_id: int) -> list[Bet]:
+    result = await self.session.execute(
+      select(Bet)
+      .where(Bet.better_id == better_id, Bet.is_paid.is_(False))
+      .order_by(Bet.date.asc(), Bet.row_id.asc())
+    )
+    return list(result.scalars().all())
+
+  async def mark_paid(self, *, bets: list[Bet]) -> None:
+    for bet in bets:
+      bet.is_paid = True
+    await self.session.flush()

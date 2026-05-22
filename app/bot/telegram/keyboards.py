@@ -3,6 +3,7 @@ from app.bot.shared.keyboards.keyboards import InlineKbs, ReplyKbs
 main_keyboard = ReplyKbs.main_tg()
 main_admin_entry_keyboard = ReplyKbs.admin_main_entry_tg()
 poll_menu_keyboard = ReplyKbs.poll_menu_tg()
+main_info_keyboard = ReplyKbs.main_info_tg()
 admin_main_keyboard = ReplyKbs.admin_main_tg()
 new_user_keyboard = ReplyKbs.new_user_tg()
 betting_keyboard = ReplyKbs.betting_tg()

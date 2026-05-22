@@ -17,6 +17,7 @@ dependencies = [
   "vkbottle>=4.4.0",
   "greenlet>=3.0.3",
   "Pillow>=10.0.0",
+  "pytesseract>=0.3.13",
   "google-api-python-client>=2.170.0",
   "google-auth>=2.40.0",
 ]

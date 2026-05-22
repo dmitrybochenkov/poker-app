@@ -1,4 +1,5 @@
 from datetime import date
+import io
 import random
 
 from aiogram import F, Router
@@ -25,6 +26,7 @@ from app.bot.telegram.keyboards import (
   main_dynamic_keyboard,
   admin_main_keyboard,
   poll_menu_keyboard,
+  main_info_keyboard,
   new_user_keyboard,
   betting_dynamic_keyboard,
   betting_current_keyboard,
@@ -90,8 +92,10 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 from app.services.buyins_chart import render_buyins_session_chart_png
+from app.services.receipt_ocr import extract_amount_rub, ocr_text_from_image_bytes, phone_tail_matches
 
 router = Router()
+PAYMENT_OWNER_ROW_ID = 1
 
 
 def _money_kopecks_from_chips(*, chips: int, buyins: int, buyin_size_chips: int, buyin_size_kopecks: int) -> int:
@@ -112,6 +116,62 @@ def _format_rub_from_kopecks(value_kopecks: int) -> str:
   if kop == 0:
     return str(rub)
   return f"{rub}.{kop:02d}"
+
+
+def _format_payment_requisites(owner: User | None) -> str:
+  if owner is None:
+    return "реквизиты не указаны"
+  phone = (owner.tel_number or "").strip()
+  bank = (owner.bank_name or "").strip()
+  if phone and bank:
+    return f"{phone} ({bank})"
+  if phone:
+    return phone
+  return "реквизиты не указаны"
+
+
+def _format_unpaid_bets_lines(bets: list) -> str:
+  if not bets:
+    return "-"
+  return "\n".join(
+    f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+    for bet in bets
+  )
+
+
+def _pick_fifo_bets_to_close(*, bets: list, paid_kopecks: int) -> list:
+  selected: list = []
+  running = 0
+  for bet in bets:
+    running += int(bet.amount_kopecks)
+    selected.append(bet)
+    if running == paid_kopecks:
+      return selected
+    if running > paid_kopecks:
+      return []
+  return []
+
+
+async def _download_telegram_receipt_bytes(message: Message) -> bytes | None:
+  from app.bot.telegram.runtime import telegram_bot
+  if telegram_bot is None:
+    return None
+  file_id: str | None = None
+  if message.photo:
+    file_id = message.photo[-1].file_id
+  elif message.document is not None:
+    file_id = message.document.file_id
+  if not file_id:
+    return None
+  try:
+    tg_file = await telegram_bot.get_file(file_id)
+    if tg_file.file_path is None:
+      return None
+    buffer = io.BytesIO()
+    await telegram_bot.download_file(tg_file.file_path, destination=buffer)
+    return buffer.getvalue()
+  except Exception:
+    return None
 
 
 def _format_waiting_players(players: list) -> str:
@@ -1319,6 +1379,13 @@ async def open_poker_menu(message: Message) -> None:
   await message.answer(Text.user.POKER_MENU.value, reply_markup=poker_keyboard)
 
 
+@router.message(F.text == Buttons.main.INFO.value)
+async def open_info_menu(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  await message.answer("Раздел информации.", reply_markup=main_info_keyboard)
+
+
 @router.message(F.text == Buttons.main.NEXT_POKER_DATE.value)
 async def open_next_poker_date_menu(message: Message) -> None:
   if message.from_user is None:
@@ -1373,9 +1440,11 @@ async def back_from_admin_to_main(message: Message) -> None:
 
 
 @router.message(F.text == Buttons.betting.TO_MAIN.value)
-async def back_to_main_from_betting(message: Message) -> None:
+async def back_to_main_from_betting(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
+  if await state.get_state() == RegistrationState.waiting_for_bet_payment_receipt.state:
+    await state.clear()
   user = await _get_telegram_user(message.from_user.id)
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
@@ -1384,9 +1453,11 @@ async def back_to_main_from_betting(message: Message) -> None:
 
 
 @router.message(F.text == Buttons.poker.TO_MAIN.value)
-async def back_to_main_from_poker(message: Message) -> None:
+async def back_to_main_from_poker(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
+  if await state.get_state() == RegistrationState.waiting_for_bet_payment_receipt.state:
+    await state.clear()
   user = await _get_telegram_user(message.from_user.id)
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
@@ -1395,9 +1466,11 @@ async def back_to_main_from_poker(message: Message) -> None:
 
 
 @router.message(F.text == Buttons.room.TO_MAIN.value)
-async def back_to_main_from_room(message: Message) -> None:
+async def back_to_main_from_room(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
+  if await state.get_state() == RegistrationState.waiting_for_bet_payment_receipt.state:
+    await state.clear()
   user = await _get_telegram_user(message.from_user.id)
   if user is None:
     await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
@@ -1416,18 +1489,29 @@ async def back_to_main_from_poll_menu(message: Message) -> None:
   await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
 
 
-@router.message(F.text == Buttons.poker.POKER_INFO.value)
+@router.message(F.text.in_({Buttons.main_info.POKER_INFO.value, "ℹ️ Информация про покер"}))
 async def show_poker_info(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
   await message.answer(Text.user.POKER_STAT_BTN.value, reply_markup=poker_info_keyboard)
 
 
-@router.message(F.text == Buttons.betting.BETTING_INFO.value)
+@router.message(F.text.in_({Buttons.main_info.BETTING_INFO.value, "ℹ️ Информация про ставки"}))
 async def show_betting_info(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
   await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_info_keyboard)
+
+
+@router.message(F.text == Buttons.main_info.TO_MAIN.value)
+async def back_to_main_from_info(message: Message) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None:
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+  await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
 
 
 @router.message(F.text == Buttons.bettingInfo.BETTING_RULES.value)
@@ -2354,6 +2438,38 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
   await callback.answer()
 
 
+@router.message(F.text == Buttons.betting.PAY_BET.value)
+async def start_pay_bet(message: Message, state: FSMContext) -> None:
+  if not await _ensure_approved_telegram_user(message):
+    return
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    user = await user_repository.get_by_telegram_id(message.from_user.id)
+    if user is None or not user.is_approved:
+      await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+      return
+    bet_repository = BetRepository(session)
+    unpaid = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
+    if not unpaid:
+      await message.answer(Text.user.BETTING_PAY_EMPTY.value, reply_markup=await _betting_tg_keyboard())
+      await state.clear()
+      return
+    total_kopecks = sum(int(item.amount_kopecks) for item in unpaid)
+    owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
+    await state.set_state(RegistrationState.waiting_for_bet_payment_receipt)
+    await message.answer(
+      Text.user.BETTING_PAY_LIST.value.format(
+        lines=_format_unpaid_bets_lines(unpaid),
+        total_rub=_format_rub_from_kopecks(total_kopecks),
+        payment_requisites=_format_payment_requisites(owner),
+      ),
+      reply_markup=await _betting_tg_keyboard(),
+    )
+
+
 @router.message(F.text == Buttons.betting.MAKE_BET.value)
 async def start_make_bet(message: Message, state: FSMContext) -> None:
   if not await _ensure_approved_telegram_user(message):
@@ -2905,6 +3021,100 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
 @router.message(RegistrationState.waiting_for_bet_amount)
 async def repeat_bet_inline_flow(message: Message) -> None:
   await message.answer(Text.user.BETTING_SIZE_CHOOSE.value)
+
+
+@router.message(RegistrationState.waiting_for_bet_payment_receipt)
+async def process_bet_payment_receipt(message: Message, state: FSMContext) -> None:
+  if message.from_user is None:
+    await message.answer(Text.user.REGISTRATION_READ_ERROR.value, reply_markup=new_user_keyboard)
+    return
+  user = await _get_telegram_user(message.from_user.id)
+  if user is None or not user.is_approved:
+    await state.clear()
+    await message.answer(Text.user.STATUS_NEED_REGISTRATION.value, reply_markup=new_user_keyboard)
+    return
+
+  has_receipt = bool(message.photo) or (message.document is not None)
+  text_value = (message.text or "").strip()
+  if text_value == Buttons.betting.TO_MAIN.value:
+    await state.clear()
+    await message.answer(Text.user.BETTING_PAY_CANCELED.value)
+    await message.answer(Text.user.MAIN_MENU.value, reply_markup=await _approved_tg_keyboard(user))
+    return
+  entered_rub = int(text_value) if text_value.isdigit() and int(text_value) > 0 else None
+  ocr_text = ""
+  ocr_phone_match: bool | None = None
+  if entered_rub is None and has_receipt:
+    receipt_bytes = await _download_telegram_receipt_bytes(message)
+    ocr_text = ocr_text_from_image_bytes(receipt_bytes or b"")
+    entered_rub = extract_amount_rub(ocr_text)
+  if not has_receipt and entered_rub is None:
+    await message.answer(Text.user.BETTING_PAY_AMOUNT_INVALID.value, reply_markup=await _betting_tg_keyboard())
+    return
+
+  async with SessionFactory() as session:
+    user_repository = UserRepository(session)
+    bet_repository = BetRepository(session)
+    unpaid = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
+    if not unpaid:
+      await state.clear()
+      await message.answer(Text.user.BETTING_PAY_EMPTY.value, reply_markup=await _betting_tg_keyboard())
+      return
+
+    if entered_rub is not None:
+      owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
+      if has_receipt and ocr_text:
+        ocr_phone_match = phone_tail_matches(ocr_text, owner.tel_number if owner is not None else None)
+      else:
+        ocr_phone_match = None
+      paid_kopecks = int(entered_rub) * 100
+      to_close = _pick_fifo_bets_to_close(bets=unpaid, paid_kopecks=paid_kopecks)
+      if to_close and (ocr_phone_match is not False):
+        await bet_repository.mark_paid(bets=to_close)
+        await session.commit()
+        remaining = await bet_repository.list_unpaid_for_user(better_id=int(message.from_user.id))
+        remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
+        await state.clear()
+        await message.answer(
+          Text.user.BETTING_PAY_MATCHED.value.format(
+            count=len(to_close),
+            debt_rub=_format_rub_from_kopecks(remaining_kopecks),
+          ),
+          reply_markup=await _betting_tg_keyboard(),
+        )
+        return
+
+      total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
+      admin_text = (
+        "⚠️ Нужна ручная проверка оплаты ставки\n"
+        f"Игрок: {user.name}\n"
+        f"Сумма от игрока: {entered_rub} ₽\n"
+        f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
+        f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
+      )
+      from app.bot.telegram.runtime import telegram_bot
+      for admin_id in await user_repository.list_telegram_admin_ids():
+        if telegram_bot is not None:
+          await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+      for admin_vk_id in await user_repository.list_vk_admin_ids():
+        await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+      await state.clear()
+      await message.answer(Text.user.BETTING_PAY_NEED_MANUAL.value, reply_markup=await _betting_tg_keyboard())
+      return
+
+    admin_text = (
+      "🧾 Получена квитанция по ставкам\n"
+      f"Игрок: {user.name}\n"
+      "Проверьте сумму вручную."
+    )
+    from app.bot.telegram.runtime import telegram_bot
+    for admin_id in await user_repository.list_telegram_admin_ids():
+      if telegram_bot is not None:
+        await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+    for admin_vk_id in await user_repository.list_vk_admin_ids():
+      await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+    await state.clear()
+    await message.answer(Text.user.BETTING_PAY_RECEIPT_SENT.value, reply_markup=await _betting_tg_keyboard())
 
 
 @router.message(F.text.regexp(r"^\d{1,9}$"))

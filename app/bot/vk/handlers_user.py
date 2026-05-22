@@ -1,6 +1,8 @@
 from fastapi.responses import PlainTextResponse
 from datetime import date, datetime
+import asyncio
 import random
+import urllib.request
 
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
@@ -37,6 +39,7 @@ from app.bot.shared.chips_runtime import (
 )
 from app.bot.vk.keyboards import (
   admin_main_keyboard,
+  main_info_keyboard,
   betting_dynamic_keyboard,
   betting_current_keyboard,
   betting_info_keyboard,
@@ -75,6 +78,7 @@ from app.bot.vk.keyboards import (
 from app.bot.vk.notifications import notify_admins_about_registration
 from app.bot.vk.state import (
   WAITING_FOR_BET_AMOUNT,
+  WAITING_FOR_BET_PAYMENT_RECEIPT,
   WAITING_FOR_NEW_NAME,
   WAITING_FOR_OPTIONAL_BANK,
   WAITING_FOR_OPTIONAL_DETAILS_ACTION,
@@ -102,8 +106,10 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 from app.services.buyins_chart import render_buyins_session_chart_png
+from app.services.receipt_ocr import extract_amount_rub, ocr_text_from_image_bytes, phone_tail_matches
 
 STAT_SNACKBAR = "Обновлено"
+PAYMENT_OWNER_ROW_ID = 1
 
 
 def _clear_vk_bet_draft_state(user_id: int) -> None:
@@ -118,6 +124,81 @@ def _clear_vk_bet_draft_state(user_id: int) -> None:
     "bet_loser_name",
   ):
     ctx.pop(key, None)
+
+
+def _format_payment_requisites(owner: User | None) -> str:
+  if owner is None:
+    return "реквизиты не указаны"
+  phone = (owner.tel_number or "").strip()
+  bank = (owner.bank_name or "").strip()
+  if phone and bank:
+    return f"{phone} ({bank})"
+  if phone:
+    return phone
+  return "реквизиты не указаны"
+
+
+def _format_unpaid_bets_lines(bets: list) -> str:
+  if not bets:
+    return "-"
+  return "\n".join(
+    f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+    for bet in bets
+  )
+
+
+def _format_rub_from_kopecks(value_kopecks: int) -> str:
+  rub = int(value_kopecks) // 100
+  kop = abs(int(value_kopecks) % 100)
+  if kop == 0:
+    return str(rub)
+  return f"{rub}.{kop:02d}"
+
+
+def _pick_fifo_bets_to_close(*, bets: list, paid_kopecks: int) -> list:
+  selected: list = []
+  running = 0
+  for bet in bets:
+    running += int(bet.amount_kopecks)
+    selected.append(bet)
+    if running == paid_kopecks:
+      return selected
+    if running > paid_kopecks:
+      return []
+  return []
+
+
+def _extract_vk_attachment_url(raw_message: dict | None) -> str | None:
+  attachments = (raw_message or {}).get("attachments") or []
+  for item in attachments:
+    item_type = str(item.get("type") or "")
+    if item_type == "photo":
+      photo = item.get("photo") or {}
+      sizes = photo.get("sizes") or []
+      if sizes:
+        best = max(sizes, key=lambda s: int(s.get("width", 0)) * int(s.get("height", 0)))
+        url = best.get("url")
+        if isinstance(url, str) and url:
+          return url
+    if item_type == "doc":
+      doc = item.get("doc") or {}
+      url = doc.get("url")
+      if isinstance(url, str) and url:
+        return url
+  return None
+
+
+async def _download_vk_receipt_bytes(raw_message: dict | None) -> bytes | None:
+  url = _extract_vk_attachment_url(raw_message)
+  if not url:
+    return None
+  def _read() -> bytes | None:
+    try:
+      with urllib.request.urlopen(url, timeout=10) as response:
+        return response.read()
+    except Exception:
+      return None
+  return await asyncio.to_thread(_read)
 
 
 def _month_bounds(month: date) -> tuple[date, date]:
@@ -1904,7 +1985,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
   return None
 
 
-async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextResponse | None:
+async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict | None = None) -> PlainTextResponse | None:
   if text.isdigit():
     chips = int(text)
     async with SessionFactory() as session:
@@ -2002,6 +2083,7 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
 
   if text in {
     Buttons.main.BETTING.value,
+    Buttons.main.INFO.value,
     Buttons.main.NEXT_POKER_DATE.value,
     Buttons.poll_menu.VOTE.value,
     Buttons.poll_menu.RESULTS.value,
@@ -2012,18 +2094,17 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     Buttons.betting_current.YEAR_TOURNAMENT.value,
     Buttons.betting_current.TO_MAIN.value,
     Buttons.betting.BETTING_STAT.value,
-    Buttons.betting.BETTING_INFO.value,
     Buttons.bettingInfo.BETTING_RULES.value,
     Buttons.bettingInfo.BETTING_ACH_INFO.value,
     Buttons.bettingInfo.BETTING_STAT_INFO.value,
     Buttons.betting.MAKE_BET.value,
+    Buttons.betting.PAY_BET.value,
     Buttons.main.ROOM.value,
     Buttons.room.STATUS.value,
     Buttons.main.ADMIN.value,
     Buttons.admin_main.TO_MAIN.value,
     Buttons.main.POKER.value,
     Buttons.poker.TO_MAIN.value,
-    Buttons.poker.POKER_INFO.value,
     Buttons.pokerInfo.POKER_ACH_INFO.value,
     Buttons.pokerInfo.POKER_STAT_INFO.value,
     Buttons.poker.HISTORY.value,
@@ -2060,7 +2141,13 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.main.BETTING.value:
+    if vk_user_states.get(user_id) == WAITING_FOR_BET_PAYMENT_RECEIPT:
+      vk_user_states.pop(user_id, None)
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=await _betting_vk_keyboard())
+    return PlainTextResponse("ok")
+
+  if text == Buttons.main.INFO.value:
+    await send_vk_message(user_id=user_id, message="Раздел информации.", keyboard=main_info_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.main.NEXT_POKER_DATE.value:
@@ -2084,6 +2171,9 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.TO_MAIN.value:
+    if vk_user_states.get(user_id) == WAITING_FOR_BET_PAYMENT_RECEIPT:
+      vk_user_states.pop(user_id, None)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_CANCELED.value)
     user = await _get_vk_user(user_id)
     if user is None:
       await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
@@ -2121,12 +2211,20 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
-  if text == Buttons.poker.POKER_INFO.value:
+  if text in {Buttons.main_info.POKER_INFO.value, "ℹ️ Информация про покер"}:
     await send_vk_message(user_id=user_id, message=Text.user.POKER_STAT_BTN.value, keyboard=poker_info_keyboard)
     return PlainTextResponse("ok")
 
-  if text == Buttons.betting.BETTING_INFO.value:
+  if text in {Buttons.main_info.BETTING_INFO.value, "ℹ️ Информация про ставки"}:
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_info_keyboard)
+    return PlainTextResponse("ok")
+
+  if text == Buttons.main_info.TO_MAIN.value:
+    user = await _get_vk_user(user_id)
+    if user is None:
+      await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+      return PlainTextResponse("ok")
+    await send_vk_message(user_id=user_id, message=Text.user.MAIN_MENU.value, keyboard=await _approved_vk_keyboard(user))
     return PlainTextResponse("ok")
 
   if text == Buttons.bettingInfo.BETTING_RULES.value:
@@ -2297,6 +2395,33 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
     )
     return PlainTextResponse("ok")
 
+  if text == Buttons.betting.PAY_BET.value:
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None or not user.is_approved:
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+        return PlainTextResponse("ok")
+      bet_repository = BetRepository(session)
+      unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
+      if not unpaid:
+        await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_EMPTY.value, keyboard=await _betting_vk_keyboard())
+        vk_user_states.pop(user_id, None)
+        return PlainTextResponse("ok")
+      total_kopecks = sum(int(item.amount_kopecks) for item in unpaid)
+      owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
+      vk_user_states[user_id] = WAITING_FOR_BET_PAYMENT_RECEIPT
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.BETTING_PAY_LIST.value.format(
+          lines=_format_unpaid_bets_lines(unpaid),
+          total_rub=_format_rub_from_kopecks(total_kopecks),
+          payment_requisites=_format_payment_requisites(owner),
+        ),
+        keyboard=await _betting_vk_keyboard(),
+      )
+      return PlainTextResponse("ok")
+
   if vk_user_states.get(user_id) == WAITING_FOR_BET_AMOUNT:
     menu_buttons = {
       Buttons.main.ROOM.value,
@@ -2311,6 +2436,102 @@ async def handle_user_message_new(*, user_id: int, text: str) -> PlainTextRespon
       _clear_vk_bet_draft_state(user_id=user_id)
     else:
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_SIZE_CHOOSE.value)
+      return PlainTextResponse("ok")
+
+  if vk_user_states.get(user_id) == WAITING_FOR_BET_PAYMENT_RECEIPT:
+    text_value = (text or "").strip()
+    if text_value == Buttons.betting.TO_MAIN.value:
+      vk_user_states.pop(user_id, None)
+      user = await _get_vk_user(user_id)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_CANCELED.value)
+      await send_vk_message(
+        user_id=user_id,
+        message=Text.user.MAIN_MENU.value,
+        keyboard=await _approved_vk_keyboard(user) if user is not None else new_user_keyboard,
+      )
+      return PlainTextResponse("ok")
+
+    entered_rub = int(text_value) if text_value.isdigit() and int(text_value) > 0 else None
+    has_receipt = bool((raw_message or {}).get("attachments"))
+    ocr_text = ""
+    ocr_phone_match: bool | None = None
+    if entered_rub is None and has_receipt:
+      receipt_bytes = await _download_vk_receipt_bytes(raw_message)
+      ocr_text = ocr_text_from_image_bytes(receipt_bytes or b"")
+      entered_rub = extract_amount_rub(ocr_text)
+    if entered_rub is None and not has_receipt:
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_AMOUNT_INVALID.value, keyboard=await _betting_vk_keyboard())
+      return PlainTextResponse("ok")
+
+    async with SessionFactory() as session:
+      user_repository = UserRepository(session)
+      user = await user_repository.get_by_vk_id(user_id)
+      if user is None or not user.is_approved:
+        vk_user_states.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.user.STATUS_NEED_REGISTRATION.value, keyboard=new_user_keyboard)
+        return PlainTextResponse("ok")
+      bet_repository = BetRepository(session)
+      unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
+      if not unpaid:
+        vk_user_states.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_EMPTY.value, keyboard=await _betting_vk_keyboard())
+        return PlainTextResponse("ok")
+
+      if entered_rub is not None:
+        owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
+        if has_receipt and ocr_text:
+          ocr_phone_match = phone_tail_matches(ocr_text, owner.tel_number if owner is not None else None)
+        else:
+          ocr_phone_match = None
+        paid_kopecks = int(entered_rub) * 100
+        to_close = _pick_fifo_bets_to_close(bets=unpaid, paid_kopecks=paid_kopecks)
+        if to_close and (ocr_phone_match is not False):
+          await bet_repository.mark_paid(bets=to_close)
+          await session.commit()
+          remain = await bet_repository.list_unpaid_for_user(better_id=int(user_id))
+          remain_kopecks = sum(int(item.amount_kopecks) for item in remain)
+          vk_user_states.pop(user_id, None)
+          await send_vk_message(
+            user_id=user_id,
+            message=Text.user.BETTING_PAY_MATCHED.value.format(
+              count=len(to_close),
+              debt_rub=_format_rub_from_kopecks(remain_kopecks),
+            ),
+            keyboard=await _betting_vk_keyboard(),
+          )
+          return PlainTextResponse("ok")
+
+        total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
+        admin_text = (
+          "⚠️ Нужна ручная проверка оплаты ставки\n"
+          f"Игрок: {user.name}\n"
+          f"Сумма от игрока: {entered_rub} ₽\n"
+          f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
+          f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
+        )
+        from app.bot.telegram.runtime import telegram_bot
+        for admin_id in await user_repository.list_telegram_admin_ids():
+          if telegram_bot is not None:
+            await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+        for admin_vk_id in await user_repository.list_vk_admin_ids():
+          await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+        vk_user_states.pop(user_id, None)
+        await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_NEED_MANUAL.value, keyboard=await _betting_vk_keyboard())
+        return PlainTextResponse("ok")
+
+      admin_text = (
+        "🧾 Получена квитанция по ставкам\n"
+        f"Игрок: {user.name}\n"
+        "Проверьте сумму вручную."
+      )
+      from app.bot.telegram.runtime import telegram_bot
+      for admin_id in await user_repository.list_telegram_admin_ids():
+        if telegram_bot is not None:
+          await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+      for admin_vk_id in await user_repository.list_vk_admin_ids():
+        await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+      vk_user_states.pop(user_id, None)
+      await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_RECEIPT_SENT.value, keyboard=await _betting_vk_keyboard())
       return PlainTextResponse("ok")
 
   if text == Buttons.main.ROOM.value:

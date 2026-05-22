@@ -86,6 +86,18 @@ class UserText(Enum):
   BETTING_AMOUNT_INVALID = "Сумма должна быть положительным целым числом."
   BETTING_ALREADY_EXISTS = "Ты уже поставил ставку. Изменить ее нельзя."
   BETTING_CREATED = "🍀 Ставка принята\nРазмер: {amount_rub} ₽\nПобедитель: {winner}\nПроигравший: {loser}"
+  BETTING_PAY_EMPTY = "У тебя нет неоплаченных ставок."
+  BETTING_PAY_LIST = (
+    "Вот твои неоплаченные ставки:\n{lines}\n\n"
+    "💰 Всего: {total_rub} ₽\n"
+    "❗ Перевести задолженность по ставкам (за любое количество игр) можно сюда: [{payment_requisites}]\n"
+    "🧾 Затем пришли мне квитанцию о переводе или введи сумму перевода цифрами."
+  )
+  BETTING_PAY_CANCELED = "Оплата ставок отменена."
+  BETTING_PAY_AMOUNT_INVALID = "Введи сумму перевода целым положительным числом (в рублях)."
+  BETTING_PAY_MATCHED = "Оплата принята. Закрыто ставок: {count}. Остаток долга: {debt_rub} ₽."
+  BETTING_PAY_NEED_MANUAL = "Сумма не совпала с последовательностью старых долгов. Передал админу на ручную проверку."
+  BETTING_PAY_RECEIPT_SENT = "Квитанцию получил, передал админу на проверку."
   BETTING_CURRENT_EMPTY = "Активных турниров для ставок сейчас нет."
   BETTING_CURRENT_LIST = "Сейчас открыты турниры:\n{tournaments}"
   BETTING_USER_BETS_EMPTY = "У тебя пока нет ставок в текущей игре."

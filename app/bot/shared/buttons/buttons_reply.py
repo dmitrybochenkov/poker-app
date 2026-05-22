@@ -10,12 +10,19 @@ class MainBtns(Enum):
   ROOM = "♣️ Покер рум"
   POKER = "💍 Про покер"
   BETTING = "🍀 Про ставки"
+  INFO = "ℹ️ Информация"
   ADMIN = "🔑 Админ панель"
 
 
 class PollMenuBtns(Enum):
   VOTE = "✅ Проголосовать"
   RESULTS = "📊 Посмотреть результаты"
+  TO_MAIN = "🏠 На главную"
+
+
+class MainInfoBtns(Enum):
+  POKER_INFO = "💍 Про покер"
+  BETTING_INFO = "🍀 Про ставки"
   TO_MAIN = "🏠 На главную"
 
 class AdminMainBtns(Enum):
@@ -51,9 +58,9 @@ class AdminRoomCorrectBtns(Enum):
 
 class BettingBtns(Enum):
   MAKE_BET = "🐔 Сделать ставку"
+  PAY_BET = "🤝 Оплатить ставку"
   CURRENT_TOURS = "🎰 Текущие турниры"
   BETTING_STAT = "🍀 Статистика ставок"
-  BETTING_INFO = "ℹ️ Информация про ставки"
   TO_MAIN = "🏠 На главную"
 
 class BettingInfoBtns(Enum):
@@ -70,7 +77,6 @@ class BettingCurrentBtns(Enum):
 class PokerBtns(Enum):
   POKER_STAT = "🦑 Статистика покера"
   HISTORY = "⌛ История"
-  POKER_INFO = "ℹ️ Информация про покер"
   POLL = "🗓 Опрос"
   TO_MAIN = "🏠 На главную"
 

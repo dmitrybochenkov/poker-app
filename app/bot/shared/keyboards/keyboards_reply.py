@@ -131,7 +131,7 @@ class ReplyKbs:
       buttons.append(Buttons.main.ROOM)
     elif has_active_poll:
       buttons.append(Buttons.main.NEXT_POKER_DATE)
-    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING])
+    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO])
     if is_admin:
       buttons.append(Buttons.main.ADMIN)
     return cls.make_tg(_button_labels(buttons), adjust=1)
@@ -149,7 +149,7 @@ class ReplyKbs:
       buttons.append(Buttons.main.ROOM)
     elif has_active_poll:
       buttons.append(Buttons.main.NEXT_POKER_DATE)
-    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING])
+    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO])
     if is_admin:
       buttons.append(Buttons.main.ADMIN)
     return cls.make_vk(_button_labels(buttons), adjust=1, one_time=False, color="primary")
@@ -175,6 +175,34 @@ class ReplyKbs:
           Buttons.poll_menu.VOTE,
           Buttons.poll_menu.RESULTS,
           Buttons.poll_menu.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+      one_time=False,
+      color="primary",
+    )
+
+  @classmethod
+  def main_info_tg(cls) -> ReplyKeyboardMarkup:
+    return cls.make_tg(
+      _button_labels(
+        [
+          Buttons.main_info.POKER_INFO,
+          Buttons.main_info.BETTING_INFO,
+          Buttons.main_info.TO_MAIN,
+        ]
+      ),
+      adjust=1,
+    )
+
+  @classmethod
+  def main_info_vk(cls) -> str:
+    return cls.make_vk(
+      _button_labels(
+        [
+          Buttons.main_info.POKER_INFO,
+          Buttons.main_info.BETTING_INFO,
+          Buttons.main_info.TO_MAIN,
         ]
       ),
       adjust=1,
@@ -223,9 +251,9 @@ class ReplyKbs:
       buttons.append(Buttons.betting.MAKE_BET)
     buttons.extend(
       [
+        Buttons.betting.PAY_BET,
         Buttons.betting.CURRENT_TOURS,
         Buttons.betting.BETTING_STAT,
-        Buttons.betting.BETTING_INFO,
         Buttons.betting.TO_MAIN,
       ]
     )
@@ -245,9 +273,9 @@ class ReplyKbs:
       buttons.append(Buttons.betting.MAKE_BET)
     buttons.extend(
       [
+        Buttons.betting.PAY_BET,
         Buttons.betting.CURRENT_TOURS,
         Buttons.betting.BETTING_STAT,
-        Buttons.betting.BETTING_INFO,
         Buttons.betting.TO_MAIN,
       ]
     )
@@ -293,7 +321,6 @@ class ReplyKbs:
         [
           Buttons.poker.POKER_STAT,
           Buttons.poker.HISTORY,
-          Buttons.poker.POKER_INFO,
           Buttons.poker.TO_MAIN,
         ]
       ),
@@ -307,7 +334,6 @@ class ReplyKbs:
         [
           Buttons.poker.POKER_STAT,
           Buttons.poker.HISTORY,
-          Buttons.poker.POKER_INFO,
           Buttons.poker.TO_MAIN,
         ]
       ),

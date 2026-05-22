@@ -69,7 +69,7 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
   if admin_cmd_response is not None:
     return admin_cmd_response
 
-  user_response = await handle_user_message_new(user_id=user_id, text=text)
+  user_response = await handle_user_message_new(user_id=user_id, text=text, raw_message=message)
   if user_response is not None:
     return user_response
 
