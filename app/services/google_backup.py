@@ -161,6 +161,26 @@ def _update_row_sync(
   ).execute()
 
 
+def _replace_sheet_all_values_sync(
+  *,
+  service,
+  spreadsheet_id: str,
+  sheet_name: str,
+  values: list[list[Any]],
+) -> None:
+  service.spreadsheets().values().clear(
+    spreadsheetId=spreadsheet_id,
+    range=f"{sheet_name}!A:ZZ",
+    body={},
+  ).execute()
+  service.spreadsheets().values().update(
+    spreadsheetId=spreadsheet_id,
+    range=f"{sheet_name}!A1",
+    valueInputOption="RAW",
+    body={"values": values},
+  ).execute()
+
+
 async def _get_sync_state(session: AsyncSession, table_name: str) -> SyncState:
   state = await session.get(SyncState, table_name)
   if state is not None:
@@ -259,6 +279,53 @@ async def backup_tables_to_google(session: AsyncSession) -> None:
       if row_updated_at is not None and (max_updated_at is None or row_updated_at > max_updated_at):
         max_updated_at = row_updated_at
 
+    state.last_synced_row_id = max_row_id
+    state.last_synced_updated_at = max_updated_at
+    state.updated_at = datetime.utcnow()
+
+  await session.commit()
+
+
+async def full_replace_tables_to_google(session: AsyncSession) -> None:
+  if not settings.google_spreadsheet_id.strip():
+    raise RuntimeError("GOOGLE_SPREADSHEET_ID is empty.")
+
+  service = await asyncio.to_thread(_build_sheets_service)
+  spreadsheet_id = settings.google_spreadsheet_id
+
+  for model in BACKUP_MODELS:
+    table_name = str(model.__tablename__)
+    bindings = _column_bindings(model)
+    header_columns = [db_name for db_name, _ in bindings]
+    result = await session.execute(select(model).order_by(model.row_id.asc()))
+    rows = list(result.scalars().all())
+    values = [header_columns]
+    max_row_id = 0
+    max_updated_at = None
+    for row in rows:
+      values.append([_normalize_value(getattr(row, attr_key)) for _, attr_key in bindings])
+      row_id = int(getattr(row, "row_id"))
+      row_updated_at = getattr(row, "updated_at", None)
+      if row_id > max_row_id:
+        max_row_id = row_id
+      if row_updated_at is not None and (max_updated_at is None or row_updated_at > max_updated_at):
+        max_updated_at = row_updated_at
+
+    await asyncio.to_thread(
+      _ensure_sheet_exists_sync,
+      service=service,
+      spreadsheet_id=spreadsheet_id,
+      sheet_name=table_name,
+    )
+    await asyncio.to_thread(
+      _replace_sheet_all_values_sync,
+      service=service,
+      spreadsheet_id=spreadsheet_id,
+      sheet_name=table_name,
+      values=values,
+    )
+
+    state = await _get_sync_state(session=session, table_name=table_name)
     state.last_synced_row_id = max_row_id
     state.last_synced_updated_at = max_updated_at
     state.updated_at = datetime.utcnow()
