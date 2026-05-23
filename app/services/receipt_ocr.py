@@ -13,10 +13,30 @@ try:
 except Exception:  # pragma: no cover
   pdfium = None
 
+try:
+  from pypdf import PdfReader
+except Exception:  # pragma: no cover
+  PdfReader = None
+
 
 def extract_amount_rub(text: str) -> int | None:
   if not text:
     return None
+  normalized_text = " ".join((text or "").replace("\n", " ").split())
+  keyword_patterns = [
+    r"(?:сумма|перевод|к\s*оплате|итого)\s*[:\-]?\s*([0-9][0-9\s]{0,12}(?:[.,]\d{1,2})?)\s*(?:₽|руб|rub)?",
+    r"([0-9][0-9\s]{0,12}(?:[.,]\d{1,2})?)\s*(?:₽|руб|rub)",
+  ]
+  for pattern in keyword_patterns:
+    for match in re.finditer(pattern, normalized_text, flags=re.IGNORECASE):
+      raw = match.group(1).replace(" ", "").replace(",", ".")
+      try:
+        value = float(raw)
+      except ValueError:
+        continue
+      if 1 <= value <= 500_000:
+        return int(round(value))
+
   normalized = text.replace(",", ".").replace(" ", "")
   candidates: list[int] = []
   for raw in re.findall(r"(\d{1,6}(?:[.]\d{1,2})?)", normalized):
@@ -72,7 +92,22 @@ def extract_operation_id(text: str) -> str | None:
 
 
 def ocr_text_from_image_bytes(image_bytes: bytes) -> str:
-  if not image_bytes or pytesseract is None:
+  if not image_bytes:
+    return ""
+  if image_bytes[:4] == b"%PDF" and PdfReader is not None:
+    try:
+      reader = PdfReader(io.BytesIO(image_bytes))
+      extracted_parts: list[str] = []
+      for page in reader.pages[:3]:
+        page_text = page.extract_text() or ""
+        if page_text.strip():
+          extracted_parts.append(page_text)
+      extracted = "\n".join(extracted_parts).strip()
+      if extracted:
+        return extracted
+    except Exception:
+      pass
+  if pytesseract is None:
     return ""
   try:
     # PDF path: render first page locally to bitmap before OCR.
