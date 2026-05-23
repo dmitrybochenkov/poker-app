@@ -35,3 +35,6 @@ htmlcov/
 alembic/__pycache__/
 
 credentials.json
+
+# Local receipt OCR tests
+receipt_test_*.pdf

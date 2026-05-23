@@ -84,6 +84,8 @@ def extract_operation_id(text: str) -> str | None:
     return None
   normalized = " ".join((text or "").replace("\n", " ").split())
   patterns = [
+    r"(?:номер\s*операции\s*в\s*сбп)\s*[:№#]?\s*([A-Za-z0-9\-]{10,64})",
+    r"(?:номер\s*операции)\s*[:№#]?\s*([A-Za-z0-9\-]{10,64})",
     r"(?:операц(?:ия|ии|ией)?|operation|op|id)\s*[:№#]?\s*([A-Za-z0-9\-]{6,40})",
     r"(?:чек|квитанц(?:ия|ии)?)\s*[:№#]?\s*([A-Za-z0-9\-]{6,40})",
   ]
