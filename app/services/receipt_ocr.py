@@ -24,8 +24,10 @@ def extract_amount_rub(text: str) -> int | None:
     return None
   normalized_text = " ".join((text or "").replace("\n", " ").split())
   keyword_patterns = [
-    r"(?:сумма|перевод|к\s*оплате|итого)\s*[:\-]?\s*([0-9][0-9\s]{0,12}(?:[.,]\d{1,2})?)\s*(?:₽|руб|rub)?",
-    r"([0-9][0-9\s]{0,12}(?:[.,]\d{1,2})?)\s*(?:₽|руб|rub)",
+    # Most reliable: explicit payment amount fields.
+    r"(?:сумма\s*перевода|сумма|к\s*оплате|итого)\s*[:\-]?\s*([0-9][0-9\s]{0,12}(?:[.,]\d{1,2})?)\s*(?:₽|руб(?:\.|ля|лей)?|rub|rur)?",
+    # Generic currency amount.
+    r"([0-9][0-9\s]{0,12}(?:[.,]\d{1,2})?)\s*(?:₽|руб(?:\.|ля|лей)?|rub|rur)",
   ]
   for pattern in keyword_patterns:
     for match in re.finditer(pattern, normalized_text, flags=re.IGNORECASE):
@@ -47,7 +49,8 @@ def extract_amount_rub(text: str) -> int | None:
     if value <= 0:
       continue
     rub = int(round(value))
-    if 1 <= rub <= 500_000:
+    # Fallback path: ignore long/account-like values.
+    if 1 <= rub <= 50_000:
       candidates.append(rub)
   if not candidates:
     return None
