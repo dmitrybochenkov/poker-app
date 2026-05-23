@@ -3165,13 +3165,25 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
         return
 
     total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
+    missing_fields: list[str] = []
+    if entered_rub is None:
+      missing_fields.append("sum")
+    if ocr_phone_match is not True:
+      missing_fields.append("recipient")
+    if operation_id is None:
+      missing_fields.append("operation_id")
+    ocr_preview = " ".join((ocr_text or "").split())[:500]
     admin_text = (
       "⚠️ Нужна ручная проверка оплаты ставки\n"
       "reason: manual_mismatch\n"
       f"Игрок: {user.name}\n"
       f"Сумма OCR: {entered_rub if entered_rub is not None else 'не определена'} ₽\n"
       f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
-      f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
+      f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}\n"
+      f"OCR хвост получателя: {recipient_tail4 if recipient_tail4 is not None else 'не определен'}\n"
+      f"OCR номер операции: {operation_id if operation_id is not None else 'не определен'}\n"
+      f"Проблемные поля: {', '.join(missing_fields) if missing_fields else 'нет'}\n"
+      f"OCR preview: {ocr_preview if ocr_preview else 'пусто'}"
     )
     manual_receipt = await receipt_repository.create(
       user_row_id=int(user.row_id),
