@@ -46,6 +46,7 @@ from app.bot.telegram.keyboards import (
   poker_buyin_correct_confirm_keyboard,
   poker_cashout_candidates_keyboard,
   poker_calc_keyboard,
+  bet_receipt_manual_keyboard,
   poker_cashier_candidates_keyboard,
   poker_room_admin_status_keyboard,
   poker_room_manage_player_keyboard,
@@ -78,6 +79,7 @@ from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
 from app.services.google_backup import backup_tables_to_google
+from app.services.bet_payment_manual import apply_manual_receipt_decision
 
 router = Router()
 TG_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
@@ -2183,6 +2185,51 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
       f"Заявка #{row_id} одобрена.\nИмя: {user.name}\nTelegram ID: {user.telegram_id}",
     )
   await callback.answer(Text.admin.APPROVE_ACTION.value)
+
+
+@router.callback_query(F.data.startswith("betreceipt:"))
+async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
+  if callback.from_user is None:
+    await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
+    return
+  parts = callback.data.split(":")
+  if len(parts) != 3:
+    await callback.answer("Некорректные данные.", show_alert=True)
+    return
+  action = parts[1]
+  receipt_row_id = int(parts[2])
+  approve = action == "approve"
+
+  async with SessionFactory() as session:
+    if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
+      return
+    result = await apply_manual_receipt_decision(
+      session=session,
+      receipt_row_id=receipt_row_id,
+      approve=approve,
+    )
+    if result.ok and result.status.startswith("accepted"):
+      try:
+        await backup_tables_to_google(session=session)
+      except Exception:
+        logger.exception("Failed to sync Google backup after manual receipt decision")
+
+  if callback.message is not None:
+    await _safe_callback_edit_text(
+      callback,
+      (
+        f"🧾 Решение по квитанции #{receipt_row_id}\n"
+        f"{result.message}\n"
+        + (
+          f"Закрыто ставок: {result.closed_count}\n"
+          f"Остаток долга: {_format_rub_from_kopecks(int(result.debt_kopecks or 0))} ₽"
+          if result.status.startswith("accepted")
+          else f"Статус: {result.status}"
+        )
+      ),
+      reply_markup=None,
+    )
+  await callback.answer("Готово")
 
 
 @router.callback_query(F.data.startswith("correct:"))

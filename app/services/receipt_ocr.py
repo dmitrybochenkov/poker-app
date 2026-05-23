@@ -8,6 +8,11 @@ try:
 except Exception:  # pragma: no cover
   pytesseract = None
 
+try:
+  import pypdfium2 as pdfium
+except Exception:  # pragma: no cover
+  pdfium = None
+
 
 def extract_amount_rub(text: str) -> int | None:
   if not text:
@@ -70,7 +75,16 @@ def ocr_text_from_image_bytes(image_bytes: bytes) -> str:
   if not image_bytes or pytesseract is None:
     return ""
   try:
-    image = Image.open(io.BytesIO(image_bytes))
+    # PDF path: render first page locally to bitmap before OCR.
+    if image_bytes[:4] == b"%PDF" and pdfium is not None:
+      pdf = pdfium.PdfDocument(io.BytesIO(image_bytes))
+      if len(pdf) <= 0:
+        return ""
+      page = pdf[0]
+      pil_image = page.render(scale=2.2).to_pil()
+      image = pil_image
+    else:
+      image = Image.open(io.BytesIO(image_bytes))
   except Exception:
     return ""
   # Light preprocessing for payment screenshots.

@@ -1300,6 +1300,39 @@ class InlineKbs:
     )
 
   @staticmethod
+  def bet_receipt_manual_tg(*, receipt_row_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="✅ Принять", callback_data=f"betreceipt:approve:{int(receipt_row_id)}")
+    keyboard.button(text="❌ Отклонить", callback_data=f"betreceipt:reject:{int(receipt_row_id)}")
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def bet_receipt_manual_vk(*, receipt_row_id: int) -> str:
+    return ReplyKbs.make_vk_callback(
+      [
+        [
+          {
+            "action": {
+              "type": "callback",
+              "label": "✅ Принять",
+              "payload": {"action": "bet_receipt_approve", "receipt_row_id": int(receipt_row_id)},
+            },
+            "color": "positive",
+          },
+          {
+            "action": {
+              "type": "callback",
+              "label": "❌ Отклонить",
+              "payload": {"action": "bet_receipt_reject", "receipt_row_id": int(receipt_row_id)},
+            },
+            "color": "negative",
+          },
+        ]
+      ]
+    )
+
+  @staticmethod
   def betting_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])

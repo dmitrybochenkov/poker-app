@@ -23,6 +23,12 @@ class BetPaymentReceiptRepository:
     )
     return result.scalar_one_or_none()
 
+  async def get_by_row_id(self, *, row_id: int) -> BetPaymentReceipt | None:
+    result = await self.session.execute(
+      select(BetPaymentReceipt).where(BetPaymentReceipt.row_id == row_id)
+    )
+    return result.scalar_one_or_none()
+
   async def create(
     self,
     *,

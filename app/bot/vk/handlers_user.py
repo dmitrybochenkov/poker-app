@@ -19,6 +19,7 @@ from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
+  bet_receipt_manual_keyboard as tg_bet_receipt_manual_keyboard,
   poker_room_admin_status_keyboard as tg_poker_room_admin_status_keyboard,
   poker_room_approve_keyboard as tg_poker_room_approve_keyboard,
   registration_link_review_keyboard as tg_registration_link_review_keyboard,
@@ -49,6 +50,7 @@ from app.bot.vk.keyboards import (
   poker_info_keyboard,
   poker_cashout_candidates_keyboard,
   poker_calc_keyboard,
+  bet_receipt_manual_keyboard,
   poker_room_approve_keyboard,
   poker_room_admin_status_keyboard,
   betting_confirm_keyboard,
@@ -2598,7 +2600,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
         f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
         f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
       )
-      await receipt_repository.create(
+      manual_receipt = await receipt_repository.create(
         user_row_id=int(user.row_id),
         platform="vk",
         external_file_id=external_file_id,
@@ -2610,9 +2612,17 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
       from app.bot.telegram.runtime import telegram_bot
       for admin_id in await user_repository.list_telegram_admin_ids():
         if telegram_bot is not None:
-          await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+          await telegram_bot.send_message(
+            chat_id=admin_id,
+            text=admin_text,
+            reply_markup=tg_bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+          )
       for admin_vk_id in await user_repository.list_vk_admin_ids():
-        await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+        await send_vk_message(
+          user_id=int(admin_vk_id),
+          message=admin_text,
+          keyboard=bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+        )
       await session.commit()
       vk_user_states.pop(user_id, None)
       await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_NEED_MANUAL.value, keyboard=await _betting_vk_keyboard())

@@ -49,6 +49,7 @@ from app.bot.telegram.keyboards import (
   poker_history_year_keyboard,
   poker_history_dates_keyboard,
   poker_calc_keyboard,
+  bet_receipt_manual_keyboard,
   stat_year_keyboard,
   stat_sort_keyboard,
   poll_month_keyboard,
@@ -69,6 +70,7 @@ from app.bot.vk.keyboards import (
   registration_review_keyboard as vk_registration_review_keyboard,
 )
 from app.bot.vk.api import delete_vk_message_by_id, send_vk_message, send_vk_message_with_id
+from app.bot.vk.keyboards import bet_receipt_manual_keyboard as vk_bet_receipt_manual_keyboard
 from app.bot.shared.chips_runtime import (
   TG_ADMIN_CHIPS_STATUS_MSG_IDS,
   TG_USER_CHIPS_RESULT_MSG_IDS,
@@ -3171,7 +3173,7 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
       f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
       f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}"
     )
-    await receipt_repository.create(
+    manual_receipt = await receipt_repository.create(
       user_row_id=int(user.row_id),
       platform="tg",
       external_file_id=external_file_id,
@@ -3183,9 +3185,27 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
     from app.bot.telegram.runtime import telegram_bot
     for admin_id in await user_repository.list_telegram_admin_ids():
       if telegram_bot is not None:
-        await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
+        if has_receipt:
+          try:
+            await message.copy_to(
+              chat_id=admin_id,
+              caption=admin_text,
+              reply_markup=bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+            )
+            continue
+          except Exception:
+            pass
+        await telegram_bot.send_message(
+          chat_id=admin_id,
+          text=admin_text,
+          reply_markup=bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+        )
     for admin_vk_id in await user_repository.list_vk_admin_ids():
-      await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+      await send_vk_message(
+        user_id=int(admin_vk_id),
+        message=admin_text,
+        keyboard=vk_bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+      )
     await session.commit()
     await state.clear()
     await message.answer(Text.user.BETTING_PAY_NEED_MANUAL.value, reply_markup=await _betting_tg_keyboard())

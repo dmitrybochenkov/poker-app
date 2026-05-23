@@ -49,6 +49,7 @@ poker_buyin_count_keyboard = InlineKbs.poker_buyin_count_vk
 poker_buyin_correct_confirm_keyboard = InlineKbs.poker_buyin_correct_confirm_vk
 poker_cashout_candidates_keyboard = InlineKbs.poker_cashout_candidates_vk
 poker_calc_keyboard = InlineKbs.poker_calc_vk
+bet_receipt_manual_keyboard = InlineKbs.bet_receipt_manual_vk
 registration_candidates_keyboard = InlineKbs.registration_candidates_vk
 registration_candidates_page_keyboard = InlineKbs.registration_candidates_vk_page
 link_candidates_page_keyboard = InlineKbs.link_candidates_vk_page

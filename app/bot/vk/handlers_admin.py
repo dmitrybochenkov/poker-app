@@ -89,6 +89,7 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
+from app.services.bet_payment_manual import apply_manual_receipt_decision
 from app.services.google_backup import backup_tables_to_google
 
 VK_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
@@ -681,6 +682,54 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
     await send_vk_message(user_id=admin_user_id, message=result_text)
     return None
+
+  if action in {"bet_receipt_approve", "bet_receipt_reject"}:
+    receipt_row_id = callback_payload.get("receipt_row_id")
+    if not isinstance(receipt_row_id, int):
+      return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+      if not await is_vk_admin(session=session, vk_id=admin_user_id):
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text=Text.admin.NO_RIGHTS.value,
+        )
+        return PlainTextResponse("ok")
+      approve = action == "bet_receipt_approve"
+      result = await apply_manual_receipt_decision(
+        session=session,
+        receipt_row_id=int(receipt_row_id),
+        approve=approve,
+      )
+      if result.ok and str(result.status).startswith("accepted"):
+        try:
+          await backup_tables_to_google(session=session)
+        except Exception:
+          logger.exception("Failed to sync Google backup after manual VK receipt decision")
+    await send_vk_message_event_answer(
+      event_id=event_id,
+      user_id=admin_user_id,
+      peer_id=peer_id,
+      text="Готово",
+    )
+    await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+    if str(result.status).startswith("accepted"):
+      status_text = (
+        f"Закрыто ставок: {int(result.closed_count)}\n"
+        f"Остаток долга: {_format_rub_from_kopecks(int(result.debt_kopecks or 0))} ₽"
+      )
+    else:
+      status_text = f"Статус: {result.status}"
+    await send_vk_message(
+      user_id=admin_user_id,
+      message=(
+        f"🧾 Решение по квитанции #{int(receipt_row_id)}\n"
+        f"{result.message}\n"
+        f"{status_text}"
+      ),
+    )
+    return PlainTextResponse("ok")
 
   if action == "correct":
     row_id = callback_payload.get("row_id")
