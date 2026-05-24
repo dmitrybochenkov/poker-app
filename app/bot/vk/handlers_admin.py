@@ -57,6 +57,7 @@ from app.bot.vk.keyboards import (
   poker_buyin_candidates_keyboard,
   poker_buyin_correct_confirm_keyboard,
   poker_buyin_count_keyboard,
+  bet_receipt_manual_keyboard,
   poker_cashout_candidates_keyboard,
   poker_cashier_candidates_keyboard,
   poker_room_manage_player_keyboard,
@@ -73,6 +74,7 @@ from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_payment_receipt_repository import BetPaymentReceiptRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.poker_param_repository import PokerParamRepository
@@ -89,10 +91,10 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
-from app.services.bet_payment_manual import apply_manual_receipt_decision
 from app.services.google_backup import backup_tables_to_google
 
 VK_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
+VK_MANUAL_RECEIPT_SELECTIONS: dict[tuple[int, int], set[int]] = {}
 logger = logging.getLogger(__name__)
 
 
@@ -683,10 +685,11 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     await send_vk_message(user_id=admin_user_id, message=result_text)
     return None
 
-  if action in {"bet_receipt_approve", "bet_receipt_reject"}:
+  if action in {"bet_receipt_toggle", "bet_receipt_page", "bet_receipt_done", "bet_receipt_cancel"}:
     receipt_row_id = callback_payload.get("receipt_row_id")
     if not isinstance(receipt_row_id, int):
       return PlainTextResponse("ok")
+    state_key = (int(admin_user_id), int(receipt_row_id))
     async with SessionFactory() as session:
       if not await is_vk_admin(session=session, vk_id=admin_user_id):
         await send_vk_message_event_answer(
@@ -696,17 +699,123 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
           text=Text.admin.NO_RIGHTS.value,
         )
         return PlainTextResponse("ok")
-      approve = action == "bet_receipt_approve"
-      result = await apply_manual_receipt_decision(
-        session=session,
-        receipt_row_id=int(receipt_row_id),
-        approve=approve,
-      )
-      if result.ok and str(result.status).startswith("accepted"):
+      receipt_repo = BetPaymentReceiptRepository(session)
+      bet_repo = BetRepository(session)
+      user_repo = UserRepository(session)
+      receipt = await receipt_repo.get_by_row_id(row_id=int(receipt_row_id))
+      if receipt is None:
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text="Квитанция не найдена",
+        )
+        return PlainTextResponse("ok")
+      unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
+      selected = VK_MANUAL_RECEIPT_SELECTIONS.setdefault(state_key, set())
+
+      if action == "bet_receipt_toggle":
+        bet_row_id = callback_payload.get("bet_row_id")
+        page = callback_payload.get("page")
+        if not isinstance(bet_row_id, int) or not isinstance(page, int):
+          return PlainTextResponse("ok")
+        if bet_row_id in selected:
+          selected.remove(bet_row_id)
+        else:
+          selected.add(bet_row_id)
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text="Обновлено",
+        )
+        await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+        await send_vk_message(
+          user_id=admin_user_id,
+          message=f"🧾 Ручное подтверждение квитанции #{int(receipt_row_id)}",
+          keyboard=bet_receipt_manual_keyboard(
+            receipt_row_id=int(receipt_row_id),
+            bets=unpaid,
+            selected_ids=sorted(selected),
+            page=int(page),
+          ),
+        )
+        return PlainTextResponse("ok")
+
+      if action == "bet_receipt_page":
+        page = callback_payload.get("page")
+        if not isinstance(page, int):
+          return PlainTextResponse("ok")
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text="Страница",
+        )
+        await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+        await send_vk_message(
+          user_id=admin_user_id,
+          message=f"🧾 Ручное подтверждение квитанции #{int(receipt_row_id)}",
+          keyboard=bet_receipt_manual_keyboard(
+            receipt_row_id=int(receipt_row_id),
+            bets=unpaid,
+            selected_ids=sorted(selected),
+            page=int(page),
+          ),
+        )
+        return PlainTextResponse("ok")
+
+      if action == "bet_receipt_cancel":
+        VK_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text="Отменено",
+        )
+        await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
+        await send_vk_message(user_id=admin_user_id, message=f"🧾 Квитанция #{int(receipt_row_id)}\nОтменено. Без изменений.")
+        return PlainTextResponse("ok")
+
+      chosen = [bet for bet in unpaid if int(bet.row_id) in selected]
+      if not chosen:
+        await send_vk_message_event_answer(
+          event_id=event_id,
+          user_id=admin_user_id,
+          peer_id=peer_id,
+          text="Выбери хотя бы одну ставку",
+        )
+        return PlainTextResponse("ok")
+
+      await bet_repo.mark_paid(bets=chosen)
+      receipt.status = "accepted_manual"
+      await session.commit()
+      if str(receipt.status).startswith("accepted"):
         try:
           await backup_tables_to_google(session=session)
         except Exception:
           logger.exception("Failed to sync Google backup after manual VK receipt decision")
+      remaining = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
+      remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
+      closed_lines = "\n".join(
+        f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+        for bet in chosen
+      )
+      remaining_lines = "\n".join(
+        f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+        for bet in remaining
+      )
+      owner = await user_repo.get_by_row_id(int(receipt.user_row_id))
+      user_message = (
+        f"Оплата принята. Закрыто ставок: {len(chosen)}. "
+        + ("Остаток долга: 0 ₽." if remaining_kopecks == 0 else f"Остаток долга:\n{remaining_lines}")
+      )
+      from app.bot.telegram.runtime import telegram_bot
+      if owner is not None and owner.telegram_id is not None and telegram_bot is not None:
+        await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=user_message, reply_markup=tg_betting_keyboard)
+      if owner is not None and owner.vk_id is not None:
+        await send_vk_message(user_id=int(owner.vk_id), message=user_message, keyboard=betting_keyboard)
+      VK_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
     await send_vk_message_event_answer(
       event_id=event_id,
       user_id=admin_user_id,
@@ -714,19 +823,14 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
       text="Готово",
     )
     await _clear_event_inline_keyboard_if_possible(peer_id=peer_id, conversation_message_id=conversation_message_id)
-    if str(result.status).startswith("accepted"):
-      status_text = (
-        f"Закрыто ставок: {int(result.closed_count)}\n"
-        f"Остаток долга: {_format_rub_from_kopecks(int(result.debt_kopecks or 0))} ₽"
-      )
-    else:
-      status_text = f"Статус: {result.status}"
     await send_vk_message(
       user_id=admin_user_id,
       message=(
         f"🧾 Решение по квитанции #{int(receipt_row_id)}\n"
-        f"{result.message}\n"
-        f"{status_text}"
+        f"Оплата принята.\n"
+        f"Закрытые ставки:\n{closed_lines}\n"
+        f"Закрыто ставок: {len(chosen)}\n"
+        f"Остаток долга: {_format_rub_from_kopecks(int(remaining_kopecks))} ₽"
       ),
     )
     return PlainTextResponse("ok")

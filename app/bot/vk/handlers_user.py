@@ -2627,13 +2627,23 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
           await telegram_bot.send_message(
             chat_id=admin_id,
             text=admin_text,
-            reply_markup=tg_bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+            reply_markup=tg_bet_receipt_manual_keyboard(
+              receipt_row_id=int(manual_receipt.row_id),
+              bets=unpaid,
+              selected_ids=[],
+              page=0,
+            ),
           )
       for admin_vk_id in await user_repository.list_vk_admin_ids():
         await send_vk_message(
           user_id=int(admin_vk_id),
           message=admin_text,
-          keyboard=bet_receipt_manual_keyboard(receipt_row_id=int(manual_receipt.row_id)),
+          keyboard=bet_receipt_manual_keyboard(
+            receipt_row_id=int(manual_receipt.row_id),
+            bets=unpaid,
+            selected_ids=[],
+            page=0,
+          ),
         )
       await session.commit()
       vk_user_states.pop(user_id, None)

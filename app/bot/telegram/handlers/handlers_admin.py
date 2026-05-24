@@ -72,6 +72,7 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_param_repository import BetParamRepository
+from app.db.repositories.bet_payment_receipt_repository import BetPaymentReceiptRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.user_repository import UserRepository
@@ -79,10 +80,10 @@ from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
 from app.services.google_backup import backup_tables_to_google
-from app.services.bet_payment_manual import apply_manual_receipt_decision
 
 router = Router()
 TG_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
+TG_MANUAL_RECEIPT_SELECTIONS: dict[tuple[int, int], set[int]] = {}
 logger = logging.getLogger(__name__)
 
 
@@ -2193,39 +2194,131 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
     await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
     return
   parts = callback.data.split(":")
-  if len(parts) != 3:
+  if len(parts) < 3:
     await callback.answer("Некорректные данные.", show_alert=True)
     return
   action = parts[1]
-  receipt_row_id = int(parts[2])
-  approve = action == "approve"
+  try:
+    receipt_row_id = int(parts[2])
+  except Exception:
+    await callback.answer("Некорректные данные.", show_alert=True)
+    return
+  admin_id = int(callback.from_user.id)
+  state_key = (admin_id, int(receipt_row_id))
 
   async with SessionFactory() as session:
     if not await _ensure_tg_admin_callback(session=session, user_id=callback.from_user.id, callback=callback):
       return
-    result = await apply_manual_receipt_decision(
-      session=session,
-      receipt_row_id=receipt_row_id,
-      approve=approve,
-    )
-    if result.ok and result.status.startswith("accepted"):
+    receipt_repo = BetPaymentReceiptRepository(session)
+    bet_repo = BetRepository(session)
+    user_repo = UserRepository(session)
+    receipt = await receipt_repo.get_by_row_id(row_id=int(receipt_row_id))
+    if receipt is None:
+      await callback.answer("Квитанция не найдена.", show_alert=True)
+      return
+    unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
+    selected = TG_MANUAL_RECEIPT_SELECTIONS.setdefault(state_key, set())
+
+    if action == "toggle":
+      if len(parts) < 5:
+        await callback.answer("Некорректные данные.", show_alert=True)
+        return
+      bet_row_id = int(parts[3])
+      page = int(parts[4])
+      if bet_row_id in selected:
+        selected.remove(bet_row_id)
+      else:
+        selected.add(bet_row_id)
+      await _safe_callback_edit_reply_markup(
+        callback,
+        bet_receipt_manual_keyboard(
+          receipt_row_id=int(receipt_row_id),
+          bets=unpaid,
+          selected_ids=sorted(selected),
+          page=page,
+        ),
+      )
+      await callback.answer("Обновлено")
+      return
+
+    if action == "page":
+      if len(parts) < 4:
+        await callback.answer("Некорректные данные.", show_alert=True)
+        return
+      page = int(parts[3])
+      await _safe_callback_edit_reply_markup(
+        callback,
+        bet_receipt_manual_keyboard(
+          receipt_row_id=int(receipt_row_id),
+          bets=unpaid,
+          selected_ids=sorted(selected),
+          page=page,
+        ),
+      )
+      await callback.answer("Страница")
+      return
+
+    if action == "cancel":
+      TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
+      await _safe_callback_edit_text(
+        callback,
+        f"🧾 Квитанция #{receipt_row_id}\nОтменено. Без изменений.",
+        reply_markup=None,
+      )
+      await callback.answer("Отменено")
+      return
+
+    if action != "done":
+      await callback.answer("Некорректное действие.", show_alert=True)
+      return
+
+    chosen = [bet for bet in unpaid if int(bet.row_id) in selected]
+    if not chosen:
+      await callback.answer("Выбери хотя бы одну ставку.", show_alert=True)
+      return
+    await bet_repo.mark_paid(bets=chosen)
+    receipt.status = "accepted_manual"
+    await session.commit()
+    if receipt.status.startswith("accepted"):
       try:
         await backup_tables_to_google(session=session)
       except Exception:
         logger.exception("Failed to sync Google backup after manual receipt decision")
+    remaining = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
+    remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
+    closed_lines = "\n".join(
+      f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+      for bet in chosen
+    )
+    remaining_lines = "\n".join(
+      f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+      for bet in remaining
+    )
+    owner = await user_repo.get_by_row_id(int(receipt.user_row_id))
+    user_message = (
+      f"Оплата принята. Закрыто ставок: {len(chosen)}. "
+      + (
+        "Остаток долга: 0 ₽."
+        if remaining_kopecks == 0
+        else f"Остаток долга:\n{remaining_lines}"
+      )
+    )
+    from app.bot.telegram.runtime import telegram_bot
+    if owner is not None and owner.telegram_id is not None and telegram_bot is not None:
+      await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=user_message)
+    if owner is not None and owner.vk_id is not None:
+      await send_vk_message(user_id=int(owner.vk_id), message=user_message, keyboard=vk_betting_keyboard)
+    TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
 
   if callback.message is not None:
     await _safe_callback_edit_text(
       callback,
       (
         f"🧾 Решение по квитанции #{receipt_row_id}\n"
-        f"{result.message}\n"
-        + (
-          f"Закрыто ставок: {result.closed_count}\n"
-          f"Остаток долга: {_format_rub_from_kopecks(int(result.debt_kopecks or 0))} ₽"
-          if result.status.startswith("accepted")
-          else f"Статус: {result.status}"
-        )
+        f"Оплата принята.\n"
+        f"Закрытые ставки:\n{closed_lines}\n"
+        f"Закрыто ставок: {len(chosen)}\n"
+        f"Остаток долга: {_format_rub_from_kopecks(int(remaining_kopecks))} ₽"
       ),
       reply_markup=None,
     )
