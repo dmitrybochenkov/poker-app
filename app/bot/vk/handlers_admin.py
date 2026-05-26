@@ -811,9 +811,9 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
         + ("Остаток долга: 0 ₽." if remaining_kopecks == 0 else f"Остаток долга:\n{remaining_lines}")
       )
       from app.bot.telegram.runtime import telegram_bot
-      if owner is not None and owner.telegram_id is not None and telegram_bot is not None:
+      if owner is not None and owner.notification_platform == "tg" and owner.telegram_id is not None and telegram_bot is not None:
         await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=user_message, reply_markup=tg_betting_keyboard)
-      if owner is not None and owner.vk_id is not None:
+      elif owner is not None and owner.notification_platform == "vk" and owner.vk_id is not None:
         await send_vk_message(user_id=int(owner.vk_id), message=user_message, keyboard=betting_keyboard)
       VK_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
     await send_vk_message_event_answer(

@@ -2304,9 +2304,9 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
       )
     )
     from app.bot.telegram.runtime import telegram_bot
-    if owner is not None and owner.telegram_id is not None and telegram_bot is not None:
+    if owner is not None and owner.notification_platform == "tg" and owner.telegram_id is not None and telegram_bot is not None:
       await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=user_message)
-    if owner is not None and owner.vk_id is not None:
+    elif owner is not None and owner.notification_platform == "vk" and owner.vk_id is not None:
       await send_vk_message(user_id=int(owner.vk_id), message=user_message, keyboard=vk_betting_keyboard)
     TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
 

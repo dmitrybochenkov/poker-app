@@ -2513,6 +2513,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
         vk_user_states.pop(user_id, None)
         await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_EMPTY.value, keyboard=await _betting_vk_keyboard())
         return PlainTextResponse("ok")
+      owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
 
       external_file_id = _extract_vk_external_file_id(raw_message)
       if external_file_id:
@@ -2528,16 +2529,14 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
             f"external_file_id: {external_file_id}"
           )
           from app.bot.telegram.runtime import telegram_bot
-          for admin_id in await user_repository.list_telegram_admin_ids():
-            if telegram_bot is not None:
-              await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
-          for admin_vk_id in await user_repository.list_vk_admin_ids():
-            await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+          if owner is not None and owner.notification_platform == "tg" and owner.telegram_id is not None and telegram_bot is not None:
+            await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=admin_text)
+          elif owner is not None and owner.vk_id is not None:
+            await send_vk_message(user_id=int(owner.vk_id), message=admin_text)
           vk_user_states.pop(user_id, None)
           await send_vk_message(user_id=user_id, message="Эта квитанция уже была обработана.", keyboard=await _betting_vk_keyboard())
           return PlainTextResponse("ok")
 
-      owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
       operation_id = extract_operation_id(ocr_text)
       if operation_id:
         existing_by_op = await receipt_repository.get_by_operation_id(operation_id=operation_id)
@@ -2549,11 +2548,10 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
             f"operation_id: {operation_id}"
           )
           from app.bot.telegram.runtime import telegram_bot
-          for admin_id in await user_repository.list_telegram_admin_ids():
-            if telegram_bot is not None:
-              await telegram_bot.send_message(chat_id=admin_id, text=admin_text)
-          for admin_vk_id in await user_repository.list_vk_admin_ids():
-            await send_vk_message(user_id=int(admin_vk_id), message=admin_text)
+          if owner is not None and owner.notification_platform == "tg" and owner.telegram_id is not None and telegram_bot is not None:
+            await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=admin_text)
+          elif owner is not None and owner.vk_id is not None:
+            await send_vk_message(user_id=int(owner.vk_id), message=admin_text)
           vk_user_states.pop(user_id, None)
           await send_vk_message(user_id=user_id, message="Эта операция уже была обработана.", keyboard=await _betting_vk_keyboard())
           return PlainTextResponse("ok")
