@@ -3194,26 +3194,35 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
       recipient_tail4_ocr=recipient_tail4,
       status="manual",
     )
+    reviewer = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
     from app.bot.telegram.runtime import telegram_bot
-    for admin_id in await user_repository.list_telegram_admin_ids():
-      if telegram_bot is not None:
-        if has_receipt:
-          try:
-            await message.copy_to(
-              chat_id=admin_id,
-              caption=admin_text,
-              reply_markup=bet_receipt_manual_keyboard(
-                receipt_row_id=int(manual_receipt.row_id),
-                bets=unpaid,
-                selected_ids=[],
-                page=0,
-              ),
-            )
-            continue
-          except Exception:
-            pass
+    if reviewer is not None and reviewer.notification_platform == "tg" and reviewer.telegram_id is not None and telegram_bot is not None:
+      if has_receipt:
+        try:
+          await message.copy_to(
+            chat_id=int(reviewer.telegram_id),
+            caption=admin_text,
+            reply_markup=bet_receipt_manual_keyboard(
+              receipt_row_id=int(manual_receipt.row_id),
+              bets=unpaid,
+              selected_ids=[],
+              page=0,
+            ),
+          )
+        except Exception:
+          await telegram_bot.send_message(
+            chat_id=int(reviewer.telegram_id),
+            text=admin_text,
+            reply_markup=bet_receipt_manual_keyboard(
+              receipt_row_id=int(manual_receipt.row_id),
+              bets=unpaid,
+              selected_ids=[],
+              page=0,
+            ),
+          )
+      else:
         await telegram_bot.send_message(
-          chat_id=admin_id,
+          chat_id=int(reviewer.telegram_id),
           text=admin_text,
           reply_markup=bet_receipt_manual_keyboard(
             receipt_row_id=int(manual_receipt.row_id),
@@ -3222,9 +3231,9 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
             page=0,
           ),
         )
-    for admin_vk_id in await user_repository.list_vk_admin_ids():
+    elif reviewer is not None and reviewer.vk_id is not None:
       await send_vk_message(
-        user_id=int(admin_vk_id),
+        user_id=int(reviewer.vk_id),
         message=admin_text,
         keyboard=vk_bet_receipt_manual_keyboard(
           receipt_row_id=int(manual_receipt.row_id),

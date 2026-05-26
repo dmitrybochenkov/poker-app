@@ -2621,24 +2621,36 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
         recipient_tail4_ocr=recipient_tail4,
         status="manual",
       )
+      reviewer = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
       from app.bot.telegram.runtime import telegram_bot
-      for admin_id in await user_repository.list_telegram_admin_ids():
-        if telegram_bot is not None:
-          await telegram_bot.send_message(
-            chat_id=admin_id,
-            text=admin_text,
-            reply_markup=tg_bet_receipt_manual_keyboard(
-              receipt_row_id=int(manual_receipt.row_id),
-              bets=unpaid,
-              selected_ids=[],
-              page=0,
-            ),
-          )
-      for admin_vk_id in await user_repository.list_vk_admin_ids():
+      if reviewer is not None and reviewer.notification_platform == "tg" and reviewer.telegram_id is not None and telegram_bot is not None:
+        await telegram_bot.send_message(
+          chat_id=int(reviewer.telegram_id),
+          text=admin_text,
+          reply_markup=tg_bet_receipt_manual_keyboard(
+            receipt_row_id=int(manual_receipt.row_id),
+            bets=unpaid,
+            selected_ids=[],
+            page=0,
+          ),
+        )
+      elif reviewer is not None and reviewer.vk_id is not None:
         await send_vk_message(
-          user_id=int(admin_vk_id),
+          user_id=int(reviewer.vk_id),
           message=admin_text,
           keyboard=bet_receipt_manual_keyboard(
+            receipt_row_id=int(manual_receipt.row_id),
+            bets=unpaid,
+            selected_ids=[],
+            page=0,
+          ),
+        )
+      elif telegram_bot is not None and reviewer is not None and reviewer.telegram_id is not None:
+        # Fallback for legacy reviewer rows without notification_platform.
+        await telegram_bot.send_message(
+          chat_id=int(reviewer.telegram_id),
+          text=admin_text,
+          reply_markup=tg_bet_receipt_manual_keyboard(
             receipt_row_id=int(manual_receipt.row_id),
             bets=unpaid,
             selected_ids=[],
