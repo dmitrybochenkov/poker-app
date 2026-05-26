@@ -801,7 +801,8 @@ def _format_stat_info_report(indicators) -> str:
     return "Справка пока пустая."
   lines: list[str] = []
   for item in indicators:
-    lines.append(f"{item.pic} {item.description}")
+    pic = StatUseCases._prettify_header(str(item.pic or ""))
+    lines.append(f"{pic} {item.description}")
     lines.append(f"{item.description_full}")
     lines.append("")
   return "\n".join(lines).strip()
@@ -814,18 +815,21 @@ def _format_achievement_description(raw: str) -> tuple[str, str | None]:
   return title.strip(), detail.strip() if detail else None
 
 
-def _format_achievement_info_report(achievements, indicators_by_id: dict[int, str]) -> str:
+def _format_achievement_info_report(achievements, indicators_by_id: dict[int, tuple[str, str]]) -> str:
   if not achievements:
     return "Справка пока пустая."
   lines: list[str] = []
   for item in achievements:
     title, detail = _format_achievement_description(item.description)
-    lines.append(f"{item.pic} {title}")
+    ach_pic = StatUseCases._prettify_header(str(item.pic or ""))
+    lines.append(f"{ach_pic} {title}")
     if detail:
       lines.append(detail)
-    indicator_name = indicators_by_id.get(int(item.stat_id))
-    if indicator_name:
-      lines.append(f"Показатель: {indicator_name}")
+    indicator_info = indicators_by_id.get(int(item.stat_id))
+    if indicator_info:
+      indicator_pic, indicator_name = indicator_info
+      indicator_pic = StatUseCases._prettify_header(str(indicator_pic or ""))
+      lines.append(f"Показатель: {indicator_pic} {indicator_name}".strip())
     lines.append("")
   return "\n".join(lines).strip()
 
@@ -2289,7 +2293,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
     async with SessionFactory() as session:
       achievements = await AchievementRepository(session).list_by_type(achievement_type="betting")
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    indicators_by_id = {int(item.row_id): item.description for item in indicators}
+    indicators_by_id = {int(item.row_id): (str(item.pic), item.description) for item in indicators}
     await send_vk_message(
       user_id=user_id,
       message=_format_achievement_info_report(achievements, indicators_by_id),
@@ -2311,7 +2315,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
     async with SessionFactory() as session:
       achievements = await AchievementRepository(session).list_by_type(achievement_type="poker")
       indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
-    indicators_by_id = {int(item.row_id): item.description for item in indicators}
+    indicators_by_id = {int(item.row_id): (str(item.pic), item.description) for item in indicators}
     await send_vk_message(
       user_id=user_id,
       message=_format_achievement_info_report(achievements, indicators_by_id),

@@ -828,7 +828,8 @@ def _format_stat_info_report(indicators) -> str:
     return "Справка пока пустая."
   lines: list[str] = []
   for item in indicators:
-    lines.append(f"{item.pic} <b>{item.description}</b>")
+    pic = StatUseCases._prettify_header(str(item.pic or ""))
+    lines.append(f"{pic} <b>{item.description}</b>")
     lines.append(f"{item.description_full}")
     lines.append("")
   return "\n".join(lines).strip()
@@ -841,18 +842,21 @@ def _format_achievement_description(raw: str) -> tuple[str, str | None]:
   return title.strip(), detail.strip() if detail else None
 
 
-def _format_achievement_info_report(achievements, indicators_by_id: dict[int, str]) -> str:
+def _format_achievement_info_report(achievements, indicators_by_id: dict[int, tuple[str, str]]) -> str:
   if not achievements:
     return "Справка пока пустая."
   lines: list[str] = []
   for item in achievements:
     title, detail = _format_achievement_description(item.description)
-    lines.append(f"{item.pic} <b>{title}</b>")
+    ach_pic = StatUseCases._prettify_header(str(item.pic or ""))
+    lines.append(f"{ach_pic} <b>{title}</b>")
     if detail:
       lines.append(detail)
-    indicator_name = indicators_by_id.get(int(item.stat_id))
-    if indicator_name:
-      lines.append(f"Показатель: {indicator_name}")
+    indicator_info = indicators_by_id.get(int(item.stat_id))
+    if indicator_info:
+      indicator_pic, indicator_name = indicator_info
+      indicator_pic = StatUseCases._prettify_header(str(indicator_pic or ""))
+      lines.append(f"Показатель: {indicator_pic} {indicator_name}".strip())
     lines.append("")
   return "\n".join(lines).strip()
 
@@ -1568,7 +1572,7 @@ async def show_betting_achievement_info(message: Message) -> None:
     indicator_repository = StatIndicatorRepository(session)
     achievements = await achievement_repository.list_by_type(achievement_type="betting")
     indicators = await indicator_repository.list_by_type(indicator_type="betting")
-  indicators_by_id = {int(item.row_id): item.description for item in indicators}
+  indicators_by_id = {int(item.row_id): (str(item.pic), item.description) for item in indicators}
   await message.answer(
     _format_achievement_info_report(achievements, indicators_by_id),
     reply_markup=betting_info_keyboard,
@@ -1594,7 +1598,7 @@ async def show_poker_achievement_info(message: Message) -> None:
     indicator_repository = StatIndicatorRepository(session)
     achievements = await achievement_repository.list_by_type(achievement_type="poker")
     indicators = await indicator_repository.list_by_type(indicator_type="poker")
-  indicators_by_id = {int(item.row_id): item.description for item in indicators}
+  indicators_by_id = {int(item.row_id): (str(item.pic), item.description) for item in indicators}
   await message.answer(
     _format_achievement_info_report(achievements, indicators_by_id),
     reply_markup=poker_info_keyboard,
