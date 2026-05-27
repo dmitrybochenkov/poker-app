@@ -1058,7 +1058,11 @@ async def create_poll_set_month(callback: CallbackQuery) -> None:
         )
       except Exception:
         pass
-  await _clear_inline_keyboard(callback)
+  if callback.message is not None:
+    try:
+      await callback.message.delete()
+    except Exception:
+      await _clear_inline_keyboard(callback)
   if callback.message is not None:
     await callback.message.answer(f"Опрос на {month:%m.%Y} создан.")
   await callback.answer("Опрос создан")
