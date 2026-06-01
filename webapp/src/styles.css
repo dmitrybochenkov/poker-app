@@ -35,7 +35,7 @@ body {
 }
 
 .table-rail {
-  width: min(88vw, 80vh, 820px);
+  width: min(94vw, 92vh, 920px);
   aspect-ratio: 1.78 / 1;
   transform: rotate(90deg);
   border-radius: 999px;
@@ -145,15 +145,10 @@ body {
 
 @media (max-width: 900px) and (orientation: portrait) {
   .shell {
-    padding: calc(env(safe-area-inset-top, 0px) + 16px) 12px calc(env(safe-area-inset-bottom, 0px) + 20px);
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 8px calc(env(safe-area-inset-bottom, 0px) + 12px);
   }
 
   .table-rail {
-    width: min(96vw, 74vh);
-  }
-
-  .topbar p {
-    margin-top: 2px;
-    font-size: 14px;
+    width: min(99vw, 96vh);
   }
 }
