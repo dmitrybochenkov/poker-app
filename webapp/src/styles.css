@@ -7,6 +7,14 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: "Manrope", "Inter", system-ui, -apple-system, sans-serif;
@@ -15,28 +23,41 @@ body {
 }
 
 .shell {
-  min-height: 100vh;
+  min-height: 100%;
+  width: 100%;
   max-width: 980px;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 8px;
+  overflow: hidden;
 }
 
 .content {
-  min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 0;
   display: grid;
+  overflow: hidden;
 }
 
 .home,
 .simple-page {
-  min-height: 100%;
+  min-height: 0;
   display: grid;
-  align-content: start;
+  align-content: stretch;
   gap: 12px;
+  overflow: hidden;
 }
 
 .menu-grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
+}
+
+.home .menu-grid {
+  height: 100%;
+  align-content: stretch;
+  grid-auto-rows: 1fr;
 }
 
 .menu-grid.two {
@@ -48,7 +69,7 @@ body {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 58px;
+  min-height: 56px;
   border-radius: 14px;
   border: 1px solid #d7dde8;
   background: #fff;
@@ -62,6 +83,15 @@ body {
 .menu-btn-admin {
   border-color: #f2c271;
   background: #fff7e8;
+}
+
+.global-nav {
+  display: grid;
+}
+
+.home-btn {
+  min-height: 52px;
+  font-size: 16px;
 }
 
 .hint {
@@ -83,7 +113,7 @@ body {
 
 .poker-page {
   position: relative;
-  min-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -103,7 +133,7 @@ body {
 }
 
 .table-rail {
-  width: min(99vw, 96vh);
+  width: min(96vw, 92vh);
   aspect-ratio: 1.78 / 1;
   transform: rotate(90deg);
   border-radius: 999px;
@@ -172,7 +202,7 @@ body {
 
 .bets-page {
   position: relative;
-  min-height: 100%;
+  min-height: 0;
   overflow: hidden;
   background: radial-gradient(circle at 25% 15%, #168552 0%, #0d623d 45%, #08462c 100%);
 }
@@ -191,7 +221,7 @@ body {
 }
 
 .roulette-board {
-  width: min(94vh, 86vw);
+  width: min(84vh, 76vw);
   aspect-ratio: 1.9 / 1;
   transform: rotate(90deg);
   display: grid;
@@ -241,9 +271,9 @@ body {
 .outside-bets {
   position: absolute;
   left: 50%;
-  bottom: 12%;
+  bottom: 15%;
   transform: translateX(-50%);
-  width: min(64vw, 360px);
+  width: min(54vw, 300px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -264,5 +294,16 @@ body {
 @media (min-width: 700px) {
   .menu-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .shell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .roulette-board {
+    width: min(82vh, 74vw);
   }
 }

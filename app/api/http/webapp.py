@@ -6,7 +6,7 @@ from app.db.dependencies import get_db_session
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.user_repository import UserRepository
 
-router = APIRouter(prefix="/webapp", tags=["webapp"])
+router = APIRouter(prefix="/api/webapp", tags=["webapp"])
 
 
 class WebAppBootstrapRead(BaseModel):

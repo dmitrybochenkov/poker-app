@@ -27,9 +27,6 @@
       </div>
     </div>
 
-    <div class="overlay-actions">
-      <RouterLink class="menu-btn" to="/bets/actions">Открыть действия</RouterLink>
-    </div>
   </section>
 </template>
 

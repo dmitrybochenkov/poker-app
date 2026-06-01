@@ -54,7 +54,7 @@ onMounted(async () => {
       };
       return;
     }
-    const res = await fetch(`/webapp/bootstrap/${tgUserId}`);
+    const res = await fetch(`/api/webapp/bootstrap/${tgUserId}`);
     if (res.ok) {
       state.value = (await res.json()) as BootstrapState;
       return;
