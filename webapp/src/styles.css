@@ -21,7 +21,7 @@ body {
   min-height: 100vh;
   max-width: 760px;
   margin: 0 auto;
-  padding: 20px 14px 40px;
+  padding: calc(env(safe-area-inset-top, 0px) + 64px) 14px calc(env(safe-area-inset-bottom, 0px) + 40px);
 }
 
 .topbar {
