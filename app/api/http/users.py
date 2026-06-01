@@ -73,6 +73,21 @@ async def list_users(
   return [UserRead.model_validate(user) for user in users]
 
 
+@router.get("/by-telegram/{telegram_id}", response_model=UserRead)
+async def get_user_by_telegram_id(
+  telegram_id: int,
+  session: AsyncSession = Depends(get_db_session),
+) -> UserRead:
+  repository = UserRepository(session)
+  user = await repository.get_by_telegram_id(telegram_id=telegram_id)
+  if user is None:
+    raise HTTPException(
+      status_code=status.HTTP_404_NOT_FOUND,
+      detail=f"User with telegram_id={telegram_id} not found",
+    )
+  return UserRead.model_validate(user)
+
+
 @router.post("/{row_id}/approve", response_model=UserRead)
 async def approve_user(
   row_id: int,

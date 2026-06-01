@@ -1,7 +1,7 @@
 :root {
-  --tg-bg: #0f1115;
-  --tg-text: #f5f7fa;
-  --tg-hint: #8b93a4;
+  --tg-bg: #f4f7fb;
+  --tg-text: #18222d;
+  --tg-hint: #627286;
   --tg-accent: #30a46c;
   --tg-accent-text: #ffffff;
 }
@@ -13,7 +13,7 @@
 body {
   margin: 0;
   font-family: "Manrope", "Inter", system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at top, #1a2030 0%, var(--tg-bg) 55%);
+  background: radial-gradient(circle at top, #ffffff 0%, var(--tg-bg) 58%);
   color: var(--tg-text);
 }
 
@@ -48,7 +48,7 @@ body {
 .tabs a {
   color: var(--tg-text);
   text-decoration: none;
-  border: 1px solid #ffffff24;
+  border: 1px solid #c7d2e0;
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 14px;
@@ -79,10 +79,10 @@ body {
 }
 
 .card {
-  border: 1px solid #ffffff20;
+  border: 1px solid #d6dfeb;
   border-radius: 16px;
   padding: 14px;
-  background: #ffffff0f;
+  background: #ffffff;
 }
 
 .card h3 {
@@ -92,4 +92,16 @@ body {
 .card ul {
   margin: 0;
   padding-left: 18px;
+}
+
+.primary-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--tg-accent);
+  color: var(--tg-accent-text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
 }
