@@ -14,13 +14,8 @@ body {
   margin: 0;
   font-family: "Manrope", "Inter", system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(circle at 20% 15%, #1d6c47 0%, #0d4f31 40%),
-    radial-gradient(circle at 80% 70%, #1a5f40 0%, #0c452c 45%),
-    repeating-linear-gradient(
-      45deg,
-      rgb(255 255 255 / 2.5%) 0 8px,
-      rgb(0 0 0 / 2.5%) 8px 16px
-    );
+    linear-gradient(rgb(8 25 18 / 42%), rgb(8 25 18 / 42%)),
+    url("/webapp/poker-table-rotated.webp") center center / cover no-repeat fixed;
   color: var(--tg-text);
 }
 
