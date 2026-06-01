@@ -14,9 +14,39 @@ body {
   margin: 0;
   font-family: "Manrope", "Inter", system-ui, -apple-system, sans-serif;
   background:
-    linear-gradient(rgb(8 25 18 / 42%), rgb(8 25 18 / 42%)),
+    linear-gradient(rgb(8 25 18 / 18%), rgb(8 25 18 / 18%)),
     url("/webapp/poker-table-rotated.webp") center center / cover no-repeat fixed;
   color: var(--tg-text);
+  position: relative;
+}
+
+/* Slight global punch for saturation/contrast */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  backdrop-filter: saturate(1.18) contrast(1.08) brightness(1.08);
+}
+
+/* Hide center branding text on table image with felt-colored oval */
+body::after {
+  content: "";
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: min(44vw, 280px);
+  height: min(18vw, 112px);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 30%, #1f9f67 0%, #168553 45%, #0f6f45 100%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 14%),
+    0 10px 30px rgb(0 0 0 / 28%);
+  opacity: 0.96;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .shell {
@@ -24,6 +54,8 @@ body {
   max-width: 760px;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top, 0px) + 36px) 14px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  position: relative;
+  z-index: 1;
 }
 
 .topbar {
