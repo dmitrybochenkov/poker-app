@@ -3,15 +3,18 @@
     <div class="table-bg" aria-hidden="true">
       <div class="table-rail">
         <div class="table-felt">
-          <div class="seat seat-1"></div>
-          <div class="seat seat-2"></div>
-          <div class="seat seat-3"></div>
-          <div class="seat seat-4"></div>
-          <div class="seat seat-5"></div>
-          <div class="seat seat-6"></div>
-          <div class="seat seat-7"></div>
-          <div class="seat seat-8"></div>
-          <div class="seat seat-9"></div>
+          <div class="ring">
+            <div class="segment seg-1"></div>
+            <div class="segment seg-2"></div>
+            <div class="segment seg-3"></div>
+            <div class="segment seg-4"></div>
+            <div class="segment seg-5"></div>
+            <div class="segment seg-6"></div>
+            <div class="segment seg-7"></div>
+            <div class="segment seg-8"></div>
+            <div class="segment seg-9"></div>
+            <div class="segment seg-10"></div>
+          </div>
           <div class="board">
             <span class="card-slot"></span>
             <span class="card-slot"></span>
