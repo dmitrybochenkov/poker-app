@@ -329,7 +329,7 @@ body {
 }
 
 .roulette-board {
-  width: min(110vh, 106vw);
+  width: min(132vh, 126vw);
   aspect-ratio: 2.08 / 1;
   transform: rotate(90deg);
   transform-origin: center center;
@@ -467,7 +467,7 @@ body {
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(118vh, 112vw);
+    width: min(148vh, 142vw);
   }
 
   .dozens-row span,

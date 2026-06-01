@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.dependencies import get_db_session
@@ -63,7 +63,13 @@ async def webapp_players(
       func.count(PokerData.row_id).label("games_count"),
       func.coalesce(func.sum(PokerData.money_kopecks), 0).label("profit_kopecks"),
     )
-    .join(User, User.row_id == PokerData.player_id)
+    .join(
+      User,
+      or_(
+        User.row_id == PokerData.player_id,
+        User.name == PokerData.player_name,
+      ),
+    )
     .where(User.is_approved.is_(True))
     .group_by(User.row_id, User.name)
     .order_by(func.sum(PokerData.money_kopecks).desc(), User.name.asc())
