@@ -25,15 +25,7 @@
         </div>
       </div>
     </div>
-    <header class="topbar">
-      <div>
-        <h1>Poker App</h1>
-        <p>Telegram Web App</p>
-      </div>
-    </header>
-    <main class="content">
-      <RouterView />
-    </main>
+    <main class="content"></main>
   </div>
 </template>
 
