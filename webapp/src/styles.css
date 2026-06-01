@@ -1,7 +1,7 @@
 :root {
-  --tg-bg: #f4f7fb;
-  --tg-text: #18222d;
-  --tg-hint: #627286;
+  --tg-bg: #0d4f31;
+  --tg-text: #f3f7f4;
+  --tg-hint: #c3dbc8;
   --tg-accent: #30a46c;
   --tg-accent-text: #ffffff;
 }
@@ -13,7 +13,14 @@
 body {
   margin: 0;
   font-family: "Manrope", "Inter", system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at top, #ffffff 0%, var(--tg-bg) 58%);
+  background:
+    radial-gradient(circle at 20% 15%, #1d6c47 0%, #0d4f31 40%),
+    radial-gradient(circle at 80% 70%, #1a5f40 0%, #0c452c 45%),
+    repeating-linear-gradient(
+      45deg,
+      rgb(255 255 255 / 2.5%) 0 8px,
+      rgb(0 0 0 / 2.5%) 8px 16px
+    );
   color: var(--tg-text);
 }
 
@@ -21,7 +28,7 @@ body {
   min-height: 100vh;
   max-width: 760px;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top, 0px) + 64px) 14px calc(env(safe-area-inset-bottom, 0px) + 40px);
+  padding: calc(env(safe-area-inset-top, 0px) + 36px) 14px calc(env(safe-area-inset-bottom, 0px) + 32px);
 }
 
 .topbar {
@@ -48,7 +55,7 @@ body {
 .tabs a {
   color: var(--tg-text);
   text-decoration: none;
-  border: 1px solid #c7d2e0;
+  border: 1px solid #ffffff2d;
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 14px;
@@ -79,10 +86,10 @@ body {
 }
 
 .card {
-  border: 1px solid #d6dfeb;
+  border: 1px solid #ffffff30;
   border-radius: 16px;
   padding: 14px;
-  background: #ffffff;
+  background: #0a3f29c2;
 }
 
 .card h3 {
