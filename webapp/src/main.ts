@@ -12,7 +12,7 @@ import NextPokerPage from "./pages/NextPokerPage.vue";
 import PlaceholderActionsPage from "./pages/PlaceholderActionsPage.vue";
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory("/webapp/"),
   routes: [
     { path: "/", component: HomePage },
     { path: "/poker", component: PokerPage },

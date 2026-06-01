@@ -170,6 +170,97 @@ body {
   background: rgb(255 255 255 / 12%);
 }
 
+.bets-page {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at 25% 15%, #168552 0%, #0d623d 45%, #08462c 100%);
+}
+
+.bets-page .overlay-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.roulette-felt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.roulette-board {
+  width: min(94vh, 86vw);
+  aspect-ratio: 1.9 / 1;
+  transform: rotate(90deg);
+  display: grid;
+  grid-template-columns: 13% 87%;
+  border: 2px solid #d8e4db;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0e603b;
+  box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
+}
+
+.zero-cell {
+  display: grid;
+  place-items: center;
+  color: #eaf7ef;
+  font-weight: 800;
+  font-size: clamp(24px, 4vw, 34px);
+  background: #13874f;
+  border-right: 2px solid #d8e4db;
+}
+
+.numbers-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+  padding: 2px;
+  background: #d8e4db;
+}
+
+.n {
+  display: grid;
+  place-items: center;
+  color: #f5f7fa;
+  font-weight: 800;
+  font-size: clamp(13px, 2vw, 21px);
+}
+
+.n.red {
+  background: #ce1f2d;
+}
+
+.n.black {
+  background: #151821;
+}
+
+.outside-bets {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  width: min(64vw, 360px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.outside-bets span {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d8e4db;
+  color: #eaf7ef;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgb(10 53 33 / 55%);
+}
+
 @media (min-width: 700px) {
   .menu-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
