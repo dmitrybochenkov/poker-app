@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from difflib import get_close_matches
 from typing import Any
 
 
@@ -95,6 +96,32 @@ def _norm(text: str) -> str:
 
 def _now_utc_iso() -> str:
   return datetime.now(timezone.utc).isoformat()
+
+
+def _closest_token(token: str, options: list[str], *, cutoff: float = 0.67) -> str | None:
+  if token in options:
+    return token
+  found = get_close_matches(token, options, n=1, cutoff=cutoff)
+  return found[0] if found else None
+
+
+def _token_to_player(token: str) -> int | None:
+  if token.isdigit():
+    return int(token)
+  words = {
+    "один": 1,
+    "два": 2,
+    "три": 3,
+    "четыре": 4,
+    "пять": 5,
+    "шесть": 6,
+    "семь": 7,
+    "восемь": 8,
+    "девять": 9,
+    "десять": 10,
+  }
+  near = _closest_token(token, list(words.keys()), cutoff=0.65)
+  return words.get(near) if near else None
 
 
 def parse_command(text: str, *, triggers: tuple[str, ...] = DEFAULT_TRIGGERS) -> ParsedCommand:
@@ -197,5 +224,43 @@ def parse_command(text: str, *, triggers: tuple[str, ...] = DEFAULT_TRIGGERS) ->
       s,
       _now_utc_iso(),
     )
+
+  # Grammar-aware recovery after trigger:
+  # альфа <player|street> <action|...> [amount]
+  tokens = s.split()
+  if tokens:
+    streets = ["префлоп", "флоп", "терн", "ривер"]
+    actions = ["баттон", "пас", "фолд", "чек", "колл", "ставка", "рейз", "рейс", "победил", "победитель"]
+    if tokens[0] == "улица" and len(tokens) > 1:
+      tokens = tokens[1:]
+
+    near_street = _closest_token(tokens[0], streets, cutoff=0.62)
+    if near_street:
+      return ParsedCommand(True, "street", None, None, near_street, raw, s, _now_utc_iso())
+
+    idx = 0
+    if tokens[0] == "игрок" and len(tokens) > 1:
+      idx = 1
+    p = _token_to_player(tokens[idx]) if idx < len(tokens) else None
+    if p is not None and idx + 1 < len(tokens):
+      near_action = _closest_token(tokens[idx + 1], actions, cutoff=0.62)
+      amount = None
+      for t in tokens[idx + 2 :]:
+        if t.isdigit():
+          amount = int(t)
+          break
+      if near_action == "баттон":
+        return ParsedCommand(True, "new_hand", p, None, "preflop", raw, s, _now_utc_iso())
+      if near_action in {"победил", "победитель"}:
+        return ParsedCommand(True, "winner", p, None, None, raw, s, _now_utc_iso())
+      if near_action in {"пас", "фолд"}:
+        return ParsedCommand(True, "fold", p, amount, None, raw, s, _now_utc_iso())
+      if near_action == "чек":
+        return ParsedCommand(True, "check", p, amount, None, raw, s, _now_utc_iso())
+      if near_action == "колл":
+        return ParsedCommand(True, "call", p, amount, None, raw, s, _now_utc_iso())
+      if near_action in {"ставка", "рейз", "рейс"} and isinstance(amount, int) and amount > 0:
+        act = "bet" if near_action == "ставка" else "raise"
+        return ParsedCommand(True, act, p, amount, None, raw, s, _now_utc_iso())
 
   return ParsedCommand(False, None, None, None, None, raw, s, _now_utc_iso(), "pattern_miss")
