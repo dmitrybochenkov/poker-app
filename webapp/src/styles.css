@@ -228,6 +228,7 @@ body {
   pointer-events: none;
   display: grid;
   place-items: center;
+  padding: 0 0 68px;
   z-index: 0;
   background: radial-gradient(circle at 30% 20%, #1a8455 0%, #0d5b39 45%, #083b26 100%);
 }
@@ -238,7 +239,7 @@ body {
 }
 
 .table-rail {
-  width: min(108vw, 104vh);
+  width: min(102vw, 98vh);
   aspect-ratio: 1.78 / 1;
   transform: rotate(90deg);
   border-radius: 999px;
@@ -320,15 +321,18 @@ body {
 .roulette-felt {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 76px;
   pointer-events: none;
 }
 
 .roulette-board {
-  width: min(130vh, 126vw);
+  width: min(110vh, 106vw);
   aspect-ratio: 2.08 / 1;
   transform: rotate(90deg);
+  transform-origin: center center;
   display: grid;
   grid-template-rows: 57% 21.5% 21.5%;
   border: 2px solid #d8e4db;
@@ -463,7 +467,7 @@ body {
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(152vh, 146vw);
+    width: min(118vh, 112vw);
   }
 
   .dozens-row span,
@@ -477,5 +481,10 @@ body {
 
   .home .menu-grid {
     padding-top: calc(env(safe-area-inset-top, 0px) + 78px);
+  }
+
+  .poker-page .table-bg,
+  .roulette-felt {
+    padding-bottom: 84px;
   }
 }

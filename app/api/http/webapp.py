@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.dependencies import get_db_session
 from app.db.models.poker_data import PokerData
+from app.db.models.user import User
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.user_repository import UserRepository
 
@@ -57,14 +58,15 @@ async def webapp_players(
 ) -> list[WebAppPlayerCardRead]:
   query = (
     select(
-      PokerData.player_id,
-      PokerData.player_name,
+      User.row_id.label("player_id"),
+      User.name.label("player_name"),
       func.count(PokerData.row_id).label("games_count"),
       func.coalesce(func.sum(PokerData.money_kopecks), 0).label("profit_kopecks"),
     )
-    .where(PokerData.player_id > 0)
-    .group_by(PokerData.player_id, PokerData.player_name)
-    .order_by(func.sum(PokerData.money_kopecks).desc(), PokerData.player_name.asc())
+    .join(User, User.row_id == PokerData.player_id)
+    .where(User.is_approved.is_(True))
+    .group_by(User.row_id, User.name)
+    .order_by(func.sum(PokerData.money_kopecks).desc(), User.name.asc())
   )
   rows = (await session.execute(query)).all()
   return [
