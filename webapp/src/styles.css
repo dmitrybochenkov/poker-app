@@ -23,14 +23,12 @@ body {
 }
 
 .shell {
+  position: relative;
   min-height: 100%;
   width: 100%;
-  max-width: 980px;
-  margin: 0 auto;
-  padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  padding: 0;
   display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 8px;
+  grid-template-rows: 1fr;
   overflow: hidden;
 }
 
@@ -70,23 +68,46 @@ body {
   justify-content: center;
   width: 100%;
   min-height: 56px;
-  border-radius: 14px;
-  border: 1px solid #d7dde8;
-  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #cfd7e4;
+  background: linear-gradient(180deg, #ffffff 0%, #f2f6fc 100%);
   color: #1a2a38;
   text-decoration: none;
   font-size: 18px;
   font-weight: 700;
   padding: 10px 14px;
+  box-shadow:
+    0 8px 16px rgb(10 35 66 / 18%),
+    inset 0 1px 0 rgb(255 255 255 / 95%);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.menu-btn:hover {
+  filter: brightness(1.02);
+  box-shadow:
+    0 10px 18px rgb(10 35 66 / 20%),
+    inset 0 1px 0 rgb(255 255 255 / 95%);
+}
+
+.menu-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 4px 10px rgb(10 35 66 / 16%),
+    inset 0 2px 4px rgb(10 35 66 / 10%);
 }
 
 .menu-btn-admin {
-  border-color: #f2c271;
-  background: #fff7e8;
+  border-color: #e2b76f;
+  background: linear-gradient(180deg, #fff7e8 0%, #f9ebcf 100%);
 }
 
 .global-nav {
   display: grid;
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 5;
 }
 
 .home-btn {
@@ -204,7 +225,7 @@ body {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  background: radial-gradient(circle at 25% 15%, #168552 0%, #0d623d 45%, #08462c 100%);
+  background: radial-gradient(circle at 28% 20%, #1f9a60 0%, #0f6a42 44%, #0a4f33 100%);
 }
 
 .bets-page .overlay-actions {
@@ -221,16 +242,22 @@ body {
 }
 
 .roulette-board {
-  width: min(84vh, 76vw);
-  aspect-ratio: 1.9 / 1;
+  width: min(90vh, 86vw);
+  aspect-ratio: 2.08 / 1;
   transform: rotate(90deg);
   display: grid;
-  grid-template-columns: 13% 87%;
+  grid-template-rows: 57% 21.5% 21.5%;
   border: 2px solid #d8e4db;
-  border-radius: 14px;
+  border-radius: 6px;
   overflow: hidden;
   background: #0e603b;
   box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
+}
+
+.roulette-top {
+  display: grid;
+  grid-template-columns: 13% 81% 6%;
+  border-bottom: 2px solid #d8e4db;
 }
 
 .zero-cell {
@@ -241,6 +268,7 @@ body {
   font-size: clamp(24px, 4vw, 34px);
   background: #13874f;
   border-right: 2px solid #d8e4db;
+  clip-path: polygon(11% 0, 100% 0, 100% 100%, 11% 100%, 0 80%, 0 20%);
 }
 
 .numbers-grid {
@@ -250,6 +278,26 @@ body {
   gap: 2px;
   padding: 2px;
   background: #d8e4db;
+  border-right: 2px solid #d8e4db;
+}
+
+.to1-col {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  background: #12774a;
+}
+
+.to1-col span {
+  display: grid;
+  place-items: center;
+  color: #eaf7ef;
+  font-weight: 700;
+  font-size: clamp(11px, 1.5vw, 16px);
+  border-bottom: 2px solid #d8e4db;
+}
+
+.to1-col span:last-child {
+  border-bottom: 0;
 }
 
 .n {
@@ -268,27 +316,51 @@ body {
   background: #151821;
 }
 
-.outside-bets {
-  position: absolute;
-  left: 50%;
-  bottom: 15%;
-  transform: translateX(-50%);
-  width: min(54vw, 300px);
+.dozens-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  border-bottom: 2px solid #d8e4db;
 }
 
-.outside-bets span {
+.dozens-row span,
+.outside-row span {
   display: grid;
   place-items: center;
-  min-height: 34px;
-  border-radius: 8px;
-  border: 1px solid #d8e4db;
   color: #eaf7ef;
-  font-size: 12px;
+  font-size: clamp(14px, 2vw, 24px);
   font-weight: 700;
-  background: rgb(10 53 33 / 55%);
+  border-right: 2px solid #d8e4db;
+}
+
+.dozens-row span:last-child,
+.outside-row span:last-child {
+  border-right: 0;
+}
+
+.outside-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.diamond {
+  position: relative;
+  font-size: 0;
+}
+
+.diamond::before {
+  content: "";
+  width: 44%;
+  aspect-ratio: 1 / 1;
+  transform: rotate(45deg);
+  border: 2px solid #d8e4db;
+}
+
+.diamond.red::before {
+  background: #ce1f2d;
+}
+
+.diamond.black::before {
+  background: #151821;
 }
 
 @media (min-width: 700px) {
@@ -298,12 +370,7 @@ body {
 }
 
 @media (max-width: 480px) {
-  .shell {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-
   .roulette-board {
-    width: min(82vh, 74vw);
+    width: min(88vh, 84vw);
   }
 }
