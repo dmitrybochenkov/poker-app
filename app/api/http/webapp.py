@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.dependencies import get_db_session
+from app.db.models.poker_data import PokerData
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.user_repository import UserRepository
 
@@ -15,6 +17,13 @@ class WebAppBootstrapRead(BaseModel):
   is_approved: bool
   has_phone: bool
   has_active_poll: bool
+
+
+class WebAppPlayerCardRead(BaseModel):
+  player_id: int
+  name: str
+  games: int
+  profit_rub: int
 
 
 @router.get("/bootstrap/{telegram_id}", response_model=WebAppBootstrapRead)
@@ -40,3 +49,30 @@ async def webapp_bootstrap(
     has_phone=has_phone,
     has_active_poll=has_active_poll,
   )
+
+
+@router.get("/players", response_model=list[WebAppPlayerCardRead])
+async def webapp_players(
+  session: AsyncSession = Depends(get_db_session),
+) -> list[WebAppPlayerCardRead]:
+  query = (
+    select(
+      PokerData.player_id,
+      PokerData.player_name,
+      func.count(PokerData.row_id).label("games_count"),
+      func.coalesce(func.sum(PokerData.money_kopecks), 0).label("profit_kopecks"),
+    )
+    .where(PokerData.player_id > 0)
+    .group_by(PokerData.player_id, PokerData.player_name)
+    .order_by(func.sum(PokerData.money_kopecks).desc(), PokerData.player_name.asc())
+  )
+  rows = (await session.execute(query)).all()
+  return [
+    WebAppPlayerCardRead(
+      player_id=int(row.player_id),
+      name=str(row.player_name),
+      games=int(row.games_count or 0),
+      profit_rub=int(int(row.profit_kopecks or 0) / 100),
+    )
+    for row in rows
+  ]

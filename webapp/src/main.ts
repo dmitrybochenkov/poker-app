@@ -10,6 +10,7 @@ import InfoPage from "./pages/InfoPage.vue";
 import PlayersPage from "./pages/PlayersPage.vue";
 import NextPokerPage from "./pages/NextPokerPage.vue";
 import PlaceholderActionsPage from "./pages/PlaceholderActionsPage.vue";
+import AdminPage from "./pages/AdminPage.vue";
 
 const router = createRouter({
   history: createWebHistory("/webapp/"),
@@ -23,7 +24,7 @@ const router = createRouter({
     { path: "/poker/actions", component: PlaceholderActionsPage, props: { title: "Про покер" } },
     { path: "/bets/actions", component: PlaceholderActionsPage, props: { title: "Про ставки" } },
     { path: "/info/actions", component: PlaceholderActionsPage, props: { title: "Информация" } },
-    { path: "/admin", component: PlaceholderActionsPage, props: { title: "Админ панель" } }
+    { path: "/admin", component: AdminPage }
   ]
 });
 

@@ -15,11 +15,7 @@
       <RouterLink class="menu-btn" to="/bets">Про ставки</RouterLink>
       <RouterLink class="menu-btn" to="/info">Информация</RouterLink>
 
-      <RouterLink
-        v-if="state?.is_admin"
-        class="menu-btn menu-btn-admin"
-        to="/admin"
-      >
+      <RouterLink class="menu-btn menu-btn-admin" to="/admin">
         Админ панель
       </RouterLink>
     </div>
