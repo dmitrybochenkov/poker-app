@@ -120,6 +120,98 @@ body {
   font-size: 16px;
 }
 
+.players-page {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  overflow: hidden;
+  background: linear-gradient(155deg, #f7fafc 0%, #eaf1f7 48%, #f9fbfd 100%);
+}
+
+.players-carousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 84%;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px 10px 6px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.players-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.player-card {
+  scroll-snap-align: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
+  border: 1px solid #d8e1ed;
+  border-radius: 20px;
+  padding: 12px;
+  box-shadow: 0 16px 28px rgb(15 42 80 / 15%);
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.player-photo {
+  width: 100%;
+  aspect-ratio: 1.05 / 1;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid #d9e2ee;
+  background: #ecf2f8;
+}
+
+.player-meta h3 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.player-meta p {
+  margin: 4px 0 0;
+  color: #627587;
+  font-size: 14px;
+}
+
+.player-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat-cell {
+  border: 1px solid #dce5f1;
+  border-radius: 12px;
+  padding: 8px 6px;
+  background: #fff;
+  text-align: center;
+}
+
+.stat-cell .k {
+  display: block;
+  font-size: 12px;
+  color: #6d7f91;
+}
+
+.stat-cell .v {
+  display: block;
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.players-hint {
+  margin: 0;
+  padding: 8px 0 10px;
+  text-align: center;
+  color: #6d7f91;
+  font-size: 13px;
+}
+
 .white-page {
   background: #fff;
 }
@@ -242,7 +334,7 @@ body {
 }
 
 .roulette-board {
-  width: min(90vh, 86vw);
+  width: min(98vh, 96vw);
   aspect-ratio: 2.08 / 1;
   transform: rotate(90deg);
   display: grid;
@@ -292,7 +384,8 @@ body {
   place-items: center;
   color: #eaf7ef;
   font-weight: 700;
-  font-size: clamp(11px, 1.5vw, 16px);
+  font-size: clamp(12px, 1.6vw, 17px);
+  white-space: nowrap;
   border-bottom: 2px solid #d8e4db;
 }
 
@@ -327,8 +420,9 @@ body {
   display: grid;
   place-items: center;
   color: #eaf7ef;
-  font-size: clamp(14px, 2vw, 24px);
+  font-size: clamp(15px, 2.3vw, 26px);
   font-weight: 700;
+  white-space: nowrap;
   border-right: 2px solid #d8e4db;
 }
 
@@ -367,10 +461,25 @@ body {
   .menu-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .players-carousel {
+    grid-auto-columns: 48%;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
 }
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(88vh, 84vw);
+    width: min(102vh, 98vw);
+  }
+
+  .dozens-row span,
+  .outside-row span {
+    font-size: clamp(13px, 2.3vw, 17px);
+  }
+
+  .to1-col span {
+    font-size: clamp(10px, 1.7vw, 13px);
   }
 }
