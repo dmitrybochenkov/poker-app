@@ -56,18 +56,30 @@ body {
 .ring {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  background:
+    repeating-conic-gradient(
+      from -90deg,
+      #dfe7e8 0deg 1.2deg,
+      transparent 1.2deg 36deg
+    ),
+    conic-gradient(
+      from -90deg,
+      #1f9b63 0deg 36deg,
+      #24283d 36deg 72deg,
+      #1f9b63 72deg 108deg,
+      #24283d 108deg 144deg,
+      #1f9b63 144deg 180deg,
+      #24283d 180deg 216deg,
+      #1f9b63 216deg 252deg,
+      #24283d 252deg 288deg,
+      #1f9b63 288deg 324deg,
+      #24283d 324deg 360deg
+    );
 }
 
 .segment {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 36%;
-  height: 22%;
-  transform-origin: 0 50%;
-  clip-path: polygon(0 14%, 100% 0, 100% 100%, 0 86%);
-  border-left: 5px solid #dfe7e8;
-  border-right: 5px solid #dfe7e8;
+  display: none;
 }
 
 .seg-1 { transform: rotate(0deg) translateX(41%); background: #1f9b63; }
