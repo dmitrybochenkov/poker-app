@@ -8,6 +8,7 @@ from app.api.http.registration import router as registration_router
 from app.api.http.telegram_webhook import router as telegram_webhook_router
 from app.api.http.users import router as users_router
 from app.api.http.vk_webhook import router as vk_webhook_router
+from app.api.http.webapp import router as webapp_router
 from app.bot.telegram.runtime import setup_telegram_webhook, shutdown_telegram_bot
 from app.config.settings import settings
 from app.db.session import finalize_database
@@ -28,3 +29,4 @@ app.include_router(registration_router)
 app.include_router(telegram_webhook_router)
 app.include_router(vk_webhook_router)
 app.include_router(users_router)
+app.include_router(webapp_router)

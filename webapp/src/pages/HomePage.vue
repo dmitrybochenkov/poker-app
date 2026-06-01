@@ -1,13 +1,27 @@
 <template>
-  <section class="stack">
-    <h2>Главная</h2>
-    <p class="muted">Подготовили основу. Дальше будем добавлять кнопки и действия по одной.</p>
-    <div class="card">
-      <p v-if="loading" class="muted">Проверяю профиль...</p>
-      <p v-else-if="error" class="muted">{{ error }}</p>
-      <p v-else class="muted">
-        Статус: {{ isRegistered ? "пользователь найден" : "пользователь не найден" }}
-      </p>
+  <section class="home">
+    <div v-if="loading" class="hint">Загрузка...</div>
+    <div v-else class="menu-grid">
+      <RouterLink
+        v-if="state?.has_active_poll"
+        class="menu-btn"
+        to="/next-poker"
+      >
+        Следующий покер
+      </RouterLink>
+
+      <RouterLink class="menu-btn" to="/players">Игроки</RouterLink>
+      <RouterLink class="menu-btn" to="/poker">Про покер</RouterLink>
+      <RouterLink class="menu-btn" to="/bets">Про ставки</RouterLink>
+      <RouterLink class="menu-btn" to="/info">Информация</RouterLink>
+
+      <RouterLink
+        v-if="state?.is_admin"
+        class="menu-btn menu-btn-admin"
+        to="/admin"
+      >
+        Админ панель
+      </RouterLink>
     </div>
   </section>
 </template>
@@ -16,56 +30,44 @@
 import { onMounted, ref } from "vue";
 import { getTelegramWebApp } from "../services/telegram";
 
-interface UserRead {
-  row_id: number;
-  telegram_id: number | null;
+interface BootstrapState {
+  is_registered: boolean;
+  is_admin: boolean;
+  is_approved: boolean;
+  has_phone: boolean;
+  has_active_poll: boolean;
 }
 
 const loading = ref(true);
-const error = ref("");
-const isRegistered = ref(false);
-const telegramId = ref<number | null>(null);
-
-async function fetchUserState(): Promise<void> {
-  loading.value = true;
-  error.value = "";
-
-  const webApp = getTelegramWebApp();
-  const tgUserId = webApp?.initDataUnsafe?.user && typeof webApp.initDataUnsafe.user === "object"
-    ? Number((webApp.initDataUnsafe.user as Record<string, unknown>).id)
-    : Number.NaN;
-  if (!Number.isFinite(tgUserId)) {
-    loading.value = false;
-    error.value = "Не удалось получить Telegram ID";
-    return;
-  }
-
-  telegramId.value = tgUserId;
-
-  const response = await fetch(`/users/by-telegram/${tgUserId}`);
-  if (response.status === 404) {
-    isRegistered.value = false;
-    loading.value = false;
-    return;
-  }
-  if (!response.ok) {
-    loading.value = false;
-    error.value = "Ошибка загрузки профиля";
-    return;
-  }
-
-  const user = (await response.json()) as UserRead;
-  isRegistered.value = true;
-  void user;
-  loading.value = false;
-}
+const state = ref<BootstrapState | null>(null);
 
 onMounted(async () => {
   try {
-    await fetchUserState();
-  } catch {
+    const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
+    if (!Number.isFinite(tgUserId)) {
+      state.value = {
+        is_registered: false,
+        is_admin: false,
+        is_approved: false,
+        has_phone: false,
+        has_active_poll: false,
+      };
+      return;
+    }
+    const res = await fetch(`/webapp/bootstrap/${tgUserId}`);
+    if (res.ok) {
+      state.value = (await res.json()) as BootstrapState;
+      return;
+    }
+    state.value = {
+      is_registered: false,
+      is_admin: false,
+      is_approved: false,
+      has_phone: false,
+      has_active_poll: false,
+    };
+  } finally {
     loading.value = false;
-    error.value = "Не удалось связаться с сервером";
   }
 });
 </script>

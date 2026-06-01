@@ -1,9 +1,22 @@
 <template>
-  <section class="stack">
-    <h2>Про покер</h2>
-    <p class="muted">Заглушка под историю, статистику и блок текущей игры.</p>
-    <div class="card">
-      <p><strong>Дальше сюда:</strong> график закупов, итоги последних игр, статус рума.</p>
+  <section class="poker-page">
+    <div class="table-bg" aria-hidden="true">
+      <div class="table-rail">
+        <div class="table-felt">
+          <div class="ring"></div>
+          <div class="board">
+            <span class="card-slot"></span>
+            <span class="card-slot"></span>
+            <span class="card-slot"></span>
+            <span class="card-slot"></span>
+            <span class="card-slot"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay-actions">
+      <RouterLink class="menu-btn" to="/poker/actions">Открыть действия</RouterLink>
     </div>
   </section>
 </template>
