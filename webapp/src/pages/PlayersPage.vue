@@ -3,18 +3,29 @@
     <div v-if="loading" class="hint players-status">Загрузка игроков...</div>
     <div v-else-if="players.length === 0" class="hint players-status">Пока нет данных</div>
     <div v-else class="players-carousel" aria-label="Игроки">
-      <article v-for="player in players" :key="player.player_id" class="player-card">
+      <article v-for="(player, index) in players" :key="player.player_id" class="player-card">
+        <div class="card-corner top-left">
+          <span class="rank">{{ cardRank(index) }}</span>
+          <span class="suit">{{ cardSuit(index) }}</span>
+        </div>
+        <div class="card-corner bottom-right">
+          <span class="rank">{{ cardRank(index) }}</span>
+          <span class="suit">{{ cardSuit(index) }}</span>
+        </div>
+        <div class="player-photo-zone">
+          <div class="player-photo-placeholder"></div>
+        </div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
         </div>
         <div class="player-stats">
           <div class="stat-cell">
-            <span class="k">Игр</span>
-            <span class="v">{{ player.games }}</span>
-          </div>
-          <div class="stat-cell">
             <span class="k">Профит</span>
             <span class="v">{{ player.profit }}</span>
+          </div>
+          <div class="stat-cell">
+            <span class="k">Игр</span>
+            <span class="v">{{ player.games }}</span>
           </div>
         </div>
       </article>
@@ -42,10 +53,20 @@ type PlayerCard = {
 
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
+const cardRanks = ["JOKER", "A", "K", "Q", "J", "10", "9", "8", "7", "6"];
+const cardSuits = ["*", "A", "K", "Q", "J", "10", "9", "8", "7", "6"];
 
 function formatRub(amount: number): string {
   const sign = amount > 0 ? "+" : "";
   return `${sign}${amount.toLocaleString("ru-RU")} ₽`;
+}
+
+function cardRank(index: number): string {
+  return cardRanks[index] ?? `${index + 1}`;
+}
+
+function cardSuit(index: number): string {
+  return cardSuits[index] ?? "*";
 }
 
 onMounted(async () => {

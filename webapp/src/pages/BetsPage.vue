@@ -31,6 +31,7 @@
           <span>1st 12</span>
           <span>2nd 12</span>
           <span>3rd 12</span>
+          <span class="row-tail" aria-hidden="true"></span>
         </div>
         <div class="outside-row">
           <span class="row-spacer" aria-hidden="true"></span>
@@ -40,6 +41,7 @@
           <span class="diamond black"></span>
           <span>ODD</span>
           <span>19 to 36</span>
+          <span class="row-tail" aria-hidden="true"></span>
         </div>
       </div>
     </div>

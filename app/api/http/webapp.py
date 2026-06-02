@@ -56,43 +56,37 @@ async def webapp_bootstrap(
 async def webapp_players(
   session: AsyncSession = Depends(get_db_session),
 ) -> list[WebAppPlayerCardRead]:
-  matched_rows = (
-    select(
-      User.row_id.label("player_id"),
-      User.name.label("player_name"),
-      PokerData.row_id.label("poker_row_id"),
-      PokerData.money_kopecks.label("money_kopecks"),
+  approved_users = (
+    await session.execute(
+      select(User.row_id, User.name)
+      .where(User.is_approved.is_(True))
+      .order_by(User.name.asc())
     )
-    .join(
-      PokerData,
-      or_(
-        User.row_id == PokerData.player_id,
-        User.name == PokerData.player_name,
-      ),
-    )
-    .where(User.is_approved.is_(True))
-    .distinct()
-    .subquery()
-  )
+  ).all()
 
-  query = (
-    select(
-      matched_rows.c.player_id,
-      matched_rows.c.player_name,
-      func.count(matched_rows.c.poker_row_id).label("games_count"),
-      func.coalesce(func.sum(matched_rows.c.money_kopecks), 0).label("profit_kopecks"),
-    )
-    .group_by(matched_rows.c.player_id, matched_rows.c.player_name)
-    .order_by(func.sum(matched_rows.c.money_kopecks).desc(), matched_rows.c.player_name.asc())
-  )
+  result: list[WebAppPlayerCardRead] = []
+  for user in approved_users:
+    stats = (
+      await session.execute(
+        select(
+          func.count(PokerData.row_id).label("games_count"),
+          func.coalesce(func.sum(PokerData.money_kopecks), 0).label("profit_kopecks"),
+        ).where(
+          or_(
+            PokerData.player_id == user.row_id,
+            PokerData.player_name == user.name,
+          )
+        )
+      )
+    ).one()
 
-  rows = (await session.execute(query)).all()
-  return [
-    WebAppPlayerCardRead(
-      player_id=int(row.player_id),
-      name=str(row.player_name),
-      games=int(row.games_count or 0),
-      profit_rub=int(int(row.profit_kopecks or 0) / 100),
+    result.append(
+      WebAppPlayerCardRead(
+        player_id=int(user.row_id),
+        name=str(user.name),
+        games=int(stats.games_count or 0),
+        profit_rub=int(int(stats.profit_kopecks or 0) / 100),
+      )
     )
-    for row in rows
-  ]
+
+  return sorted(result, key=lambda item: (-item.profit_rub, item.name))
