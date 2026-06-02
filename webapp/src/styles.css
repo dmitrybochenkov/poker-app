@@ -329,7 +329,7 @@ body {
 }
 
 .roulette-board {
-  width: min(132vh, 126vw);
+  width: min(146vh, 138vw);
   aspect-ratio: 2.08 / 1;
   transform: rotate(90deg);
   transform-origin: center center;
@@ -356,7 +356,8 @@ body {
   font-size: clamp(24px, 4vw, 34px);
   background: #13874f;
   border-right: 2px solid #d8e4db;
-  clip-path: polygon(11% 0, 100% 0, 100% 100%, 11% 100%, 0 80%, 0 20%);
+  border-radius: 999px 0 0 999px;
+  clip-path: polygon(22% 0, 100% 0, 100% 100%, 22% 100%, 0 78%, 0 22%);
 }
 
 .numbers-grid {
@@ -407,7 +408,7 @@ body {
 
 .dozens-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 13% repeat(3, 29%);
   border-bottom: 2px solid #d8e4db;
 }
 
@@ -429,7 +430,11 @@ body {
 
 .outside-row {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: 13% repeat(6, 14.5%);
+}
+
+.row-spacer {
+  background: #0e603b;
 }
 
 .diamond {
@@ -467,7 +472,7 @@ body {
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(148vh, 142vw);
+    width: min(164vh, 154vw);
   }
 
   .dozens-row span,

@@ -27,11 +27,13 @@
           </div>
         </div>
         <div class="dozens-row">
+          <span class="row-spacer" aria-hidden="true"></span>
           <span>1st 12</span>
           <span>2nd 12</span>
           <span>3rd 12</span>
         </div>
         <div class="outside-row">
+          <span class="row-spacer" aria-hidden="true"></span>
           <span>1 to 18</span>
           <span>EVEN</span>
           <span class="diamond red"></span>

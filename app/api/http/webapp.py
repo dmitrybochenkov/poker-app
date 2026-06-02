@@ -56,24 +56,36 @@ async def webapp_bootstrap(
 async def webapp_players(
   session: AsyncSession = Depends(get_db_session),
 ) -> list[WebAppPlayerCardRead]:
-  query = (
+  matched_rows = (
     select(
       User.row_id.label("player_id"),
       User.name.label("player_name"),
-      func.count(PokerData.row_id).label("games_count"),
-      func.coalesce(func.sum(PokerData.money_kopecks), 0).label("profit_kopecks"),
+      PokerData.row_id.label("poker_row_id"),
+      PokerData.money_kopecks.label("money_kopecks"),
     )
     .join(
-      User,
+      PokerData,
       or_(
         User.row_id == PokerData.player_id,
         User.name == PokerData.player_name,
       ),
     )
     .where(User.is_approved.is_(True))
-    .group_by(User.row_id, User.name)
-    .order_by(func.sum(PokerData.money_kopecks).desc(), User.name.asc())
+    .distinct()
+    .subquery()
   )
+
+  query = (
+    select(
+      matched_rows.c.player_id,
+      matched_rows.c.player_name,
+      func.count(matched_rows.c.poker_row_id).label("games_count"),
+      func.coalesce(func.sum(matched_rows.c.money_kopecks), 0).label("profit_kopecks"),
+    )
+    .group_by(matched_rows.c.player_id, matched_rows.c.player_name)
+    .order_by(func.sum(matched_rows.c.money_kopecks).desc(), matched_rows.c.player_name.asc())
+  )
+
   rows = (await session.execute(query)).all()
   return [
     WebAppPlayerCardRead(
