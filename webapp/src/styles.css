@@ -153,27 +153,29 @@ body {
 .player-card {
   scroll-snap-align: center;
   position: relative;
-  background: linear-gradient(180deg, #fffdf7 0%, #fff 34%, #f6f8fb 100%);
-  border: 1px solid #d8e1ed;
-  border-radius: 22px;
-  padding: 14px 14px 18px;
+  background: linear-gradient(180deg, #fffdfa 0%, #fffdf8 46%, #ffffff 46%, #ffffff 100%);
+  border: 2px solid #d8d4c7;
+  border-radius: 24px;
+  padding: 16px 14px 18px;
   box-shadow:
-    0 18px 30px rgb(15 42 80 / 16%),
+    0 20px 34px rgb(15 42 80 / 14%),
     inset 0 1px 0 rgb(255 255 255 / 95%);
   display: grid;
-  grid-template-rows: 1fr auto auto;
-  gap: 14px;
+  grid-template-rows: minmax(0, 1fr) auto auto auto auto;
+  gap: 12px;
   align-content: stretch;
   min-height: 72vh;
+  overflow: hidden;
 }
 
 .card-corner {
   position: absolute;
   display: grid;
   gap: 2px;
-  color: #1a2a38;
+  color: #cf1d33;
   font-weight: 800;
   line-height: 1;
+  z-index: 2;
 }
 
 .card-corner.top-left {
@@ -188,40 +190,45 @@ body {
 }
 
 .card-corner .rank {
-  font-size: 18px;
+  font-size: 22px;
 }
 
 .card-corner .suit {
-  font-size: 12px;
-  opacity: 0.7;
+  font-size: 18px;
+  opacity: 1;
 }
 
 .player-photo-zone {
-  border-radius: 18px;
-  border: 1px solid #d7dfeb;
-  background:
-    radial-gradient(circle at 50% 24%, rgb(255 255 255 / 65%), transparent 34%),
-    linear-gradient(160deg, #f2f6fb 0%, #e3eaf2 100%);
+  border-radius: 18px 18px 0 0;
+  border: 2px solid #252525;
+  border-bottom: 0;
+  background: linear-gradient(180deg, #fbfbfb 0%, #f4f4ef 100%);
   display: grid;
   place-items: center;
-  min-height: 34vh;
+  min-height: 30vh;
 }
 
 .player-photo-placeholder {
-  width: 72%;
-  height: 72%;
-  border-radius: 18px;
+  width: 78%;
+  height: 78%;
+  border: 2px solid #252525;
+  background: linear-gradient(180deg, #fefefe 0%, #f2f2ef 100%);
+}
+
+.card-divider {
+  height: 2px;
+  margin: -12px -14px 0;
   background:
-    radial-gradient(circle at 50% 34%, #c7d3e0 0 13%, transparent 14%),
-    radial-gradient(circle at 50% 78%, #c7d3e0 0 24%, transparent 25%),
-    linear-gradient(180deg, #eef3f8 0%, #dfe7f0 100%);
+    linear-gradient(135deg, transparent calc(50% - 1px), #d8d3c4 50%, transparent calc(50% + 1px)),
+    linear-gradient(45deg, transparent calc(50% - 1px), #d8d3c4 50%, transparent calc(50% + 1px));
 }
 
 .player-meta h3 {
   margin: 0;
-  font-size: 23px;
+  font-size: 22px;
   line-height: 1.2;
   text-align: center;
+  color: #17222f;
 }
 
 .player-stats {
@@ -231,10 +238,10 @@ body {
 }
 
 .stat-cell {
-  border: 1px solid #dce5f1;
+  border: 1px solid #d8d4c7;
   border-radius: 12px;
   padding: 8px 6px;
-  background: #fff;
+  background: #fffdf8;
   text-align: center;
 }
 
@@ -249,6 +256,25 @@ body {
   margin-top: 4px;
   font-weight: 700;
   font-size: 13px;
+}
+
+.player-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.mini-card-btn {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid #d6dce7;
+  background: linear-gradient(180deg, #ffffff 0%, #eef2f8 100%);
+  color: #1a2a38;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow:
+    0 6px 12px rgb(10 35 66 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 95%);
 }
 
 .players-hint {
@@ -379,40 +405,48 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 0 76px;
+  padding: 0 0 82px;
   pointer-events: none;
 }
 
 .roulette-board {
-  width: min(162vh, 152vw);
+  width: min(178vh, 166vw);
   aspect-ratio: 2.08 / 1;
   transform: rotate(90deg);
   transform-origin: center center;
   display: grid;
-  grid-template-rows: 57% 21.5% 21.5%;
-  border: 2px solid #d8e4db;
-  border-radius: 6px;
+  grid-template-rows: 52% 24% 24%;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
-  background: #0e603b;
+  background: transparent;
   box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
 }
 
 .roulette-top {
   display: grid;
-  grid-template-columns: 13% 81% 6%;
-  border-bottom: 2px solid #d8e4db;
+  grid-template-columns: 15% 77% 8%;
 }
 
 .zero-cell {
   display: grid;
   place-items: center;
+  background: transparent;
+}
+
+.zero-cell > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
   color: #eaf7ef;
   font-weight: 800;
   font-size: clamp(24px, 4vw, 34px);
   background: #13874f;
-  border-right: 2px solid #d8e4db;
+  border: 2px solid #d8e4db;
+  border-right: 0;
   border-radius: 999px 0 0 999px;
-  clip-path: polygon(22% 0, 100% 0, 100% 100%, 22% 100%, 0 78%, 0 22%);
+  transform: rotate(-90deg);
 }
 
 .numbers-grid {
@@ -422,27 +456,35 @@ body {
   gap: 2px;
   padding: 2px;
   background: #d8e4db;
-  border-right: 2px solid #d8e4db;
+  border: 2px solid #d8e4db;
+  border-left: 0;
 }
 
 .to1-col {
   display: grid;
   grid-template-rows: repeat(3, 1fr);
-  background: #12774a;
+  background: transparent;
 }
 
 .to1-col span {
   display: grid;
   place-items: center;
+  background: #12774a;
   color: #eaf7ef;
   font-weight: 700;
-  font-size: clamp(12px, 1.6vw, 17px);
+  font-size: clamp(12px, 1.45vw, 18px);
   white-space: nowrap;
+  border-top: 2px solid #d8e4db;
+  border-right: 2px solid #d8e4db;
   border-bottom: 2px solid #d8e4db;
 }
 
-.to1-col span:last-child {
-  border-bottom: 0;
+.to1-col span:not(:first-child) {
+  border-top: 0;
+}
+
+.to1-col span > span {
+  transform: rotate(-90deg);
 }
 
 .n {
@@ -451,6 +493,10 @@ body {
   color: #f5f7fa;
   font-weight: 800;
   font-size: clamp(13px, 2vw, 21px);
+}
+
+.n > span {
+  transform: rotate(-90deg);
 }
 
 .n.red {
@@ -463,8 +509,7 @@ body {
 
 .dozens-row {
   display: grid;
-  grid-template-columns: 13% 27% 27% 27% 6%;
-  border-bottom: 2px solid #d8e4db;
+  grid-template-columns: 15% 25.66% 25.66% 25.66% 8%;
 }
 
 .dozens-row span,
@@ -485,12 +530,22 @@ body {
 
 .outside-row {
   display: grid;
-  grid-template-columns: 13% 13.5% 13.5% 13.5% 13.5% 13.5% 13.5% 6%;
+  grid-template-columns: 15% 12.83% 12.83% 12.83% 12.83% 12.83% 12.83% 8%;
 }
 
 .row-spacer,
 .row-tail {
-  background: #0e603b;
+  background: transparent;
+}
+
+.dozens-row span:not(.row-spacer):not(.row-tail),
+.outside-row span:not(.row-spacer):not(.row-tail) {
+  background: #12774a;
+}
+
+.dozens-row span,
+.outside-row span {
+  min-height: 100%;
 }
 
 .diamond {
@@ -532,7 +587,7 @@ body {
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(182vh, 170vw);
+    width: min(198vh, 182vw);
   }
 
   .dozens-row span,
@@ -541,7 +596,7 @@ body {
   }
 
   .to1-col span {
-    font-size: clamp(10px, 1.7vw, 13px);
+    font-size: clamp(9px, 1.5vw, 13px);
   }
 
   .home .menu-grid {

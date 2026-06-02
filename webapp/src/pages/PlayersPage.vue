@@ -15,6 +15,7 @@
         <div class="player-photo-zone">
           <div class="player-photo-placeholder"></div>
         </div>
+        <div class="card-divider" aria-hidden="true"></div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
         </div>
@@ -27,6 +28,10 @@
             <span class="k">Игр</span>
             <span class="v">{{ player.games }}</span>
           </div>
+        </div>
+        <div class="player-card-actions">
+          <button class="mini-card-btn" type="button">Добавить фото</button>
+          <button class="mini-card-btn" type="button">Добавить телефон</button>
         </div>
       </article>
     </div>
