@@ -127,7 +127,7 @@ body {
   display: grid;
   grid-template-rows: 1fr auto;
   overflow: hidden;
-  background: linear-gradient(155deg, #f7fafc 0%, #eaf1f7 48%, #f9fbfd 100%);
+  background: #fff;
 }
 
 .players-status {
@@ -137,11 +137,11 @@ body {
 .players-carousel {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 84%;
-  gap: 12px;
+  grid-auto-columns: min(86vw, 360px);
+  gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: calc(env(safe-area-inset-top, 0px) + 62px) 10px 112px;
+  padding: calc(env(safe-area-inset-top, 0px) + 78px) 14px 156px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
 }
@@ -153,125 +153,34 @@ body {
 .player-card {
   scroll-snap-align: center;
   position: relative;
-  background: linear-gradient(180deg, #fcfcfa 0%, #ffffff 100%);
-  border: 1px solid #d8d4c7;
-  border-radius: 20px;
-  padding: 16px 14px 18px;
-  box-shadow:
-    0 16px 28px rgb(15 42 80 / 12%),
-    inset 0 1px 0 rgb(255 255 255 / 95%);
+  background: #fff;
+  border: 1px solid #e3e7ec;
+  border-radius: 28px;
+  padding: 0 14px 18px;
+  box-shadow: 0 16px 36px rgb(15 42 80 / 12%);
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto auto auto auto;
   gap: 12px;
-  align-content: stretch;
-  min-height: 60vh;
-  max-height: 72vh;
+  align-content: start;
+  min-height: auto;
+  max-height: none;
   overflow: hidden;
 }
 
-.card-corner {
-  position: absolute;
-  display: grid;
-  gap: 2px;
-  font-weight: 800;
-  line-height: 1;
-  z-index: 2;
-}
-
-.suit-red {
-  color: #d72b44;
-}
-
-.suit-black {
-  color: #1f2438;
-}
-
-.card-corner.top-left {
-  top: 12px;
-  left: 12px;
-}
-
-.card-corner .rank {
-  font-size: 24px;
-}
-
-.card-corner .suit {
-  font-size: 28px;
-  opacity: 1;
-}
-
-.face-card {
-  background: transparent;
-  border-radius: 14px 14px 0 0;
-  padding: 18px 12px 0;
-  min-height: 21vh;
-  overflow: hidden;
-}
-
-.face-card-inner {
-  position: relative;
-  height: 145%;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #fffefb 0%, #fffdfa 100%);
-  border: 1px solid #e5ded2;
-  overflow: hidden;
-}
-
-.face-suit {
-  position: absolute;
-  top: 34px;
-  left: 38px;
-  font-size: clamp(42px, 6vw, 58px);
-  line-height: 1;
-}
-
-.face-center {
-  position: absolute;
-  inset: 18% 0 auto;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  gap: 4px;
-}
-
-.face-center-rank {
-  font-size: clamp(44px, 7vw, 72px);
-  font-weight: 800;
-  line-height: 0.95;
-  letter-spacing: 0.02em;
-}
-
-.face-center-suit {
-  font-size: clamp(40px, 5vw, 54px);
-  line-height: 1;
-}
-
-.face-center-joker {
-  font-size: clamp(24px, 3.2vw, 34px);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.player-photo-zone {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding-top: 84px;
-}
-
-.player-photo-placeholder {
-  width: 28%;
-  aspect-ratio: 0.8 / 1;
-  border-radius: 999px;
-  border: 2px solid #2f2f2f;
-  background: linear-gradient(180deg, #ffffff 0%, #f1f1ee 100%);
-}
-
-.card-divider {
-  height: 1px;
+.player-card-art {
   margin: 0 -14px;
-  background: #d8d3c4;
+  height: clamp(280px, 43vh, 410px);
+  overflow: hidden;
+  background: #fff;
+  border-bottom: 1px solid #e3e7ec;
+}
+
+.player-card-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
 }
 
 .player-meta h3 {
@@ -313,6 +222,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  padding-bottom: 2px;
 }
 
 .mini-card-btn {
@@ -330,7 +240,7 @@ body {
 
 .players-hint {
   margin: 0;
-  padding: 8px 0 10px;
+  padding: 6px 0 14px;
   text-align: center;
   color: #6d7f91;
   font-size: 13px;
@@ -461,19 +371,21 @@ body {
 }
 
 .roulette-board {
-  position: relative;
-  width: min(76vw, 388px);
-  height: min(74vh, 690px);
+  display: grid;
+  grid-template-columns: 22% 30% 48%;
+  grid-template-rows: 14% 72% 12%;
+  width: min(74vw, 380px);
+  height: min(70vh, 640px);
   box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
+  background: rgb(0 0 0 / 8%);
 }
 
 .zero-wrap {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 48%;
-  height: 14%;
-  overflow: hidden;
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  align-items: end;
+  padding-left: 1px;
 }
 
 .zero-cell {
@@ -491,16 +403,14 @@ body {
   font-size: clamp(28px, 6vw, 40px);
   background: #13874f;
   border: 2px solid #d8e4db;
-  border-radius: 0 0 24px 24px;
+  border-bottom: 0;
+  border-radius: 0 0 28px 28px;
   transform: none;
 }
 
 .numbers-grid {
-  position: absolute;
-  right: 0;
-  top: 14%;
-  width: 48%;
-  height: 70%;
+  grid-column: 3;
+  grid-row: 2;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(12, 1fr);
@@ -511,21 +421,15 @@ body {
 }
 
 .outside-col {
-  position: absolute;
-  left: 0;
-  top: 14%;
-  width: 22%;
-  height: 70%;
+  grid-column: 1;
+  grid-row: 2;
   display: grid;
   grid-template-rows: repeat(6, 1fr);
 }
 
 .dozens-col {
-  position: absolute;
-  left: 22%;
-  top: 14%;
-  width: 30%;
-  height: 70%;
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
   grid-template-rows: repeat(3, 1fr);
 }
@@ -574,11 +478,8 @@ body {
 }
 
 .to1-row {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 48%;
-  height: 12%;
+  grid-column: 3;
+  grid-row: 3;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
 }
@@ -618,20 +519,16 @@ body {
   }
 
   .players-carousel {
-    grid-auto-columns: 48%;
+    grid-auto-columns: min(48vw, 360px);
     padding-left: 14px;
     padding-right: 14px;
-  }
-
-  .player-card {
-    min-height: 64vh;
   }
 }
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(74vw, 372px);
-    height: min(72vh, 660px);
+    width: min(76vw, 360px);
+    height: min(67vh, 610px);
   }
 
   .home .menu-grid {
@@ -641,5 +538,9 @@ body {
   .poker-page .table-bg,
   .roulette-felt {
     padding-bottom: 84px;
+  }
+
+  .player-card-art {
+    height: clamp(250px, 40vh, 360px);
   }
 }

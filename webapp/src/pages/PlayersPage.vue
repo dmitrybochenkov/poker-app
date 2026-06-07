@@ -4,24 +4,9 @@
     <div v-else-if="players.length === 0" class="hint players-status">Пока нет данных</div>
     <div v-else class="players-carousel" aria-label="Игроки">
       <article v-for="(player, index) in players" :key="player.player_id" class="player-card">
-        <div class="card-corner top-left" :class="suitClass(index)">
-          <span class="rank">{{ cardRank(index) }}</span>
-          <span v-if="showSuit(index)" class="suit">{{ cardSuit(index) }}</span>
+        <div class="player-card-art">
+          <img :src="cardArt(index)" :alt="cardTitle(index)" />
         </div>
-        <div class="face-card">
-          <div class="face-card-inner">
-            <div v-if="showSuit(index)" class="face-suit" :class="suitClass(index)">{{ cardSuit(index) }}</div>
-            <div class="face-center" :class="suitClass(index)">
-              <div class="face-center-rank">{{ cardRank(index) }}</div>
-              <div v-if="showSuit(index)" class="face-center-suit">{{ cardSuit(index) }}</div>
-              <div v-else class="face-center-joker">JOKER</div>
-            </div>
-            <div class="player-photo-zone">
-              <div class="player-photo-placeholder"></div>
-            </div>
-          </div>
-        </div>
-        <div class="card-divider" aria-hidden="true"></div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
         </div>
@@ -65,20 +50,20 @@ type PlayerCard = {
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
 const deck = [
-  { rank: "JKR", suit: "RED" },
-  { rank: "JKR", suit: "BLACK" },
-  { rank: "K", suit: "♣" },
-  { rank: "K", suit: "♠" },
-  { rank: "K", suit: "♥" },
-  { rank: "K", suit: "♦" },
-  { rank: "Q", suit: "♣" },
-  { rank: "Q", suit: "♠" },
-  { rank: "Q", suit: "♥" },
-  { rank: "Q", suit: "♦" },
-  { rank: "J", suit: "♣" },
-  { rank: "J", suit: "♠" },
-  { rank: "J", suit: "♥" },
-  { rank: "J", suit: "♦" },
+  { title: "Черный джокер", art: "/player-cards/joker-black.png" },
+  { title: "Красный джокер", art: "/player-cards/joker-red.png" },
+  { title: "Король треф", art: "/player-cards/king-clubs.png" },
+  { title: "Король пик", art: "/player-cards/king-spades.png" },
+  { title: "Король червей", art: "/player-cards/king-hearts.png" },
+  { title: "Король бубен", art: "/player-cards/king-diamonds.png" },
+  { title: "Дама треф", art: "/player-cards/queen-clubs.png" },
+  { title: "Дама пик", art: "/player-cards/queen-spades.png" },
+  { title: "Дама червей", art: "/player-cards/queen-hearts.png" },
+  { title: "Дама бубен", art: "/player-cards/queen-diamonds.png" },
+  { title: "Валет треф", art: "/player-cards/jack-clubs.png" },
+  { title: "Валет пик", art: "/player-cards/jack-spades.png" },
+  { title: "Валет червей", art: "/player-cards/jack-hearts.png" },
+  { title: "Валет бубен", art: "/player-cards/jack-diamonds.png" },
 ];
 
 function formatRub(amount: number): string {
@@ -86,22 +71,12 @@ function formatRub(amount: number): string {
   return `${sign}${amount.toLocaleString("ru-RU")} ₽`;
 }
 
-function cardRank(index: number): string {
-  return deck[index]?.rank ?? "J";
+function cardArt(index: number): string {
+  return deck[index]?.art ?? deck[0].art;
 }
 
-function cardSuit(index: number): string {
-  return deck[index]?.suit ?? "♣";
-}
-
-function suitClass(index: number): string {
-  const suit = cardSuit(index);
-  return suit === "♥" || suit === "♦" || suit === "RED" ? "suit-red" : "suit-black";
-}
-
-function showSuit(index: number): boolean {
-  const suit = cardSuit(index);
-  return suit !== "RED" && suit !== "BLACK";
+function cardTitle(index: number): string {
+  return deck[index]?.title ?? deck[0].title;
 }
 
 onMounted(async () => {
