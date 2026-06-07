@@ -2,23 +2,25 @@
   <section class="bets-page">
     <div class="roulette-felt" aria-hidden="true">
       <div class="roulette-board">
+        <div class="left-panel">
+          <div class="outside-col">
+            <span class="outside-cell"><span>1 to 18</span></span>
+            <span class="outside-cell"><span>EVEN</span></span>
+            <span class="outside-cell diamond red"></span>
+            <span class="outside-cell diamond black"></span>
+            <span class="outside-cell"><span>ODD</span></span>
+            <span class="outside-cell"><span>19 to 36</span></span>
+          </div>
+
+          <div class="dozens-col">
+            <span class="dozen-cell"><span>1st 12</span></span>
+            <span class="dozen-cell"><span>2nd 12</span></span>
+            <span class="dozen-cell"><span>3rd 12</span></span>
+          </div>
+        </div>
+
         <div class="zero-wrap">
           <div class="zero-cell"><span>0</span></div>
-        </div>
-
-        <div class="outside-col">
-          <span class="outside-cell"><span>1 to 18</span></span>
-          <span class="outside-cell"><span>EVEN</span></span>
-          <span class="outside-cell diamond red"></span>
-          <span class="outside-cell diamond black"></span>
-          <span class="outside-cell"><span>ODD</span></span>
-          <span class="outside-cell"><span>19 to 36</span></span>
-        </div>
-
-        <div class="dozens-col">
-          <span class="dozen-cell"><span>1st 12</span></span>
-          <span class="dozen-cell"><span>2nd 12</span></span>
-          <span class="dozen-cell"><span>3rd 12</span></span>
         </div>
 
         <div class="numbers-grid">
