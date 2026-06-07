@@ -8,18 +8,11 @@
           <span class="rank">{{ cardRank(index) }}</span>
           <span class="suit">{{ cardSuit(index) }}</span>
         </div>
-        <div class="card-corner bottom-right" :class="suitClass(index)">
-          <span class="rank">{{ cardRank(index) }}</span>
-          <span class="suit">{{ cardSuit(index) }}</span>
-        </div>
         <div class="face-card">
           <div class="face-card-inner">
             <div class="face-suit" :class="suitClass(index)">{{ cardSuit(index) }}</div>
             <div class="player-photo-zone">
               <div class="player-photo-placeholder"></div>
-            </div>
-            <div class="face-mirror">
-              <div class="player-photo-placeholder mirror"></div>
             </div>
           </div>
         </div>
