@@ -4,16 +4,24 @@
     <div v-else-if="players.length === 0" class="hint players-status">Пока нет данных</div>
     <div v-else class="players-carousel" aria-label="Игроки">
       <article v-for="(player, index) in players" :key="player.player_id" class="player-card">
-        <div class="card-corner top-left">
+        <div class="card-corner top-left" :class="suitClass(index)">
           <span class="rank">{{ cardRank(index) }}</span>
           <span class="suit">{{ cardSuit(index) }}</span>
         </div>
-        <div class="card-corner bottom-right">
+        <div class="card-corner bottom-right" :class="suitClass(index)">
           <span class="rank">{{ cardRank(index) }}</span>
           <span class="suit">{{ cardSuit(index) }}</span>
         </div>
-        <div class="player-photo-zone">
-          <div class="player-photo-placeholder"></div>
+        <div class="face-card">
+          <div class="face-card-inner">
+            <div class="face-suit" :class="suitClass(index)">{{ cardSuit(index) }}</div>
+            <div class="player-photo-zone">
+              <div class="player-photo-placeholder"></div>
+            </div>
+            <div class="face-mirror">
+              <div class="player-photo-placeholder mirror"></div>
+            </div>
+          </div>
         </div>
         <div class="card-divider" aria-hidden="true"></div>
         <div class="player-meta">
@@ -58,8 +66,22 @@ type PlayerCard = {
 
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
-const cardRanks = ["JOKER", "A", "K", "Q", "J", "10", "9", "8", "7", "6"];
-const cardSuits = ["*", "A", "K", "Q", "J", "10", "9", "8", "7", "6"];
+const deck = [
+  { rank: "JKR", suit: "♣" },
+  { rank: "JKR", suit: "♠" },
+  { rank: "K", suit: "♣" },
+  { rank: "K", suit: "♠" },
+  { rank: "K", suit: "♥" },
+  { rank: "K", suit: "♦" },
+  { rank: "Q", suit: "♣" },
+  { rank: "Q", suit: "♠" },
+  { rank: "Q", suit: "♥" },
+  { rank: "Q", suit: "♦" },
+  { rank: "J", suit: "♣" },
+  { rank: "J", suit: "♠" },
+  { rank: "J", suit: "♥" },
+  { rank: "J", suit: "♦" },
+];
 
 function formatRub(amount: number): string {
   const sign = amount > 0 ? "+" : "";
@@ -67,11 +89,16 @@ function formatRub(amount: number): string {
 }
 
 function cardRank(index: number): string {
-  return cardRanks[index] ?? `${index + 1}`;
+  return deck[index]?.rank ?? "J";
 }
 
 function cardSuit(index: number): string {
-  return cardSuits[index] ?? "*";
+  return deck[index]?.suit ?? "♣";
+}
+
+function suitClass(index: number): string {
+  const suit = cardSuit(index);
+  return suit === "♥" || suit === "♦" ? "suit-red" : "suit-black";
 }
 
 onMounted(async () => {
@@ -79,7 +106,7 @@ onMounted(async () => {
     const res = await fetch("/api/webapp/players");
     if (!res.ok) return;
     const data = (await res.json()) as PlayerCardApi[];
-    players.value = data.map((item) => ({
+    players.value = data.slice(0, 14).map((item) => ({
       player_id: item.player_id,
       name: item.name,
       games: item.games,
