@@ -605,16 +605,19 @@ body {
 }
 
 .roulette-board-wrap {
+  position: relative;
   width: min(76vw, 380px);
   height: min(69vh, 630px);
-  display: grid;
-  place-items: center;
+  overflow: hidden;
 }
 
 .roulette-board {
-  width: min(146vw, 720px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(150vw, 760px);
   aspect-ratio: 2.42 / 1;
-  transform: rotate(90deg);
+  transform: translate(-50%, -50%) rotate(90deg) scale(1.42);
   transform-origin: center center;
   display: grid;
   grid-template-rows: 63% 18.5% 18.5%;
@@ -755,6 +758,11 @@ body {
   .roulette-board-wrap {
     width: min(78vw, 372px);
     height: min(70vh, 636px);
+  }
+
+  .roulette-board {
+    width: min(146vw, 700px);
+    transform: translate(-50%, -50%) rotate(90deg) scale(1.34);
   }
 
   .home .menu-grid {
