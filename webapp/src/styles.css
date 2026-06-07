@@ -141,7 +141,7 @@ body {
   gap: 12px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: calc(env(safe-area-inset-top, 0px) + 54px) 10px 6px;
+  padding: calc(env(safe-area-inset-top, 0px) + 62px) 10px 112px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
 }
@@ -164,7 +164,8 @@ body {
   grid-template-rows: minmax(0, 1fr) auto auto auto;
   gap: 12px;
   align-content: stretch;
-  min-height: 72vh;
+  min-height: 60vh;
+  max-height: 72vh;
   overflow: hidden;
 }
 
@@ -203,13 +204,13 @@ body {
   background: transparent;
   border-radius: 14px 14px 0 0;
   padding: 18px 12px 0;
-  min-height: 29vh;
+  min-height: 21vh;
   overflow: hidden;
 }
 
 .face-card-inner {
   position: relative;
-  height: 180%;
+  height: 145%;
   border-radius: 22px;
   background: linear-gradient(180deg, #fffefb 0%, #fffdfa 100%);
   border: 1px solid #e5ded2;
@@ -218,10 +219,37 @@ body {
 
 .face-suit {
   position: absolute;
-  top: 42px;
-  left: 46px;
-  font-size: clamp(54px, 7vw, 72px);
+  top: 34px;
+  left: 38px;
+  font-size: clamp(42px, 6vw, 58px);
   line-height: 1;
+}
+
+.face-center {
+  position: absolute;
+  inset: 18% 0 auto;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.face-center-rank {
+  font-size: clamp(44px, 7vw, 72px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+}
+
+.face-center-suit {
+  font-size: clamp(40px, 5vw, 54px);
+  line-height: 1;
+}
+
+.face-center-joker {
+  font-size: clamp(24px, 3.2vw, 34px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .player-photo-zone {
@@ -229,12 +257,12 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
-  padding-top: 58px;
+  padding-top: 84px;
 }
 
 .player-photo-placeholder {
-  width: 36%;
-  aspect-ratio: 0.78 / 1;
+  width: 28%;
+  aspect-ratio: 0.8 / 1;
   border-radius: 999px;
   border: 2px solid #2f2f2f;
   background: linear-gradient(180deg, #ffffff 0%, #f1f1ee 100%);
@@ -434,17 +462,17 @@ body {
 
 .roulette-board {
   position: relative;
-  width: min(78vw, 400px);
-  height: min(76vh, 720px);
+  width: min(76vw, 388px);
+  height: min(74vh, 690px);
   box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
 }
 
 .zero-wrap {
   position: absolute;
-  left: 0;
+  right: 0;
   top: 0;
-  width: 25%;
-  height: 18%;
+  width: 48%;
+  height: 14%;
   overflow: hidden;
 }
 
@@ -463,16 +491,16 @@ body {
   font-size: clamp(28px, 6vw, 40px);
   background: #13874f;
   border: 2px solid #d8e4db;
-  border-radius: 999px 0 0 999px;
-  transform: rotate(-90deg);
+  border-radius: 0 0 24px 24px;
+  transform: none;
 }
 
 .numbers-grid {
   position: absolute;
   right: 0;
-  top: 0;
+  top: 14%;
   width: 48%;
-  height: 84%;
+  height: 70%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(12, 1fr);
@@ -485,9 +513,9 @@ body {
 .outside-col {
   position: absolute;
   left: 0;
-  top: 18%;
+  top: 14%;
   width: 22%;
-  height: 66%;
+  height: 70%;
   display: grid;
   grid-template-rows: repeat(6, 1fr);
 }
@@ -495,9 +523,9 @@ body {
 .dozens-col {
   position: absolute;
   left: 22%;
-  top: 18%;
+  top: 14%;
   width: 30%;
-  height: 66%;
+  height: 70%;
   display: grid;
   grid-template-rows: repeat(3, 1fr);
 }
@@ -550,7 +578,7 @@ body {
   right: 0;
   bottom: 0;
   width: 48%;
-  height: 16%;
+  height: 12%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
 }
@@ -602,8 +630,8 @@ body {
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(86vw, 440px);
-    height: min(80vh, 780px);
+    width: min(74vw, 372px);
+    height: min(72vh, 660px);
   }
 
   .home .menu-grid {

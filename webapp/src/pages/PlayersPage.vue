@@ -6,11 +6,16 @@
       <article v-for="(player, index) in players" :key="player.player_id" class="player-card">
         <div class="card-corner top-left" :class="suitClass(index)">
           <span class="rank">{{ cardRank(index) }}</span>
-          <span class="suit">{{ cardSuit(index) }}</span>
+          <span v-if="showSuit(index)" class="suit">{{ cardSuit(index) }}</span>
         </div>
         <div class="face-card">
           <div class="face-card-inner">
-            <div class="face-suit" :class="suitClass(index)">{{ cardSuit(index) }}</div>
+            <div v-if="showSuit(index)" class="face-suit" :class="suitClass(index)">{{ cardSuit(index) }}</div>
+            <div class="face-center" :class="suitClass(index)">
+              <div class="face-center-rank">{{ cardRank(index) }}</div>
+              <div v-if="showSuit(index)" class="face-center-suit">{{ cardSuit(index) }}</div>
+              <div v-else class="face-center-joker">JOKER</div>
+            </div>
             <div class="player-photo-zone">
               <div class="player-photo-placeholder"></div>
             </div>
@@ -60,8 +65,8 @@ type PlayerCard = {
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
 const deck = [
-  { rank: "JKR", suit: "♣" },
-  { rank: "JKR", suit: "♠" },
+  { rank: "JKR", suit: "RED" },
+  { rank: "JKR", suit: "BLACK" },
   { rank: "K", suit: "♣" },
   { rank: "K", suit: "♠" },
   { rank: "K", suit: "♥" },
@@ -91,7 +96,12 @@ function cardSuit(index: number): string {
 
 function suitClass(index: number): string {
   const suit = cardSuit(index);
-  return suit === "♥" || suit === "♦" ? "suit-red" : "suit-black";
+  return suit === "♥" || suit === "♦" || suit === "RED" ? "suit-red" : "suit-black";
+}
+
+function showSuit(index: number): boolean {
+  const suit = cardSuit(index);
+  return suit !== "RED" && suit !== "BLACK";
 }
 
 onMounted(async () => {
