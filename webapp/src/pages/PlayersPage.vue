@@ -49,21 +49,22 @@ type PlayerCard = {
 
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
+const assetBase = import.meta.env.BASE_URL;
 const deck = [
-  { title: "Черный джокер", art: "/player-cards/joker-black.png" },
-  { title: "Красный джокер", art: "/player-cards/joker-red.png" },
-  { title: "Король треф", art: "/player-cards/king-clubs.png" },
-  { title: "Король пик", art: "/player-cards/king-spades.png" },
-  { title: "Король червей", art: "/player-cards/king-hearts.png" },
-  { title: "Король бубен", art: "/player-cards/king-diamonds.png" },
-  { title: "Дама треф", art: "/player-cards/queen-clubs.png" },
-  { title: "Дама пик", art: "/player-cards/queen-spades.png" },
-  { title: "Дама червей", art: "/player-cards/queen-hearts.png" },
-  { title: "Дама бубен", art: "/player-cards/queen-diamonds.png" },
-  { title: "Валет треф", art: "/player-cards/jack-clubs.png" },
-  { title: "Валет пик", art: "/player-cards/jack-spades.png" },
-  { title: "Валет червей", art: "/player-cards/jack-hearts.png" },
-  { title: "Валет бубен", art: "/player-cards/jack-diamonds.png" },
+  { title: "Черный джокер", art: `${assetBase}player-cards/joker-black.png` },
+  { title: "Красный джокер", art: `${assetBase}player-cards/joker-red.png` },
+  { title: "Король треф", art: `${assetBase}player-cards/king-clubs.png` },
+  { title: "Король пик", art: `${assetBase}player-cards/king-spades.png` },
+  { title: "Король червей", art: `${assetBase}player-cards/king-hearts.png` },
+  { title: "Король бубен", art: `${assetBase}player-cards/king-diamonds.png` },
+  { title: "Дама треф", art: `${assetBase}player-cards/queen-clubs.png` },
+  { title: "Дама пик", art: `${assetBase}player-cards/queen-spades.png` },
+  { title: "Дама червей", art: `${assetBase}player-cards/queen-hearts.png` },
+  { title: "Дама бубен", art: `${assetBase}player-cards/queen-diamonds.png` },
+  { title: "Валет треф", art: `${assetBase}player-cards/jack-clubs.png` },
+  { title: "Валет пик", art: `${assetBase}player-cards/jack-spades.png` },
+  { title: "Валет червей", art: `${assetBase}player-cards/jack-hearts.png` },
+  { title: "Валет бубен", art: `${assetBase}player-cards/jack-diamonds.png` },
 ];
 
 function formatRub(amount: number): string {

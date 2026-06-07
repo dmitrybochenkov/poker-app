@@ -7,41 +7,30 @@
         </div>
 
         <div class="outside-col">
-          <span>1 to 18</span>
-          <span>EVEN</span>
-          <span class="diamond red"></span>
-          <span class="diamond black"></span>
-          <span>ODD</span>
-          <span>19 to 36</span>
+          <span class="outside-cell"><span>1 to 18</span></span>
+          <span class="outside-cell"><span>EVEN</span></span>
+          <span class="outside-cell diamond red"></span>
+          <span class="outside-cell diamond black"></span>
+          <span class="outside-cell"><span>ODD</span></span>
+          <span class="outside-cell"><span>19 to 36</span></span>
         </div>
 
         <div class="dozens-col">
-          <span>1st 12</span>
-          <span>2nd 12</span>
-          <span>3rd 12</span>
+          <span class="dozen-cell"><span>1st 12</span></span>
+          <span class="dozen-cell"><span>2nd 12</span></span>
+          <span class="dozen-cell"><span>3rd 12</span></span>
         </div>
 
         <div class="numbers-grid">
-          <span class="n red"><span>3</span></span><span class="n black"><span>6</span></span><span class="n red"><span>9</span></span>
-          <span class="n black"><span>12</span></span><span class="n red"><span>15</span></span><span class="n black"><span>18</span></span>
-          <span class="n red"><span>21</span></span><span class="n black"><span>24</span></span><span class="n red"><span>27</span></span>
-          <span class="n black"><span>30</span></span><span class="n red"><span>33</span></span><span class="n black"><span>36</span></span>
-
-          <span class="n black"><span>2</span></span><span class="n red"><span>5</span></span><span class="n black"><span>8</span></span>
-          <span class="n red"><span>11</span></span><span class="n black"><span>14</span></span><span class="n red"><span>17</span></span>
-          <span class="n black"><span>20</span></span><span class="n red"><span>23</span></span><span class="n black"><span>26</span></span>
-          <span class="n red"><span>29</span></span><span class="n black"><span>32</span></span><span class="n red"><span>35</span></span>
-
-          <span class="n red"><span>1</span></span><span class="n black"><span>4</span></span><span class="n red"><span>7</span></span>
-          <span class="n black"><span>10</span></span><span class="n red"><span>13</span></span><span class="n black"><span>16</span></span>
-          <span class="n red"><span>19</span></span><span class="n black"><span>22</span></span><span class="n red"><span>25</span></span>
-          <span class="n black"><span>28</span></span><span class="n red"><span>31</span></span><span class="n black"><span>34</span></span>
+          <span v-for="number in rouletteNumbers" :key="number" class="n" :class="numberColor(number)">
+            <span>{{ number }}</span>
+          </span>
         </div>
 
         <div class="to1-row">
-          <span><span>2 to 1</span></span>
-          <span><span>2 to 1</span></span>
-          <span><span>2 to 1</span></span>
+          <span class="to1-cell">2 to 1</span>
+          <span class="to1-cell">2 to 1</span>
+          <span class="to1-cell">2 to 1</span>
         </div>
       </div>
     </div>
@@ -49,4 +38,11 @@
   </section>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+const rouletteNumbers = Array.from({ length: 36 }, (_, index) => index + 1);
+const redNumbers = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+
+function numberColor(number: number): string {
+  return redNumbers.has(number) ? "red" : "black";
+}
+</script>
