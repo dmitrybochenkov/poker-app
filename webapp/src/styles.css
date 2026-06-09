@@ -605,13 +605,15 @@ body {
 }
 
 .roulette-board {
+  --table-line: 2px;
+  --table-stroke: #d8e4db;
   width: min(76vw, 382px);
   height: min(70vh, 644px);
   display: grid;
-  grid-template-columns: 21% 30% 49%;
+  grid-template-columns: 20% 27% 53%;
   grid-template-rows: 12% 74% 10%;
   box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
-  background: rgb(0 0 0 / 8%);
+  background: transparent;
 }
 
 .board-top-gap {
@@ -622,7 +624,7 @@ body {
 .zero-cell {
   grid-column: 3;
   grid-row: 1;
-  border: 2px solid #d8e4db;
+  border: var(--table-line) solid var(--table-stroke);
   border-bottom: 0;
   border-radius: 28px 28px 0 0;
   background: #13874f;
@@ -642,17 +644,25 @@ body {
   grid-column: 1 / 3;
   grid-row: 2;
   display: grid;
-  grid-template-columns: 21fr 30fr;
+  grid-template-columns: 20fr 27fr;
+  gap: var(--table-line);
+  background: var(--table-stroke);
 }
 
 .outside-col {
   display: grid;
   grid-template-rows: repeat(6, 1fr);
+  gap: var(--table-line);
+  background: var(--table-stroke);
+  padding: var(--table-line) 0 var(--table-line) var(--table-line);
 }
 
 .dozens-col {
   display: grid;
   grid-template-rows: repeat(3, 1fr);
+  gap: var(--table-line);
+  background: var(--table-stroke);
+  padding: var(--table-line) var(--table-line) var(--table-line) 0;
 }
 
 .outside-cell,
@@ -665,16 +675,6 @@ body {
   font-weight: 700;
   font-size: clamp(13px, 2vw, 20px);
   white-space: nowrap;
-  border: 2px solid #d8e4db;
-}
-
-.outside-cell:not(:first-child),
-.dozen-cell:not(:first-child) {
-  border-top: 0;
-}
-
-.dozen-cell {
-  border-left: 0;
 }
 
 .outside-cell > span,
@@ -688,16 +688,15 @@ body {
   grid-row: 2;
   display: grid;
   grid-template-rows: repeat(12, 1fr);
-  gap: 2px;
-  padding: 2px;
-  background: #d8e4db;
-  border: 2px solid #d8e4db;
+  gap: var(--table-line);
+  padding: var(--table-line);
+  background: var(--table-stroke);
 }
 
 .number-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
+  gap: var(--table-line);
 }
 
 .n {
@@ -725,13 +724,9 @@ body {
   grid-row: 3;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  background: #d8e4db;
-  border: 2px solid #d8e4db;
-  border-top: 0;
-}
-
-.to1-cell:not(:first-child) {
-  border-left: 0;
+  gap: var(--table-line);
+  padding: 0 var(--table-line) var(--table-line);
+  background: var(--table-stroke);
 }
 
 .diamond {
@@ -744,7 +739,7 @@ body {
   width: 38%;
   aspect-ratio: 1 / 1;
   transform: rotate(45deg);
-  border: 2px solid #d8e4db;
+  border: var(--table-line) solid var(--table-stroke);
 }
 
 .diamond.red::before {
