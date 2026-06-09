@@ -607,7 +607,7 @@ body {
 .roulette-board {
   --table-line: 2px;
   --table-stroke: #eef4ef;
-  width: min(79vw, 394px);
+  width: min(75vw, 374px);
   aspect-ratio: 720 / 1536;
   display: grid;
   grid-template-columns: 15.5% 16% 68.5%;
@@ -765,7 +765,7 @@ body {
 
 @media (max-width: 480px) {
   .roulette-board {
-    width: min(82vw, 396px);
+    width: min(78vw, 376px);
   }
 
   .home .menu-grid {
