@@ -517,7 +517,7 @@ body {
 .table-rail {
   width: min(150vw, 146vh);
   aspect-ratio: 1.78 / 1;
-  transform: translateX(clamp(-42px, -6vw, -18px)) rotate(90deg);
+  transform: translateX(clamp(-96px, -12vw, -48px)) rotate(90deg);
   border-radius: 999px;
   background: linear-gradient(#e8ecec, #cfd7d8);
   padding: 10px;
