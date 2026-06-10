@@ -515,7 +515,7 @@ body {
 }
 
 .table-rail {
-  width: min(102vw, 98vh);
+  width: min(150vw, 146vh);
   aspect-ratio: 1.78 / 1;
   transform: rotate(90deg);
   border-radius: 999px;
@@ -600,7 +600,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: calc(env(safe-area-inset-top, 0px) + 54px) 0 84px;
+  padding: calc(env(safe-area-inset-top, 0px) + 66px) 0 84px;
   pointer-events: none;
   background: #17753b;
 }
