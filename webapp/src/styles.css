@@ -586,7 +586,7 @@ body {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  background: radial-gradient(circle at 28% 20%, #1f9a60 0%, #0f6a42 44%, #0a4f33 100%);
+  background: #17753b;
 }
 
 .bets-page .overlay-actions {
@@ -673,13 +673,12 @@ body {
   background: #12774a;
   color: #eaf7ef;
   font-weight: 700;
-  font-size: clamp(13px, 2vw, 20px);
+  font-size: clamp(15px, 2.3vw, 22px);
   white-space: nowrap;
 }
 
 .outside-cell > span,
-.dozen-cell > span,
-.to1-cell {
+.dozen-cell > span {
   transform: rotate(-90deg);
 }
 
@@ -704,11 +703,8 @@ body {
   place-items: center;
   color: #f5f7fa;
   font-weight: 800;
-  font-size: clamp(14px, 2.6vw, 24px);
-}
-
-.n > span {
-  transform: rotate(-90deg);
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1;
 }
 
 .n.red {
@@ -727,6 +723,11 @@ body {
   gap: var(--table-line);
   padding: 0 var(--table-line) var(--table-line);
   background: var(--table-stroke);
+}
+
+.to1-cell {
+  font-size: clamp(14px, 2vw, 22px);
+  line-height: 1;
 }
 
 .diamond {
