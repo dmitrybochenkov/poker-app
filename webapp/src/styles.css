@@ -602,6 +602,7 @@ body {
   justify-content: center;
   padding: 0 0 84px;
   pointer-events: none;
+  background: #17753b;
 }
 
 .roulette-board {
@@ -612,8 +613,8 @@ body {
   display: grid;
   grid-template-columns: 20% 27% 53%;
   grid-template-rows: 12% 74% 10%;
-  box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
-  background: transparent;
+  box-shadow: none;
+  background: #1c7b42;
 }
 
 .board-top-gap {
@@ -626,7 +627,7 @@ body {
   grid-row: 1;
   border: var(--table-line) solid var(--table-stroke);
   border-bottom: 0;
-  border-radius: 28px 28px 0 0;
+  border-radius: 44px 44px 0 0;
   background: #13874f;
 }
 
