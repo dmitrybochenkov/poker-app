@@ -586,7 +586,7 @@ body {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  background: #17753b;
+  background: radial-gradient(circle at 28% 20%, #1f9a60 0%, #0f6a42 44%, #0a4f33 100%);
 }
 
 .bets-page .overlay-actions {
@@ -606,12 +606,12 @@ body {
 
 .roulette-board {
   --table-line: 2px;
-  --table-stroke: #eef4ef;
+  --table-stroke: #d8e4db;
   width: min(75vw, 374px);
   aspect-ratio: 720 / 1536;
   display: grid;
-  grid-template-columns: 15.5% 16% 68.5%;
-  grid-template-rows: 11.5% 79.5% 9%;
+  grid-template-columns: 20% 27% 53%;
+  grid-template-rows: 12% 74% 10%;
   box-shadow: 0 18px 34px rgb(0 0 0 / 34%);
   background: transparent;
 }
@@ -626,8 +626,8 @@ body {
   grid-row: 1;
   border: var(--table-line) solid var(--table-stroke);
   border-bottom: 0;
-  border-radius: 999px 999px 0 0;
-  background: #17753b;
+  border-radius: 28px 28px 0 0;
+  background: #13874f;
 }
 
 .zero-cell > span {
@@ -637,15 +637,14 @@ body {
   height: 100%;
   color: #eaf7ef;
   font-weight: 800;
-  font-size: clamp(30px, 5.2vw, 58px);
-  line-height: 1;
+  font-size: clamp(24px, 4vw, 40px);
 }
 
 .left-panel {
   grid-column: 1 / 3;
   grid-row: 2;
   display: grid;
-  grid-template-columns: 15.5fr 16fr;
+  grid-template-columns: 20fr 27fr;
   gap: var(--table-line);
   background: var(--table-stroke);
 }
@@ -671,15 +670,16 @@ body {
 .to1-cell {
   display: grid;
   place-items: center;
-  background: #17753b;
+  background: #12774a;
   color: #eaf7ef;
   font-weight: 700;
-  font-size: clamp(15px, 2.1vw, 24px);
+  font-size: clamp(13px, 2vw, 20px);
   white-space: nowrap;
 }
 
 .outside-cell > span,
-.dozen-cell > span {
+.dozen-cell > span,
+.to1-cell {
   transform: rotate(-90deg);
 }
 
@@ -704,8 +704,7 @@ body {
   place-items: center;
   color: #f5f7fa;
   font-weight: 800;
-  font-size: clamp(24px, 4.2vw, 40px);
-  line-height: 1;
+  font-size: clamp(14px, 2.6vw, 24px);
 }
 
 .n > span {
@@ -737,7 +736,7 @@ body {
 
 .diamond::before {
   content: "";
-  width: 46%;
+  width: 38%;
   aspect-ratio: 1 / 1;
   transform: rotate(45deg);
   border: var(--table-line) solid var(--table-stroke);
