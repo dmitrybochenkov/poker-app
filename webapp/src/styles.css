@@ -504,7 +504,7 @@ body {
   pointer-events: none;
   display: grid;
   place-items: center;
-  padding: 0 0 68px;
+  padding: 0 0 68px 0;
   z-index: 0;
   background: radial-gradient(circle at 30% 20%, #1a8455 0%, #0d5b39 45%, #083b26 100%);
 }
@@ -517,7 +517,7 @@ body {
 .table-rail {
   width: min(150vw, 146vh);
   aspect-ratio: 1.78 / 1;
-  transform: rotate(90deg);
+  transform: translateX(clamp(-56px, -7vw, -24px)) rotate(90deg);
   border-radius: 999px;
   background: linear-gradient(#e8ecec, #cfd7d8);
   padding: 10px;
