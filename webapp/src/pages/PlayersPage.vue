@@ -14,22 +14,7 @@
               <span class="suit">{{ cardSuit(index) }}</span>
             </template>
           </div>
-          <div class="player-card-figure" :class="[cardRole(index), cardTheme(index)]">
-            <template v-if="cardRole(index) === 'joker'"></template>
-            <div v-else-if="cardRole(index) === 'king'" class="figure-crown">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div v-else-if="cardRole(index) === 'queen'" class="figure-hair"></div>
-            <div v-else class="figure-cap"></div>
-            <template v-if="cardRole(index) !== 'joker'">
-              <div class="figure-head"></div>
-              <div class="figure-neck"></div>
-              <div class="figure-shoulders"></div>
-              <div class="figure-emblem">{{ cardSuit(index) }}</div>
-            </template>
-          </div>
+          <div class="player-card-figure" :class="[cardRole(index), cardTheme(index)]"></div>
         </div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
