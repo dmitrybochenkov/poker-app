@@ -6,16 +6,16 @@
       <article v-for="(player, index) in players" :key="player.player_id" class="player-card">
         <div class="player-card-art" :class="[cardTheme(index), cardRole(index)]">
           <div class="card-corner top-left" :class="cardTheme(index)">
-            <span class="rank">{{ cardRank(index) }}</span>
-            <span v-if="showSuit(index)" class="suit">{{ cardSuit(index) }}</span>
-            <span v-else class="joker-mark">{{ jokerMark(index) }}</span>
+            <template v-if="cardRole(index) === 'joker'">
+              <span class="joker-rank-vertical">JOKER</span>
+            </template>
+            <template v-else>
+              <span class="rank">{{ cardRank(index) }}</span>
+              <span class="suit">{{ cardSuit(index) }}</span>
+            </template>
           </div>
           <div class="player-card-figure" :class="[cardRole(index), cardTheme(index)]">
-            <div v-if="cardRole(index) === 'joker'" class="jester-crown">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
+            <template v-if="cardRole(index) === 'joker'"></template>
             <div v-else-if="cardRole(index) === 'king'" class="figure-crown">
               <span></span>
               <span></span>
@@ -23,11 +23,12 @@
             </div>
             <div v-else-if="cardRole(index) === 'queen'" class="figure-hair"></div>
             <div v-else class="figure-cap"></div>
-            <div class="figure-head"></div>
-            <div class="figure-neck"></div>
-            <div class="figure-shoulders"></div>
-            <div class="figure-emblem" v-if="showSuit(index)">{{ cardSuit(index) }}</div>
-            <div class="figure-joker-label" v-else>JOKER</div>
+            <template v-if="cardRole(index) !== 'joker'">
+              <div class="figure-head"></div>
+              <div class="figure-neck"></div>
+              <div class="figure-shoulders"></div>
+              <div class="figure-emblem">{{ cardSuit(index) }}</div>
+            </template>
           </div>
         </div>
         <div class="player-meta">
