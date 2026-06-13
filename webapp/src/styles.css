@@ -217,7 +217,7 @@ body {
 .joker-rank-vertical {
   writing-mode: vertical-rl;
   text-orientation: upright;
-  transform: rotate(180deg);
+  transform: rotate(0deg);
   font-size: 32px;
   font-weight: 800;
   letter-spacing: 0;
