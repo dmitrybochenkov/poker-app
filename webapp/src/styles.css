@@ -187,8 +187,8 @@ body {
 
 .card-corner {
   position: absolute;
-  top: 12px;
-  left: 14px;
+  top: 10px;
+  left: 10px;
   z-index: 3;
   display: grid;
   justify-items: center;
@@ -216,11 +216,11 @@ body {
 
 .joker-rank-vertical {
   writing-mode: vertical-rl;
-  text-orientation: mixed;
+  text-orientation: upright;
   transform: rotate(180deg);
-  font-size: 22px;
+  font-size: 32px;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   line-height: 1;
 }
 
@@ -245,8 +245,9 @@ body {
 }
 
 .player-card-art.joker .card-corner {
-  top: 22px;
-  left: 26px;
+  top: 10px;
+  left: 10px;
+  width: 40px;
 }
 
 .player-card-art.joker .player-card-figure::before {
