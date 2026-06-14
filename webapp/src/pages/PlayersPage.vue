@@ -59,20 +59,19 @@ type PlayerCard = {
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
 const deck = [
-  { title: "Черный джокер", role: "joker", rank: "JKR", suit: "BLACK" },
-  { title: "Красный джокер", role: "joker", rank: "JKR", suit: "RED" },
-  { title: "Король треф", role: "king", rank: "K", suit: "♣" },
+  { title: "Туз пик", role: "ace", rank: "A", suit: "♠" },
   { title: "Король пик", role: "king", rank: "K", suit: "♠" },
-  { title: "Король червей", role: "king", rank: "K", suit: "♥" },
-  { title: "Король бубен", role: "king", rank: "K", suit: "♦" },
-  { title: "Дама треф", role: "queen", rank: "Q", suit: "♣" },
   { title: "Дама пик", role: "queen", rank: "Q", suit: "♠" },
-  { title: "Дама червей", role: "queen", rank: "Q", suit: "♥" },
-  { title: "Дама бубен", role: "queen", rank: "Q", suit: "♦" },
-  { title: "Валет треф", role: "jack", rank: "J", suit: "♣" },
   { title: "Валет пик", role: "jack", rank: "J", suit: "♠" },
-  { title: "Валет червей", role: "jack", rank: "J", suit: "♥" },
-  { title: "Валет бубен", role: "jack", rank: "J", suit: "♦" },
+  { title: "Десятка пик", role: "number", rank: "10", suit: "♠" },
+  { title: "Девятка пик", role: "number", rank: "9", suit: "♠" },
+  { title: "Восьмерка пик", role: "number", rank: "8", suit: "♠" },
+  { title: "Семерка пик", role: "number", rank: "7", suit: "♠" },
+  { title: "Шестерка пик", role: "number", rank: "6", suit: "♠" },
+  { title: "Пятерка пик", role: "number", rank: "5", suit: "♠" },
+  { title: "Четверка пик", role: "number", rank: "4", suit: "♠" },
+  { title: "Тройка пик", role: "number", rank: "3", suit: "♠" },
+  { title: "Двойка пик", role: "number", rank: "2", suit: "♠" },
 ];
 
 function formatRub(amount: number): string {
@@ -93,20 +92,11 @@ function cardRank(index: number): string {
 }
 
 function cardSuit(index: number): string {
-  return deck[index]?.suit ?? "♣";
-}
-
-function showSuit(index: number): boolean {
-  return !["BLACK", "RED"].includes(cardSuit(index));
-}
-
-function jokerMark(index: number): string {
-  return cardSuit(index) === "RED" ? "★" : "✦";
+  return deck[index]?.suit ?? "♠";
 }
 
 function cardTheme(index: number): string {
-  const suit = cardSuit(index);
-  return suit === "♥" || suit === "♦" || suit === "RED" ? "theme-red" : "theme-black";
+  return "theme-black";
 }
 
 onMounted(async () => {
