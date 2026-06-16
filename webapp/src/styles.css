@@ -238,7 +238,7 @@ body {
   border-radius: 28px 28px 0 0;
   border: 4px solid rgb(255 255 255 / 96%);
   border-bottom: 0;
-  box-shadow: 0 0 0 1px rgb(213 220 228 / 90%);
+  box-shadow: none;
 }
 
 .player-card-art.joker {
