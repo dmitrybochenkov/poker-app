@@ -234,7 +234,7 @@ body {
 .player-card-figure::before {
   content: "";
   position: absolute;
-  inset: 62px 62px 24px 62px;
+  inset: 62px 62px 0 62px;
   border-radius: 28px 28px 0 0;
   border-top: 4px solid rgb(213 220 228 / 90%);
   border-left: 4px solid rgb(213 220 228 / 90%);
