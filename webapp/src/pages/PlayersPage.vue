@@ -27,7 +27,6 @@
                 <span class="camera-body"></span>
                 <span class="camera-lens"></span>
                 <span class="camera-flash"></span>
-                <span class="camera-plus"></span>
               </span>
             </button>
             <button
@@ -42,7 +41,6 @@
                   <span class="camera-body"></span>
                   <span class="camera-lens"></span>
                   <span class="camera-flash"></span>
-                  <span class="camera-plus"></span>
                 </span>
               </span>
             </button>
@@ -71,7 +69,24 @@
           </div>
         </div>
         <div v-if="isOwnCard(player)" class="player-card-actions">
-          <button class="mini-card-btn" type="button">Добавить телефон</button>
+          <button v-if="phoneEditorFor !== player.player_id" class="mini-card-btn" type="button" @click="openPhoneEditor(player)">
+            Добавить / изменить телефон
+          </button>
+          <form v-else class="player-phone-form" @submit.prevent="savePhone(player)">
+            <input
+              v-model="phoneDraft"
+              class="player-phone-input"
+              type="tel"
+              inputmode="numeric"
+              maxlength="11"
+              placeholder="Введи номер телефона начиная с 7"
+            />
+            <p v-if="phoneError" class="player-phone-error">{{ phoneError }}</p>
+            <div class="player-phone-form-actions">
+              <button class="mini-card-btn" type="submit" :disabled="savingPhone">Сохранить</button>
+              <button class="mini-card-btn mini-card-btn--ghost" type="button" @click="closePhoneEditor">Отмена</button>
+            </div>
+          </form>
         </div>
       </article>
     </div>
@@ -121,7 +136,11 @@ const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
 const currentUserRowId = ref<number | null>(null);
 const uploadingPhoto = ref(false);
+const savingPhone = ref(false);
 const photoInput = ref<HTMLInputElement | null>(null);
+const phoneEditorFor = ref<number | null>(null);
+const phoneDraft = ref("");
+const phoneError = ref("");
 const deck = [
   { title: "Туз пик", role: "ace", rank: "A", suit: "♠" },
   { title: "Король пик", role: "king", rank: "K", suit: "♠" },
@@ -183,6 +202,18 @@ function triggerPhotoPicker(): void {
   photoInput.value?.click();
 }
 
+function openPhoneEditor(player: PlayerCard): void {
+  phoneEditorFor.value = player.player_id;
+  phoneDraft.value = (player.tel_number ?? "").replace(/\D/g, "");
+  phoneError.value = "";
+}
+
+function closePhoneEditor(): void {
+  phoneEditorFor.value = null;
+  phoneDraft.value = "";
+  phoneError.value = "";
+}
+
 async function loadBootstrap(): Promise<void> {
   const tgUserId = currentTelegramId();
   if (!tgUserId) return;
@@ -230,6 +261,38 @@ async function handlePhotoSelected(event: Event): Promise<void> {
   } finally {
     uploadingPhoto.value = false;
     input.value = "";
+  }
+}
+
+async function savePhone(player: PlayerCard): Promise<void> {
+  const tgUserId = currentTelegramId();
+  const digits = phoneDraft.value.replace(/\D/g, "");
+  if (!tgUserId) return;
+  if (!digits.startsWith("7") || digits.length !== 11) {
+    phoneError.value = "Номер должен содержать 11 цифр и начинаться с 7";
+    return;
+  }
+
+  try {
+    savingPhone.value = true;
+    phoneError.value = "";
+    const res = await fetch(`/api/webapp/users/${tgUserId}/phone`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tel_number: digits }),
+    });
+    if (!res.ok) {
+      phoneError.value = "Не удалось сохранить номер";
+      return;
+    }
+
+    player.tel_number = `+${digits}`;
+    closePhoneEditor();
+    await loadPlayers();
+  } finally {
+    savingPhone.value = false;
   }
 }
 

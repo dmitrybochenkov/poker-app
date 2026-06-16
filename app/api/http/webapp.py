@@ -52,6 +52,21 @@ class WebAppPhotoUploadRead(BaseModel):
   photo_url: str
 
 
+class WebAppPhoneUpdateWrite(BaseModel):
+  tel_number: str
+
+
+class WebAppPhoneUpdateRead(BaseModel):
+  tel_number: str
+
+
+def _normalize_phone(value: str) -> str | None:
+  digits = "".join(ch for ch in value if ch.isdigit())
+  if digits.startswith("7") and len(digits) == 11:
+    return f"+{digits}"
+  return None
+
+
 @router.get("/bootstrap/{telegram_id}", response_model=WebAppBootstrapRead)
 async def webapp_bootstrap(
   telegram_id: int,
@@ -187,3 +202,23 @@ async def upload_webapp_user_photo(
   if photo_url is None:
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Photo url was not generated")
   return WebAppPhotoUploadRead(photo_url=photo_url)
+
+
+@router.post("/users/{telegram_id}/phone", response_model=WebAppPhoneUpdateRead)
+async def update_webapp_user_phone(
+  telegram_id: int,
+  payload: WebAppPhoneUpdateWrite,
+  session: AsyncSession = Depends(get_db_session),
+) -> WebAppPhoneUpdateRead:
+  user = await UserRepository(session).get_by_telegram_id(telegram_id=telegram_id)
+  if user is None:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+  normalized_phone = _normalize_phone(payload.tel_number)
+  if normalized_phone is None:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number")
+
+  user.tel_number = normalized_phone
+  await session.commit()
+  await session.refresh(user)
+  return WebAppPhoneUpdateRead(tel_number=normalized_phone)

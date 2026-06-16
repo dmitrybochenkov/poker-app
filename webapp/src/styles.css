@@ -199,7 +199,7 @@ body {
 }
 
 .card-corner .rank {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 800;
   letter-spacing: 0.03em;
   width: 100%;
@@ -208,7 +208,7 @@ body {
 
 .card-corner .suit,
 .card-corner .joker-mark {
-  font-size: 34px;
+  font-size: 38px;
   font-weight: 700;
   width: 100%;
   text-align: center;
@@ -323,14 +323,14 @@ body {
 
 .camera-icon {
   position: relative;
-  width: 86px;
-  height: 66px;
+  width: 82px;
+  height: 62px;
   color: #0f1724;
 }
 
 .camera-icon--small {
-  width: 30px;
-  height: 24px;
+  width: 26px;
+  height: 20px;
 }
 
 .camera-body {
@@ -374,34 +374,6 @@ body {
   background: currentColor;
 }
 
-.camera-plus {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 3px #fff;
-}
-
-.camera-plus::before,
-.camera-plus::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 12px;
-  height: 3px;
-  border-radius: 999px;
-  background: #fff;
-  transform: translate(-50%, -50%);
-}
-
-.camera-plus::after {
-  transform: translate(-50%, -50%) rotate(90deg);
-}
-
 .camera-icon--small .camera-body {
   inset: 4px 2px 2px 2px;
   border-width: 3px;
@@ -429,20 +401,6 @@ body {
   left: 6px;
   width: 6px;
   height: 3px;
-}
-
-.camera-icon--small .camera-plus {
-  right: -1px;
-  bottom: -1px;
-  width: 10px;
-  height: 10px;
-  box-shadow: 0 0 0 2px #fff;
-}
-
-.camera-icon--small .camera-plus::before,
-.camera-icon--small .camera-plus::after {
-  width: 6px;
-  height: 2px;
 }
 
 .figure-crown::after {
@@ -555,8 +513,9 @@ body {
 .player-phone {
   margin: 6px 0 0;
   text-align: center;
-  font-size: 13px;
-  color: #6d7f91;
+  font-size: 16px;
+  font-weight: 600;
+  color: #415365;
 }
 
 .player-stats {
@@ -608,6 +567,39 @@ body {
   padding-bottom: 2px;
 }
 
+.player-phone-form {
+  display: grid;
+  gap: 10px;
+}
+
+.player-phone-input {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid #cfd6df;
+  padding: 0 14px;
+  font-size: 14px;
+  color: #1a2a38;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.player-phone-input::placeholder {
+  color: #8a97a6;
+}
+
+.player-phone-error {
+  margin: -2px 2px 0;
+  font-size: 12px;
+  color: #c73737;
+}
+
+.player-phone-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .mini-card-btn {
   min-height: 48px;
   border-radius: 14px;
@@ -619,6 +611,10 @@ body {
   box-shadow:
     0 4px 10px rgb(10 35 66 / 10%),
     inset 0 1px 0 rgb(255 255 255 / 95%);
+}
+
+.mini-card-btn--ghost {
+  background: #f7f9fc;
 }
 
 .visually-hidden-input {
