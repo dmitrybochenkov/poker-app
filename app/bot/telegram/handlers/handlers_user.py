@@ -2031,6 +2031,7 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
       sort_pic=sort_pic,
     )
   image_bytes = render_stat_table_png(title="", report=report)
+  await _delete_message_if_possible(callback)
   await callback.message.answer_photo(
     photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
     caption=_format_stat_caption(
@@ -2456,6 +2457,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
       sort_pic=sort_pic,
     )
   image_bytes = render_stat_table_png(title="", report=report)
+  await _delete_message_if_possible(callback)
   await callback.message.answer_photo(
     photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
     caption=_format_stat_caption(
