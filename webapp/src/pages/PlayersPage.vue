@@ -292,7 +292,6 @@ async function savePhone(): Promise<void> {
       return;
     }
 
-    player.tel_number = `+${digits}`;
     closePhoneEditor();
     await loadPlayers();
   } finally {
