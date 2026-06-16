@@ -236,7 +236,9 @@ body {
   position: absolute;
   inset: 62px 62px 24px 62px;
   border-radius: 28px 28px 0 0;
-  border: 4px solid rgb(255 255 255 / 96%);
+  border-top: 4px solid rgb(213 220 228 / 90%);
+  border-left: 4px solid rgb(213 220 228 / 90%);
+  border-right: 4px solid rgb(213 220 228 / 90%);
   border-bottom: 0;
   box-shadow: none;
 }
