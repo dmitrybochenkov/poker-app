@@ -129,11 +129,8 @@ class ReplyKbs:
     buttons = []
     if has_active_poker:
       buttons.append(Buttons.main.ROOM)
-    elif has_active_poll:
-      buttons.append(Buttons.main.NEXT_POKER_DATE)
     buttons.extend([Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO])
-    if is_admin:
-      buttons.append(Buttons.main.ADMIN)
+    buttons.append(Buttons.main.ADMIN)
     return cls.make_tg(_button_labels(buttons), adjust=1)
 
   @classmethod
@@ -147,11 +144,8 @@ class ReplyKbs:
     buttons = []
     if has_active_poker:
       buttons.append(Buttons.main.ROOM)
-    elif has_active_poll:
-      buttons.append(Buttons.main.NEXT_POKER_DATE)
     buttons.extend([Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO])
-    if is_admin:
-      buttons.append(Buttons.main.ADMIN)
+    buttons.append(Buttons.main.ADMIN)
     return cls.make_vk(_button_labels(buttons), adjust=1, one_time=False, color="primary")
 
   @classmethod
@@ -319,6 +313,7 @@ class ReplyKbs:
     return cls.make_tg(
       _button_labels(
         [
+          Buttons.main.NEXT_POKER_DATE,
           Buttons.poker.POKER_STAT,
           Buttons.poker.HISTORY,
           Buttons.poker.TO_MAIN,
@@ -332,6 +327,7 @@ class ReplyKbs:
     return cls.make_vk(
       _button_labels(
         [
+          Buttons.main.NEXT_POKER_DATE,
           Buttons.poker.POKER_STAT,
           Buttons.poker.HISTORY,
           Buttons.poker.TO_MAIN,
