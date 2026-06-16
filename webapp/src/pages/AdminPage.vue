@@ -8,16 +8,16 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { getTelegramWebApp } from "../services/telegram";
+import { buildBootstrapUrl, getPlatformBootstrap } from "../services/platform";
 
 const loading = ref(true);
 const isAdmin = ref(false);
 
 onMounted(async () => {
   try {
-    const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
-    if (!Number.isFinite(tgUserId)) return;
-    const res = await fetch(`/api/webapp/bootstrap/${tgUserId}`);
+    const { platform, userId } = getPlatformBootstrap();
+    if (!Number.isFinite(userId)) return;
+    const res = await fetch(buildBootstrapUrl(platform, userId));
     if (!res.ok) return;
     const data = (await res.json()) as { is_admin?: boolean };
     isAdmin.value = Boolean(data.is_admin);

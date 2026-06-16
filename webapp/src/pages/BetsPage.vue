@@ -37,11 +37,21 @@
         </div>
       </div>
     </div>
-
+    <div class="overlay-actions">
+      <div class="page-menu page-menu-overlay">
+        <RouterLink class="menu-btn" to="/bets/make">🐔 Сделать ставку</RouterLink>
+        <RouterLink class="menu-btn" to="/bets/pay">🤝 Оплатить ставку</RouterLink>
+        <RouterLink class="menu-btn" to="/bets/current">🎰 Текущие турниры</RouterLink>
+        <RouterLink class="menu-btn" to="/bets/stat">🍀 Статистика ставок</RouterLink>
+        <RouterLink class="menu-btn" to="/">🏠 На главную</RouterLink>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { RouterLink } from "vue-router";
+
 const numberRows = Array.from({ length: 12 }, (_, index) => [index * 3 + 1, index * 3 + 2, index * 3 + 3]);
 const redNumbers = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 

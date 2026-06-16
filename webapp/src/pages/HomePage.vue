@@ -2,14 +2,6 @@
   <section class="home">
     <div v-if="loading" class="hint">Загрузка...</div>
     <div v-else class="menu-grid">
-      <RouterLink
-        v-if="state?.has_active_poll"
-        class="menu-btn"
-        to="/next-poker"
-      >
-        Следующий покер
-      </RouterLink>
-
       <RouterLink class="menu-btn" to="/players">Игроки</RouterLink>
       <RouterLink class="menu-btn" to="/poker">Про покер</RouterLink>
       <RouterLink class="menu-btn" to="/bets">Про ставки</RouterLink>
@@ -24,7 +16,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { getTelegramWebApp } from "../services/telegram";
+import { buildBootstrapUrl, getPlatformBootstrap } from "../services/platform";
 
 interface BootstrapState {
   is_registered: boolean;
@@ -39,8 +31,8 @@ const state = ref<BootstrapState | null>(null);
 
 onMounted(async () => {
   try {
-    const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
-    if (!Number.isFinite(tgUserId)) {
+    const { platform, userId } = getPlatformBootstrap();
+    if (!Number.isFinite(userId)) {
       state.value = {
         is_registered: false,
         is_admin: false,
@@ -50,7 +42,7 @@ onMounted(async () => {
       };
       return;
     }
-    const res = await fetch(`/api/webapp/bootstrap/${tgUserId}`);
+    const res = await fetch(buildBootstrapUrl(platform, userId));
     if (res.ok) {
       state.value = (await res.json()) as BootstrapState;
       return;

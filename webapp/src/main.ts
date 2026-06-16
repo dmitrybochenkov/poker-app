@@ -2,7 +2,7 @@ import { createApp } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 import App from "./App.vue";
 import "./styles.css";
-import { initTelegramWebApp } from "./services/telegram";
+import { buildBootstrapUrl, getPlatformBootstrap, initPlatformWebApp } from "./services/platform";
 import HomePage from "./pages/HomePage.vue";
 import PokerPage from "./pages/PokerPage.vue";
 import BetsPage from "./pages/BetsPage.vue";
@@ -12,19 +12,24 @@ import NextPokerPage from "./pages/NextPokerPage.vue";
 import PlaceholderActionsPage from "./pages/PlaceholderActionsPage.vue";
 import AdminPage from "./pages/AdminPage.vue";
 import ApprovalRequiredPage from "./pages/ApprovalRequiredPage.vue";
-import { getTelegramWebApp } from "./services/telegram";
 
 const router = createRouter({
   history: createWebHistory("/webapp/"),
   routes: [
     { path: "/", component: HomePage },
-    { path: "/poker", component: PokerPage },
-    { path: "/bets", component: BetsPage },
+    { path: "/poker", component: PokerPage, meta: { hideGlobalHome: true } },
+    { path: "/bets", component: BetsPage, meta: { hideGlobalHome: true } },
     { path: "/info", component: InfoPage },
     { path: "/players", component: PlayersPage },
-    { path: "/next-poker", component: NextPokerPage },
-    { path: "/poker/actions", component: PlaceholderActionsPage, props: { title: "Про покер" } },
-    { path: "/bets/actions", component: PlaceholderActionsPage, props: { title: "Про ставки" } },
+    { path: "/next-poker", component: NextPokerPage, meta: { hideGlobalHome: true } },
+    { path: "/next-poker/vote", component: PlaceholderActionsPage, props: { title: "✅ Проголосовать" } },
+    { path: "/next-poker/results", component: PlaceholderActionsPage, props: { title: "📊 Посмотреть результаты" } },
+    { path: "/poker/stat", component: PlaceholderActionsPage, props: { title: "🦑 Статистика покера" } },
+    { path: "/poker/history", component: PlaceholderActionsPage, props: { title: "⌛ История" } },
+    { path: "/bets/make", component: PlaceholderActionsPage, props: { title: "🐔 Сделать ставку" } },
+    { path: "/bets/pay", component: PlaceholderActionsPage, props: { title: "🤝 Оплатить ставку" } },
+    { path: "/bets/current", component: PlaceholderActionsPage, props: { title: "🎰 Текущие турниры" } },
+    { path: "/bets/stat", component: PlaceholderActionsPage, props: { title: "🍀 Статистика ставок" } },
     { path: "/info/actions", component: PlaceholderActionsPage, props: { title: "Информация" } },
     { path: "/admin", component: AdminPage },
     { path: "/approval-required", component: ApprovalRequiredPage }
@@ -34,11 +39,11 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.path === "/" || to.path === "/approval-required") return true;
 
-  const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
-  if (!Number.isFinite(tgUserId)) return "/approval-required";
+  const { platform, userId } = getPlatformBootstrap();
+  if (!Number.isFinite(userId)) return "/approval-required";
 
   try {
-    const res = await fetch(`/api/webapp/bootstrap/${tgUserId}`);
+    const res = await fetch(buildBootstrapUrl(platform, userId));
     if (!res.ok) return "/approval-required";
     const data = (await res.json()) as { is_approved?: boolean };
     if (!data.is_approved) return "/approval-required";
@@ -49,6 +54,6 @@ router.beforeEach(async (to) => {
   return true;
 });
 
-initTelegramWebApp();
+initPlatformWebApp();
 
 createApp(App).use(router).mount("#app");

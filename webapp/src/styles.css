@@ -47,6 +47,21 @@ body {
   overflow: hidden;
 }
 
+.page-menu {
+  display: grid;
+  gap: 12px;
+}
+
+.page-menu-overlay {
+  padding: calc(env(safe-area-inset-top, 0px) + 78px) 16px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  align-content: start;
+}
+
+.page-menu-plain {
+  padding: calc(env(safe-area-inset-top, 0px) + 84px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  align-content: start;
+}
+
 .menu-grid {
   display: grid;
   gap: 14px;
@@ -659,6 +674,7 @@ body {
 .poker-page .overlay-actions {
   position: relative;
   z-index: 1;
+  min-height: 100%;
 }
 
 .table-rail {
@@ -742,6 +758,7 @@ body {
 .bets-page .overlay-actions {
   position: relative;
   z-index: 1;
+  min-height: 100%;
 }
 
 .roulette-felt {

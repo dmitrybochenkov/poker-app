@@ -1,6 +1,7 @@
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
@@ -68,12 +69,20 @@ def _normalize_phone(value: str) -> str | None:
   return None
 
 
-@router.get("/bootstrap/{telegram_id}", response_model=WebAppBootstrapRead)
-async def webapp_bootstrap(
-  telegram_id: int,
-  session: AsyncSession = Depends(get_db_session),
+async def _get_user_by_platform(*, session: AsyncSession, platform: Literal["telegram", "vk"], user_id: int) -> User | None:
+  repository = UserRepository(session)
+  if platform == "telegram":
+    return await repository.get_by_telegram_id(telegram_id=user_id)
+  return await repository.get_by_vk_id(vk_id=user_id)
+
+
+async def _build_bootstrap_response(
+  *,
+  session: AsyncSession,
+  platform: Literal["telegram", "vk"],
+  user_id: int,
 ) -> WebAppBootstrapRead:
-  user = await UserRepository(session).get_by_telegram_id(telegram_id=telegram_id)
+  user = await _get_user_by_platform(session=session, platform=platform, user_id=user_id)
   has_active_poll = await PollConfigRepository(session).get_active_month() is not None
   if user is None:
     return WebAppBootstrapRead(
@@ -92,6 +101,31 @@ async def webapp_bootstrap(
     is_approved=bool(user.is_approved),
     has_phone=has_phone,
     has_active_poll=has_active_poll,
+  )
+
+
+@router.get("/bootstrap/{telegram_id}", response_model=WebAppBootstrapRead)
+async def webapp_bootstrap(
+  telegram_id: int,
+  session: AsyncSession = Depends(get_db_session),
+) -> WebAppBootstrapRead:
+  return await _build_bootstrap_response(
+    session=session,
+    platform="telegram",
+    user_id=telegram_id,
+  )
+
+
+@router.get("/bootstrap/{platform}/{user_id}", response_model=WebAppBootstrapRead)
+async def webapp_bootstrap_by_platform(
+  platform: Literal["telegram", "vk"],
+  user_id: int,
+  session: AsyncSession = Depends(get_db_session),
+) -> WebAppBootstrapRead:
+  return await _build_bootstrap_response(
+    session=session,
+    platform=platform,
+    user_id=user_id,
   )
 
 
@@ -170,7 +204,50 @@ async def upload_webapp_user_photo(
   file: UploadFile = File(...),
   session: AsyncSession = Depends(get_db_session),
 ) -> WebAppPhotoUploadRead:
-  user = await UserRepository(session).get_by_telegram_id(telegram_id=telegram_id)
+  user = await _get_user_by_platform(session=session, platform="telegram", user_id=telegram_id)
+  if user is None:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+  if not file.content_type or not file.content_type.startswith("image/"):
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only image files are supported")
+
+  image_bytes = await file.read()
+  if not image_bytes:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
+  if len(image_bytes) > 8 * 1024 * 1024:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is too large")
+
+  try:
+    image = Image.open(BytesIO(image_bytes))
+    image = ImageOps.exif_transpose(image).convert("RGB")
+    image.thumbnail((1200, 1200))
+  except Exception as error:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file") from error
+
+  output_name = f"{user.row_id}.webp"
+  output_rel_path = f"user_photos/{output_name}"
+  output_path = USER_PHOTOS_DIR / output_name
+  image.save(output_path, format="WEBP", quality=88, method=6)
+
+  user.photo_path = output_rel_path
+  user.updated_at = datetime.utcnow()
+  await session.commit()
+  await session.refresh(user)
+
+  photo_url = _build_photo_url(user)
+  if photo_url is None:
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Photo url was not generated")
+  return WebAppPhotoUploadRead(photo_url=photo_url)
+
+
+@router.post("/users/{platform}/{user_id}/photo", response_model=WebAppPhotoUploadRead, status_code=status.HTTP_201_CREATED)
+async def upload_webapp_user_photo_by_platform(
+  platform: Literal["telegram", "vk"],
+  user_id: int,
+  file: UploadFile = File(...),
+  session: AsyncSession = Depends(get_db_session),
+) -> WebAppPhotoUploadRead:
+  user = await _get_user_by_platform(session=session, platform=platform, user_id=user_id)
   if user is None:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
@@ -212,7 +289,28 @@ async def update_webapp_user_phone(
   payload: WebAppPhoneUpdateWrite,
   session: AsyncSession = Depends(get_db_session),
 ) -> WebAppPhoneUpdateRead:
-  user = await UserRepository(session).get_by_telegram_id(telegram_id=telegram_id)
+  user = await _get_user_by_platform(session=session, platform="telegram", user_id=telegram_id)
+  if user is None:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+  normalized_phone = _normalize_phone(payload.tel_number)
+  if normalized_phone is None:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number")
+
+  user.tel_number = normalized_phone
+  await session.commit()
+  await session.refresh(user)
+  return WebAppPhoneUpdateRead(tel_number=normalized_phone)
+
+
+@router.post("/users/{platform}/{user_id}/phone", response_model=WebAppPhoneUpdateRead)
+async def update_webapp_user_phone_by_platform(
+  platform: Literal["telegram", "vk"],
+  user_id: int,
+  payload: WebAppPhoneUpdateWrite,
+  session: AsyncSession = Depends(get_db_session),
+) -> WebAppPhoneUpdateRead:
+  user = await _get_user_by_platform(session=session, platform=platform, user_id=user_id)
   if user is None:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 

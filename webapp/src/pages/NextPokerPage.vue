@@ -1,10 +1,13 @@
 <template>
   <section class="simple-page white-page">
-    <div class="menu-grid two">
-      <button class="menu-btn" type="button">Проголосовать</button>
-      <button class="menu-btn" type="button">Посмотреть результаты</button>
+    <div class="page-menu page-menu-plain">
+      <RouterLink class="menu-btn" to="/next-poker/vote">✅ Проголосовать</RouterLink>
+      <RouterLink class="menu-btn" to="/next-poker/results">📊 Посмотреть результаты</RouterLink>
+      <RouterLink class="menu-btn" to="/poker">🏠 На главную</RouterLink>
     </div>
   </section>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { RouterLink } from "vue-router";
+</script>

@@ -114,7 +114,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { getTelegramWebApp } from "../services/telegram";
+import {
+  buildBootstrapUrl,
+  buildPhotoUploadUrl,
+  buildPhoneUpdateUrl,
+  getPlatformBootstrap,
+} from "../services/platform";
 
 type PlayerCardApi = {
   player_id: number;
@@ -201,9 +206,8 @@ function profitClass(amount: number): string {
   return "is-neutral";
 }
 
-function currentTelegramId(): number | null {
-  const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
-  return Number.isFinite(tgUserId) ? tgUserId : null;
+function currentPlatformUserId(): number | null {
+  return getPlatformBootstrap().userId;
 }
 
 function isOwnCard(player: PlayerCard): boolean {
@@ -211,7 +215,7 @@ function isOwnCard(player: PlayerCard): boolean {
 }
 
 function triggerPhotoPicker(): void {
-  if (!currentTelegramId() || uploadingPhoto.value) return;
+  if (!currentPlatformUserId() || uploadingPhoto.value) return;
   photoInput.value?.click();
 }
 
@@ -241,9 +245,9 @@ async function copyPhone(phone: string | null): Promise<void> {
 }
 
 async function loadBootstrap(): Promise<void> {
-  const tgUserId = currentTelegramId();
-  if (!tgUserId) return;
-  const res = await fetch(`/api/webapp/bootstrap/${tgUserId}`);
+  const { platform, userId } = getPlatformBootstrap();
+  if (!userId) return;
+  const res = await fetch(buildBootstrapUrl(platform, userId));
   if (!res.ok) return;
   const data = (await res.json()) as WebAppBootstrap;
   currentUserRowId.value = data.user_row_id ?? null;
@@ -269,15 +273,15 @@ async function loadPlayers(): Promise<void> {
 async function handlePhotoSelected(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
-  const tgUserId = currentTelegramId();
-  if (!file || !tgUserId) return;
+  const { platform, userId } = getPlatformBootstrap();
+  if (!file || !userId) return;
 
   try {
     uploadingPhoto.value = true;
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch(`/api/webapp/users/${tgUserId}/photo`, {
+    const res = await fetch(buildPhotoUploadUrl(platform, userId), {
       method: "POST",
       body: formData,
     });
@@ -296,9 +300,9 @@ async function handlePhotoSelected(event: Event): Promise<void> {
 }
 
 async function savePhone(): Promise<void> {
-  const tgUserId = currentTelegramId();
+  const { platform, userId } = getPlatformBootstrap();
   const digits = phoneDraft.value.replace(/\D/g, "");
-  if (!tgUserId) return;
+  if (!userId) return;
   if (!digits.startsWith("7") || digits.length !== 11) {
     phoneError.value = "Номер должен содержать 11 цифр и начинаться с 7";
     return;
@@ -307,7 +311,7 @@ async function savePhone(): Promise<void> {
   try {
     savingPhone.value = true;
     phoneError.value = "";
-    const res = await fetch(`/api/webapp/users/${tgUserId}/phone`, {
+    const res = await fetch(buildPhoneUpdateUrl(platform, userId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
