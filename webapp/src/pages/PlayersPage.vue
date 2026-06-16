@@ -23,10 +23,8 @@
               :disabled="uploadingPhoto"
               @click="triggerPhotoPicker"
             >
-              <span class="camera-icon camera-icon--small" aria-hidden="true">
-                <span class="camera-body"></span>
-                <span class="camera-lens"></span>
-                <span class="camera-flash"></span>
+              <span class="photo-action-circle photo-action-circle--small">
+                <img :src="cameraIconUrl" alt="" class="photo-action-icon photo-action-icon--small" />
               </span>
             </button>
             <button
@@ -36,19 +34,26 @@
               :disabled="uploadingPhoto"
               @click="triggerPhotoPicker"
             >
-              <span class="player-photo-upload-circle">
-                <span class="camera-icon" aria-hidden="true">
-                  <span class="camera-body"></span>
-                  <span class="camera-lens"></span>
-                  <span class="camera-flash"></span>
-                </span>
+              <span class="photo-action-circle photo-action-circle--large">
+                <img :src="cameraIconUrl" alt="" class="photo-action-icon photo-action-icon--large" />
               </span>
             </button>
           </div>
         </div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
-          <p v-if="player.tel_number" class="player-phone">{{ player.tel_number }}</p>
+          <p class="player-phone-line">
+            <span class="player-phone-marker">📞</span>
+            <span class="player-phone" :class="{ 'is-empty': !player.tel_number }">{{ player.tel_number || "не указан" }}</span>
+            <button
+              v-if="isOwnCard(player)"
+              class="player-phone-edit-trigger"
+              type="button"
+              @click="openPhoneEditor(player)"
+            >
+              🔧
+            </button>
+          </p>
         </div>
         <div class="player-stats">
           <div class="stat-badge" :class="profitClass(player.profit_rub)">
@@ -68,29 +73,27 @@
             <span class="stat-text">{{ player.losses }}</span>
           </div>
         </div>
-        <div v-if="isOwnCard(player)" class="player-card-actions">
-          <button v-if="phoneEditorFor !== player.player_id" class="mini-card-btn" type="button" @click="openPhoneEditor(player)">
-            Добавить / изменить телефон
-          </button>
-          <form v-else class="player-phone-form" @submit.prevent="savePhone(player)">
-            <input
-              v-model="phoneDraft"
-              class="player-phone-input"
-              type="tel"
-              inputmode="numeric"
-              maxlength="11"
-              placeholder="Введи номер телефона начиная с 7"
-            />
-            <p v-if="phoneError" class="player-phone-error">{{ phoneError }}</p>
-            <div class="player-phone-form-actions">
-              <button class="mini-card-btn" type="submit" :disabled="savingPhone">Сохранить</button>
-              <button class="mini-card-btn mini-card-btn--ghost" type="button" @click="closePhoneEditor">Отмена</button>
-            </div>
-          </form>
-        </div>
       </article>
     </div>
     <p v-if="!loading && players.length > 1" class="players-hint">Свайп влево/вправо</p>
+    <div v-if="phoneEditorFor !== null" class="player-phone-modal-backdrop" @click.self="closePhoneEditor">
+      <form class="player-phone-modal" @submit.prevent="savePhone">
+        <p class="player-phone-modal-title">Добавить / изменить телефон</p>
+        <input
+          v-model="phoneDraft"
+          class="player-phone-input"
+          type="tel"
+          inputmode="numeric"
+          maxlength="11"
+          placeholder="Введи номер телефона начиная с 7"
+        />
+        <p v-if="phoneError" class="player-phone-error">{{ phoneError }}</p>
+        <div class="player-phone-modal-actions">
+          <button class="phone-decision-btn phone-decision-btn--confirm" type="submit" :disabled="savingPhone">✅</button>
+          <button class="phone-decision-btn phone-decision-btn--cancel" type="button" @click="closePhoneEditor">❌</button>
+        </div>
+      </form>
+    </div>
     <input
       ref="photoInput"
       class="visually-hidden-input"
@@ -141,6 +144,7 @@ const photoInput = ref<HTMLInputElement | null>(null);
 const phoneEditorFor = ref<number | null>(null);
 const phoneDraft = ref("");
 const phoneError = ref("");
+const cameraIconUrl = `${import.meta.env.BASE_URL}icons/camera-add.png`;
 const deck = [
   { title: "Туз пик", role: "ace", rank: "A", suit: "♠" },
   { title: "Король пик", role: "king", rank: "K", suit: "♠" },
@@ -264,7 +268,7 @@ async function handlePhotoSelected(event: Event): Promise<void> {
   }
 }
 
-async function savePhone(player: PlayerCard): Promise<void> {
+async function savePhone(): Promise<void> {
   const tgUserId = currentTelegramId();
   const digits = phoneDraft.value.replace(/\D/g, "");
   if (!tgUserId) return;
