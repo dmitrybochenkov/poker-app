@@ -22,6 +22,7 @@ class UserRead(BaseModel):
   notification_platform: Literal["tg", "vk"] | None
   tel_number: str | None
   bank_name: str | None
+  photo_path: str | None
   is_admin: bool
   is_approved: bool
 

@@ -6,15 +6,31 @@
       <article v-for="(player, index) in players" :key="player.player_id" class="player-card">
         <div class="player-card-art" :class="[cardTheme(index), cardRole(index)]">
           <div class="card-corner top-left" :class="cardTheme(index)">
-            <template v-if="cardRole(index) === 'joker'">
-              <span class="joker-rank-vertical">JOKER</span>
-            </template>
-            <template v-else>
-              <span class="rank">{{ cardRank(index) }}</span>
-              <span class="suit">{{ cardSuit(index) }}</span>
-            </template>
+            <span class="rank">{{ cardRank(index) }}</span>
+            <span class="suit">{{ cardSuit(index) }}</span>
           </div>
-          <div class="player-card-figure" :class="[cardRole(index), cardTheme(index)]"></div>
+          <div class="player-card-figure" :class="[cardRole(index), cardTheme(index)]">
+            <img
+              v-if="player.photo_url"
+              :src="player.photo_url"
+              :alt="`Фото игрока ${player.name}`"
+              class="player-photo"
+            />
+            <button
+              v-else-if="isOwnCard(player)"
+              class="player-photo-upload-btn"
+              type="button"
+              :disabled="uploadingPhoto"
+              @click="triggerPhotoPicker"
+            >
+              <span class="camera-icon" aria-hidden="true">
+                <span class="camera-body"></span>
+                <span class="camera-lens"></span>
+                <span class="camera-flash"></span>
+                <span class="camera-plus"></span>
+              </span>
+            </button>
+          </div>
         </div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
@@ -30,23 +46,31 @@
           </div>
         </div>
         <div class="player-card-actions">
-          <button class="mini-card-btn" type="button">Добавить фото</button>
           <button class="mini-card-btn" type="button">Добавить телефон</button>
         </div>
       </article>
     </div>
     <p v-if="!loading && players.length > 1" class="players-hint">Свайп влево/вправо</p>
+    <input
+      ref="photoInput"
+      class="visually-hidden-input"
+      type="file"
+      accept="image/*"
+      @change="handlePhotoSelected"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { getTelegramWebApp } from "../services/telegram";
 
 type PlayerCardApi = {
   player_id: number;
   name: string;
   games: number;
   profit_rub: number;
+  photo_url: string | null;
 };
 
 type PlayerCard = {
@@ -54,10 +78,18 @@ type PlayerCard = {
   name: string;
   games: number;
   profit: string;
+  photo_url: string | null;
+};
+
+type WebAppBootstrap = {
+  user_row_id?: number | null;
 };
 
 const loading = ref(true);
 const players = ref<PlayerCard[]>([]);
+const currentUserRowId = ref<number | null>(null);
+const uploadingPhoto = ref(false);
+const photoInput = ref<HTMLInputElement | null>(null);
 const deck = [
   { title: "Туз пик", role: "ace", rank: "A", suit: "♠" },
   { title: "Король пик", role: "king", rank: "K", suit: "♠" },
@@ -99,17 +131,70 @@ function cardTheme(index: number): string {
   return "theme-black";
 }
 
+function currentTelegramId(): number | null {
+  const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
+  return Number.isFinite(tgUserId) ? tgUserId : null;
+}
+
+function isOwnCard(player: PlayerCard): boolean {
+  return currentUserRowId.value === player.player_id;
+}
+
+function triggerPhotoPicker(): void {
+  if (!currentTelegramId() || uploadingPhoto.value) return;
+  photoInput.value?.click();
+}
+
+async function loadBootstrap(): Promise<void> {
+  const tgUserId = currentTelegramId();
+  if (!tgUserId) return;
+  const res = await fetch(`/api/webapp/bootstrap/${tgUserId}`);
+  if (!res.ok) return;
+  const data = (await res.json()) as WebAppBootstrap;
+  currentUserRowId.value = data.user_row_id ?? null;
+}
+
+async function loadPlayers(): Promise<void> {
+  const res = await fetch("/api/webapp/players");
+  if (!res.ok) return;
+  const data = (await res.json()) as PlayerCardApi[];
+  players.value = data.slice(0, 14).map((item) => ({
+    player_id: item.player_id,
+    name: item.name,
+    games: item.games,
+    profit: formatRub(item.profit_rub),
+    photo_url: item.photo_url ?? null,
+  }));
+}
+
+async function handlePhotoSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  const tgUserId = currentTelegramId();
+  if (!file || !tgUserId) return;
+
+  try {
+    uploadingPhoto.value = true;
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`/api/webapp/users/${tgUserId}/photo`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) return;
+
+    await loadPlayers();
+  } finally {
+    uploadingPhoto.value = false;
+    input.value = "";
+  }
+}
+
 onMounted(async () => {
   try {
-    const res = await fetch("/api/webapp/players");
-    if (!res.ok) return;
-    const data = (await res.json()) as PlayerCardApi[];
-    players.value = data.slice(0, 14).map((item) => ({
-      player_id: item.player_id,
-      name: item.name,
-      games: item.games,
-      profit: formatRub(item.profit_rub),
-    }));
+    await loadBootstrap();
+    await loadPlayers();
   } finally {
     loading.value = false;
   }
