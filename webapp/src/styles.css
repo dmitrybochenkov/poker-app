@@ -283,6 +283,39 @@ body {
   cursor: pointer;
 }
 
+.player-photo-upload-circle,
+.player-photo-edit-btn {
+  display: grid;
+  place-items: center;
+  border: 1px solid #cad2dc;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow:
+    0 10px 24px rgb(15 23 36 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 96%);
+}
+
+.player-photo-upload-circle {
+  width: 112px;
+  height: 112px;
+}
+
+.player-photo-edit-btn {
+  position: absolute;
+  right: 74px;
+  bottom: 18px;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.player-photo-edit-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
 .player-photo-upload-btn:disabled {
   cursor: default;
   opacity: 0.7;
@@ -293,6 +326,11 @@ body {
   width: 122px;
   height: 92px;
   color: #0f1724;
+}
+
+.camera-icon--small {
+  width: 34px;
+  height: 26px;
 }
 
 .camera-body {
@@ -350,6 +388,43 @@ body {
 
 .camera-plus::after {
   transform: rotate(90deg);
+}
+
+.camera-icon--small .camera-body {
+  inset: 5px 2px 1px 2px;
+  border-width: 3px;
+  border-radius: 7px;
+}
+
+.camera-icon--small .camera-body::before {
+  top: -8px;
+  left: 8px;
+  width: 15px;
+  height: 8px;
+  border-width: 3px;
+  border-radius: 8px 8px 0 0;
+}
+
+.camera-icon--small .camera-lens {
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border-width: 3px;
+}
+
+.camera-icon--small .camera-flash {
+  top: 9px;
+  left: 7px;
+  width: 7px;
+  height: 3px;
+}
+
+.camera-icon--small .camera-plus::before,
+.camera-icon--small .camera-plus::after {
+  right: -2px;
+  bottom: 0;
+  width: 12px;
+  height: 3px;
 }
 
 .figure-crown::after {

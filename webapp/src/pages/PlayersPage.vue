@@ -17,17 +17,33 @@
               class="player-photo"
             />
             <button
+              v-if="player.photo_url && isOwnCard(player)"
+              class="player-photo-edit-btn"
+              type="button"
+              :disabled="uploadingPhoto"
+              @click="triggerPhotoPicker"
+            >
+              <span class="camera-icon camera-icon--small" aria-hidden="true">
+                <span class="camera-body"></span>
+                <span class="camera-lens"></span>
+                <span class="camera-flash"></span>
+                <span class="camera-plus"></span>
+              </span>
+            </button>
+            <button
               v-else-if="isOwnCard(player)"
               class="player-photo-upload-btn"
               type="button"
               :disabled="uploadingPhoto"
               @click="triggerPhotoPicker"
             >
-              <span class="camera-icon" aria-hidden="true">
-                <span class="camera-body"></span>
-                <span class="camera-lens"></span>
-                <span class="camera-flash"></span>
-                <span class="camera-plus"></span>
+              <span class="player-photo-upload-circle">
+                <span class="camera-icon" aria-hidden="true">
+                  <span class="camera-body"></span>
+                  <span class="camera-lens"></span>
+                  <span class="camera-flash"></span>
+                  <span class="camera-plus"></span>
+                </span>
               </span>
             </button>
           </div>
