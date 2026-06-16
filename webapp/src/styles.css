@@ -296,8 +296,8 @@ body {
 }
 
 .player-photo-upload-circle {
-  width: 120px;
-  height: 120px;
+  width: 116px;
+  height: 116px;
 }
 
 .player-photo-edit-btn {
@@ -323,108 +323,126 @@ body {
 
 .camera-icon {
   position: relative;
-  width: 104px;
-  height: 82px;
+  width: 86px;
+  height: 66px;
   color: #0f1724;
 }
 
 .camera-icon--small {
-  width: 34px;
-  height: 26px;
+  width: 30px;
+  height: 24px;
 }
 
 .camera-body {
   position: absolute;
-  inset: 16px 8px 10px 8px;
-  border: 6px solid currentColor;
-  border-radius: 18px;
+  inset: 12px 5px 8px 5px;
+  border: 5px solid currentColor;
+  border-radius: 15px;
 }
 
 .camera-body::before {
   content: "";
   position: absolute;
-  top: -16px;
-  left: 24px;
-  width: 54px;
-  height: 22px;
-  border: 6px solid currentColor;
+  top: -12px;
+  left: 20px;
+  width: 42px;
+  height: 16px;
+  border: 5px solid currentColor;
   border-bottom: 0;
-  border-radius: 18px 18px 0 0;
+  border-radius: 14px 14px 0 0;
   background: #ffffff;
 }
 
 .camera-lens {
   position: absolute;
-  top: 25px;
+  top: 19px;
   left: 50%;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   transform: translateX(-50%);
-  border: 6px solid currentColor;
+  border: 5px solid currentColor;
   border-radius: 50%;
 }
 
 .camera-flash {
   position: absolute;
-  top: 27px;
-  left: 24px;
-  width: 16px;
-  height: 8px;
+  top: 20px;
+  left: 18px;
+  width: 12px;
+  height: 6px;
   border-radius: 999px;
   background: currentColor;
+}
+
+.camera-plus {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px #fff;
 }
 
 .camera-plus::before,
 .camera-plus::after {
   content: "";
   position: absolute;
-  right: 2px;
-  bottom: 10px;
-  width: 24px;
-  height: 6px;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 3px;
   border-radius: 999px;
-  background: currentColor;
+  background: #fff;
+  transform: translate(-50%, -50%);
 }
 
 .camera-plus::after {
-  transform: rotate(90deg);
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 
 .camera-icon--small .camera-body {
-  inset: 5px 2px 1px 2px;
+  inset: 4px 2px 2px 2px;
   border-width: 3px;
   border-radius: 7px;
 }
 
 .camera-icon--small .camera-body::before {
-  top: -8px;
-  left: 8px;
-  width: 15px;
-  height: 8px;
+  top: -7px;
+  left: 7px;
+  width: 13px;
+  height: 7px;
   border-width: 3px;
   border-radius: 8px 8px 0 0;
 }
 
 .camera-icon--small .camera-lens {
-  top: 8px;
-  width: 12px;
-  height: 12px;
+  top: 7px;
+  width: 10px;
+  height: 10px;
   border-width: 3px;
 }
 
 .camera-icon--small .camera-flash {
-  top: 9px;
-  left: 7px;
-  width: 7px;
+  top: 8px;
+  left: 6px;
+  width: 6px;
   height: 3px;
+}
+
+.camera-icon--small .camera-plus {
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .camera-icon--small .camera-plus::before,
 .camera-icon--small .camera-plus::after {
-  right: -2px;
-  bottom: 0;
-  width: 12px;
-  height: 3px;
+  width: 6px;
+  height: 2px;
 }
 
 .figure-crown::after {
