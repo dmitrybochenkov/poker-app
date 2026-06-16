@@ -16,8 +16,9 @@ const isAdmin = ref(false);
 onMounted(async () => {
   try {
     const { platform, userId } = getPlatformBootstrap();
-    if (!Number.isFinite(userId)) return;
-    const res = await fetch(buildBootstrapUrl(platform, userId));
+    if (userId === null || !Number.isFinite(userId)) return;
+    const safeUserId = userId;
+    const res = await fetch(buildBootstrapUrl(platform, safeUserId));
     if (!res.ok) return;
     const data = (await res.json()) as { is_admin?: boolean };
     isAdmin.value = Boolean(data.is_admin);

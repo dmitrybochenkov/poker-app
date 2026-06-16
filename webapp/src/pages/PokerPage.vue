@@ -43,8 +43,9 @@ const state = ref<BootstrapState | null>(null);
 
 onMounted(async () => {
   const { platform, userId } = getPlatformBootstrap();
-  if (!Number.isFinite(userId)) return;
-  const res = await fetch(buildBootstrapUrl(platform, userId));
+  if (userId === null || !Number.isFinite(userId)) return;
+  const safeUserId = userId;
+  const res = await fetch(buildBootstrapUrl(platform, safeUserId));
   if (res.ok) {
     state.value = (await res.json()) as BootstrapState;
   }
