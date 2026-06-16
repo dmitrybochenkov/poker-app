@@ -50,18 +50,27 @@
         </div>
         <div class="player-meta">
           <h3>{{ player.name }}</h3>
+          <p v-if="player.tel_number" class="player-phone">{{ player.tel_number }}</p>
         </div>
         <div class="player-stats">
-          <div class="stat-cell">
-            <span class="k">Профит</span>
-            <span class="v">{{ player.profit }}</span>
+          <div class="stat-badge" :class="profitClass(player.profit_rub)">
+            <span class="stat-emoji">💲</span>
+            <span class="stat-text">{{ player.profit }}</span>
           </div>
-          <div class="stat-cell">
-            <span class="k">Игр</span>
-            <span class="v">{{ player.games }}</span>
+          <div class="stat-badge">
+            <span class="stat-emoji">🎲</span>
+            <span class="stat-text">{{ player.games }}</span>
+          </div>
+          <div class="stat-badge">
+            <span class="stat-emoji">💍</span>
+            <span class="stat-text">{{ player.wins }}</span>
+          </div>
+          <div class="stat-badge">
+            <span class="stat-emoji">❌</span>
+            <span class="stat-text">{{ player.losses }}</span>
           </div>
         </div>
-        <div class="player-card-actions">
+        <div v-if="isOwnCard(player)" class="player-card-actions">
           <button class="mini-card-btn" type="button">Добавить телефон</button>
         </div>
       </article>
@@ -84,7 +93,10 @@ import { getTelegramWebApp } from "../services/telegram";
 type PlayerCardApi = {
   player_id: number;
   name: string;
+  tel_number: string | null;
   games: number;
+  wins: number;
+  losses: number;
   profit_rub: number;
   photo_url: string | null;
 };
@@ -92,7 +104,11 @@ type PlayerCardApi = {
 type PlayerCard = {
   player_id: number;
   name: string;
+  tel_number: string | null;
   games: number;
+  wins: number;
+  losses: number;
+  profit_rub: number;
   profit: string;
   photo_url: string | null;
 };
@@ -147,6 +163,12 @@ function cardTheme(index: number): string {
   return "theme-black";
 }
 
+function profitClass(amount: number): string {
+  if (amount > 0) return "is-positive";
+  if (amount < 0) return "is-negative";
+  return "is-neutral";
+}
+
 function currentTelegramId(): number | null {
   const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
   return Number.isFinite(tgUserId) ? tgUserId : null;
@@ -177,7 +199,11 @@ async function loadPlayers(): Promise<void> {
   players.value = data.slice(0, 14).map((item) => ({
     player_id: item.player_id,
     name: item.name,
+    tel_number: item.tel_number ?? null,
     games: item.games,
+    wins: item.wins,
+    losses: item.losses,
+    profit_rub: item.profit_rub,
     profit: formatRub(item.profit_rub),
     photo_url: item.photo_url ?? null,
   }));

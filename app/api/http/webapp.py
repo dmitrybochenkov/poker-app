@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from PIL import Image, ImageOps
 
+from app.db.models.poker import Poker
 from app.db.dependencies import get_db_session
 from app.db.models.poker_data import PokerData
 from app.db.models.user import User
@@ -39,7 +40,10 @@ class WebAppBootstrapRead(BaseModel):
 class WebAppPlayerCardRead(BaseModel):
   player_id: int
   name: str
+  tel_number: str | None = None
   games: int
+  wins: int
+  losses: int
   profit_rub: int
   photo_url: str | None = None
 
@@ -81,11 +85,32 @@ async def webapp_players(
 ) -> list[WebAppPlayerCardRead]:
   approved_users = (
     await session.execute(
-      select(User.row_id, User.name, User.photo_path, User.updated_at)
+      select(User.row_id, User.name, User.photo_path, User.updated_at, User.tel_number)
       .where(User.is_approved.is_(True))
       .order_by(User.name.asc())
     )
   ).all()
+
+  completed_pokers = (
+    await session.execute(
+      select(Poker.winners, Poker.loosers).where(
+        or_(
+          Poker.winners.is_not(None),
+          Poker.loosers.is_not(None),
+        )
+      )
+    )
+  ).all()
+
+  wins_by_name: dict[str, int] = {}
+  losses_by_name: dict[str, int] = {}
+  for winners_csv, losers_csv in completed_pokers:
+    winners = {item.strip() for item in str(winners_csv or "").split(",") if item.strip()}
+    losers = {item.strip() for item in str(losers_csv or "").split(",") if item.strip()}
+    for name in winners:
+      wins_by_name[name] = wins_by_name.get(name, 0) + 1
+    for name in losers:
+      losses_by_name[name] = losses_by_name.get(name, 0) + 1
 
   result: list[WebAppPlayerCardRead] = []
   for user in approved_users:
@@ -107,7 +132,10 @@ async def webapp_players(
       WebAppPlayerCardRead(
         player_id=int(user.row_id),
         name=str(user.name),
+        tel_number=(str(user.tel_number).strip() if user.tel_number else None),
         games=int(stats.games_count or 0),
+        wins=wins_by_name.get(str(user.name), 0),
+        losses=losses_by_name.get(str(user.name), 0),
         profit_rub=int(int(stats.profit_kopecks or 0) / 100),
         photo_url=(
           f"/static/{user.photo_path}?v={int(user.updated_at.timestamp()) if user.updated_at is not None else 0}"

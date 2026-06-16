@@ -296,8 +296,8 @@ body {
 }
 
 .player-photo-upload-circle {
-  width: 112px;
-  height: 112px;
+  width: 120px;
+  height: 120px;
 }
 
 .player-photo-edit-btn {
@@ -323,8 +323,8 @@ body {
 
 .camera-icon {
   position: relative;
-  width: 122px;
-  height: 92px;
+  width: 104px;
+  height: 82px;
   color: #0f1724;
 }
 
@@ -335,7 +335,7 @@ body {
 
 .camera-body {
   position: absolute;
-  inset: 18px 8px 6px 8px;
+  inset: 16px 8px 10px 8px;
   border: 6px solid currentColor;
   border-radius: 18px;
 }
@@ -355,7 +355,7 @@ body {
 
 .camera-lens {
   position: absolute;
-  top: 28px;
+  top: 25px;
   left: 50%;
   width: 40px;
   height: 40px;
@@ -366,7 +366,7 @@ body {
 
 .camera-flash {
   position: absolute;
-  top: 30px;
+  top: 27px;
   left: 24px;
   width: 16px;
   height: 8px;
@@ -378,9 +378,9 @@ body {
 .camera-plus::after {
   content: "";
   position: absolute;
-  right: -2px;
-  bottom: 2px;
-  width: 30px;
+  right: 2px;
+  bottom: 10px;
+  width: 24px;
   height: 6px;
   border-radius: 999px;
   background: currentColor;
@@ -534,31 +534,53 @@ body {
   color: #17222f;
 }
 
+.player-phone {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: #6d7f91;
+}
+
 .player-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
-.stat-cell {
-  border: 1px solid #2f3138;
+.stat-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid #d7dee7;
   border-radius: 14px;
-  padding: 12px 8px;
   background: #fffdf8;
+  color: #1a2a38;
   text-align: center;
 }
 
-.stat-cell .k {
-  display: block;
-  font-size: 12px;
+.stat-badge.is-positive {
+  color: #1d8c45;
+}
+
+.stat-badge.is-negative {
+  color: #c73737;
+}
+
+.stat-badge.is-neutral {
   color: #6d7f91;
 }
 
-.stat-cell .v {
-  display: block;
-  margin-top: 4px;
+.stat-emoji {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.stat-text {
+  font-size: 14px;
   font-weight: 700;
-  font-size: 13px;
+  line-height: 1;
 }
 
 .player-card-actions {
