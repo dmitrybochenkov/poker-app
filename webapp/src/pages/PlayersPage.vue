@@ -44,7 +44,15 @@
           <h3>{{ player.name }}</h3>
           <p class="player-phone-line">
             <span class="player-phone-marker">📞</span>
-            <span class="player-phone" :class="{ 'is-empty': !player.tel_number }">{{ player.tel_number || "не указан" }}</span>
+            <button
+              class="player-phone"
+              :class="{ 'is-empty': !player.tel_number, 'is-copied': copiedPhone === player.tel_number }"
+              type="button"
+              :disabled="!player.tel_number"
+              @click="copyPhone(player.tel_number)"
+            >
+              {{ player.tel_number || "не указан" }}
+            </button>
             <button
               v-if="isOwnCard(player)"
               class="player-phone-edit-trigger"
@@ -144,6 +152,7 @@ const photoInput = ref<HTMLInputElement | null>(null);
 const phoneEditorFor = ref<number | null>(null);
 const phoneDraft = ref("");
 const phoneError = ref("");
+const copiedPhone = ref<string | null>(null);
 const cameraIconUrl = `${import.meta.env.BASE_URL}icons/camera-add.png`;
 const deck = [
   { title: "Туз пик", role: "ace", rank: "A", suit: "♠" },
@@ -216,6 +225,19 @@ function closePhoneEditor(): void {
   phoneEditorFor.value = null;
   phoneDraft.value = "";
   phoneError.value = "";
+}
+
+async function copyPhone(phone: string | null): Promise<void> {
+  if (!phone) return;
+  try {
+    await navigator.clipboard.writeText(phone);
+    copiedPhone.value = phone;
+    window.setTimeout(() => {
+      if (copiedPhone.value === phone) copiedPhone.value = null;
+    }, 1400);
+  } catch {
+    copiedPhone.value = null;
+  }
 }
 
 async function loadBootstrap(): Promise<void> {

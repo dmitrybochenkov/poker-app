@@ -452,13 +452,29 @@ body {
 
 .player-phone {
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-size: 16px;
   font-weight: 600;
   color: #415365;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .player-phone.is-empty {
   color: #8a97a6;
+  cursor: default;
+}
+
+.player-phone.is-copied {
+  color: #1d8c45;
+}
+
+.player-phone:not(:disabled):active {
+  transform: scale(0.98);
 }
 
 .player-phone-line {
