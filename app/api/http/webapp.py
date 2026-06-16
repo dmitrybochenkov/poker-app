@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -195,6 +196,7 @@ async def upload_webapp_user_photo(
   image.save(output_path, format="WEBP", quality=88, method=6)
 
   user.photo_path = output_rel_path
+  user.updated_at = datetime.utcnow()
   await session.commit()
   await session.refresh(user)
 

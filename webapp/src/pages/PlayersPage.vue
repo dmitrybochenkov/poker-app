@@ -260,6 +260,11 @@ async function handlePhotoSelected(event: Event): Promise<void> {
       body: formData,
     });
     if (!res.ok) return;
+    const data = (await res.json()) as { photo_url?: string };
+    const ownCard = players.value.find((item) => item.player_id === currentUserRowId.value);
+    if (ownCard && data.photo_url) {
+      ownCard.photo_url = data.photo_url;
+    }
 
     await loadPlayers();
   } finally {
