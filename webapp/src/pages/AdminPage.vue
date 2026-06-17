@@ -1,5 +1,5 @@
 <template>
-  <section class="simple-page white-page">
+  <section class="simple-page simple-page-centered white-page">
     <div v-if="loading" class="hint">Проверка доступа...</div>
     <div v-else-if="isAdmin" class="hint">Админ панель: тут будут кнопки как в реплай-клаве</div>
     <div v-else class="hint">Нет доступа: только для админа.</div>

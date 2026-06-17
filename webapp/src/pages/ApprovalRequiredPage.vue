@@ -1,5 +1,5 @@
 <template>
-  <section class="simple-page white-page">
+  <section class="simple-page simple-page-centered white-page">
     <div class="hint">Нужна регистрация и аппрув. Обратись к администратору.</div>
   </section>
 </template>

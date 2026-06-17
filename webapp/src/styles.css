@@ -47,19 +47,30 @@ body {
   overflow: hidden;
 }
 
+.simple-page-centered {
+  place-items: center;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 84px)
+    24px
+    calc(env(safe-area-inset-bottom, 0px) + 24px);
+  text-align: center;
+}
+
 .page-menu {
   display: grid;
   gap: 12px;
 }
 
 .page-menu-overlay {
-  padding: calc(env(safe-area-inset-top, 0px) + 78px) 16px calc(env(safe-area-inset-bottom, 0px) + 14px);
-  align-content: start;
+  min-height: 100%;
+  padding: calc(env(safe-area-inset-top, 0px) + 96px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  align-content: end;
 }
 
 .page-menu-plain {
-  padding: calc(env(safe-area-inset-top, 0px) + 84px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
-  align-content: start;
+  min-height: 100%;
+  padding: calc(env(safe-area-inset-top, 0px) + 96px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  align-content: end;
 }
 
 .menu-grid {
@@ -135,6 +146,8 @@ body {
 .hint {
   color: var(--hint);
   font-size: 16px;
+  text-align: center;
+  max-width: 32ch;
 }
 
 .players-page {
