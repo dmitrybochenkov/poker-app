@@ -224,8 +224,8 @@ async def webapp_players(
     )
 
   return sorted(
-    [item for item in result if item.wins > 0],
-    key=lambda item: (-item.profit_rub, item.name),
+    result,
+    key=lambda item: (-(1 if item.wins > 0 else 0), -item.profit_rub, item.name),
   )
 
 

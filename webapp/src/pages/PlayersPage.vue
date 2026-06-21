@@ -229,25 +229,39 @@ function deckCard(index: number) {
   };
 }
 
+function playerDeckCard(index: number) {
+  const player = players.value[index];
+  if (player && player.wins === 0) {
+    return {
+      title: "0 пик",
+      role: "number",
+      rank: "0",
+      suit: "♠",
+    };
+  }
+
+  return deckCard(index);
+}
+
 function formatRub(amount: number): string {
   const sign = amount > 0 ? "+" : "";
   return `${sign}${amount.toLocaleString("ru-RU")} ₽`;
 }
 
 function cardTitle(index: number): string {
-  return deckCard(index).title;
+  return playerDeckCard(index).title;
 }
 
 function cardRole(index: number): string {
-  return deckCard(index).role;
+  return playerDeckCard(index).role;
 }
 
 function cardRank(index: number): string {
-  return deckCard(index).rank;
+  return playerDeckCard(index).rank;
 }
 
 function cardSuit(index: number): string {
-  return deckCard(index).suit;
+  return playerDeckCard(index).suit;
 }
 
 function cardTheme(index: number): string {
