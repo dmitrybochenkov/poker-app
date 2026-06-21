@@ -1076,7 +1076,7 @@ body {
   align-items: flex-end;
   gap: 0.65%;
   padding: 22px 20px 0;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
   background:
     linear-gradient(180deg, rgb(239 205 162 / 0.92), rgb(225 178 123 / 0.92)),
@@ -1170,14 +1170,14 @@ body {
 
 .shelf-trophy {
   margin-left: auto;
-  width: 25%;
-  min-width: 104px;
-  max-width: 156px;
-  height: 98%;
+  width: 31%;
+  min-width: 132px;
+  max-width: 196px;
+  height: 142%;
   display: grid;
   place-items: end center;
   align-self: end;
-  margin-bottom: -2px;
+  margin-bottom: -1px;
 }
 
 .trophy-image {
@@ -1539,10 +1539,10 @@ body {
   }
 
   .shelf-trophy {
-    width: 24%;
-    min-width: 88px;
-    max-width: 132px;
-    height: 96%;
+    width: 29%;
+    min-width: 116px;
+    max-width: 172px;
+    height: 138%;
   }
 
   .shelf-book-inner {
