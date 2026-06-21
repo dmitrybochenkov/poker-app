@@ -12,6 +12,10 @@ if [[ ! -d ".git" ]]; then
   exit 1
 fi
 
+# Newer git versions can block worktrees owned by another user.
+# Mark the deploy directory as safe before any fetch/pull operations.
+git config --global --add safe.directory "$ROOT_DIR" >/dev/null 2>&1 || true
+
 if [[ ! -d ".venv" ]]; then
   echo "Error: .venv not found in $ROOT_DIR"
   exit 1
