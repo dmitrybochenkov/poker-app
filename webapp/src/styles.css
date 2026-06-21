@@ -1000,7 +1000,9 @@ body {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: #fff;
+  background:
+    linear-gradient(180deg, rgb(255 242 223 / 0.34), rgb(111 61 18 / 0.08)),
+    linear-gradient(90deg, #d2aa7c 0%, #e8c79e 10%, #efd1aa 50%, #ddb589 90%, #c9996c 100%);
 }
 
 .info-library {
@@ -1010,14 +1012,16 @@ body {
   display: grid;
   place-items: start center;
   padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
-  background: #fff;
+  background:
+    linear-gradient(180deg, rgb(255 242 223 / 0.34), rgb(111 61 18 / 0.08)),
+    linear-gradient(90deg, #d2aa7c 0%, #e8c79e 10%, #efd1aa 50%, #ddb589 90%, #c9996c 100%);
 }
 
 .library-frame {
   position: relative;
   width: min(100%, 430px);
-  height: min(76vh, 860px);
-  max-height: calc(100% - 34px);
+  height: calc(100% - 18px);
+  max-height: none;
   padding: 22px 28px 18px;
   display: grid;
   grid-template-rows: 16px repeat(3, 1fr);
@@ -1192,17 +1196,18 @@ body {
 
 .shelf-trophy {
   margin-left: auto;
-  width: 12%;
-  min-width: 48px;
-  max-width: 72px;
+  width: 14%;
+  min-width: 54px;
+  max-width: 86px;
   height: 100%;
   display: grid;
   place-items: end center;
 }
 
 .trophy-image {
-  width: 100%;
-  height: auto;
+  width: auto;
+  height: 96%;
+  max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 4px 8px rgb(0 0 0 / 20%));
 }
@@ -1541,8 +1546,8 @@ body {
   }
 
   .library-frame {
-    height: min(72vh, 760px);
-    max-height: calc(100% - 30px);
+    height: calc(100% - 14px);
+    max-height: none;
     padding: 18px 22px 14px;
     grid-template-rows: 14px repeat(3, 1fr);
     gap: 14px;
@@ -1571,6 +1576,12 @@ body {
 
   .shelf-board--bottom {
     margin: 0 4px;
+  }
+
+  .shelf-trophy {
+    width: 12%;
+    min-width: 42px;
+    max-width: 64px;
   }
 
   .shelf-book-inner {
