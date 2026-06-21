@@ -62,7 +62,7 @@ const shelves: Shelf[] = [
   {
     books: [
       { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF POKER", width: "11.2%", tone: "emerald" },
-      { title: "СЕРГЕЙ\nКУЗЬМИН", suit: "💲", subtitle: "КАК СТАВИТЬ\nС ХУЙНЕЙ И\nВЫИГРЫВАТЬ!", width: "14.4%", tone: "wine" },
+      { title: "СЕРГЕЙ\nКУЗЬМИН", suit: "🤡", subtitle: "КАК СТАВИТЬ\nС ХУЙНЕЙ И\nВЫИГРЫВАТЬ!", width: "14.4%", tone: "wine" },
       { title: "JOHNNY\nMOSS", suit: "♣", subtitle: "THE GRAND\nOLD MAN", width: "11%", tone: "ink" },
       { title: "VIKTOR\n\"ISILDUR1\"\nBLOM", suit: "♠", subtitle: "ONLINE\nLEGEND", width: "13.4%", tone: "emerald" },
       { title: "АЛЕКСАНДР\nИЛЛАРИОНОВ", suit: "🍆", subtitle: "ДРОЧИЛА", width: "14.2%", tone: "wine" },
