@@ -217,7 +217,16 @@ const deck = [
 ];
 
 function deckCard(index: number) {
-  return deck[Math.min(index, deck.length - 1)] ?? deck[deck.length - 1];
+  if (index < deck.length) {
+    return deck[index] ?? deck[deck.length - 1];
+  }
+
+  return {
+    title: "<2 пик",
+    role: "number",
+    rank: "<2",
+    suit: "♠",
+  };
 }
 
 function formatRub(amount: number): string {
