@@ -126,10 +126,7 @@ class ReplyKbs:
     has_active_poker: bool,
     has_active_poll: bool,
   ) -> ReplyKeyboardMarkup:
-    buttons = []
-    if has_active_poker:
-      buttons.append(Buttons.main.ROOM)
-    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO])
+    buttons = [Buttons.main.ROOM, Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO]
     buttons.append(Buttons.main.ADMIN)
     return cls.make_tg(_button_labels(buttons), adjust=1)
 
@@ -141,10 +138,7 @@ class ReplyKbs:
     has_active_poker: bool,
     has_active_poll: bool,
   ) -> str:
-    buttons = []
-    if has_active_poker:
-      buttons.append(Buttons.main.ROOM)
-    buttons.extend([Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO])
+    buttons = [Buttons.main.ROOM, Buttons.main.POKER, Buttons.main.BETTING, Buttons.main.INFO]
     buttons.append(Buttons.main.ADMIN)
     return cls.make_vk(_button_labels(buttons), adjust=1, one_time=False, color="primary")
 

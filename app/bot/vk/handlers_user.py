@@ -2256,7 +2256,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
     return PlainTextResponse("ok")
 
   if text in {Buttons.main_info.POKER_INFO.value, "ℹ️ Информация про покер"}:
-    await send_vk_message(user_id=user_id, message=Text.user.POKER_STAT_BTN.value, keyboard=poker_info_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.POKER_INFO.value, keyboard=poker_info_keyboard)
     return PlainTextResponse("ok")
 
   if text in {Buttons.main_info.BETTING_INFO.value, "ℹ️ Информация про ставки"}:
@@ -2356,7 +2356,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.CURRENT_TOURS.value:
-    await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_current_keyboard)
+    await send_vk_message(user_id=user_id, message=Text.user.BETTING_CURRENT_MENU.value, keyboard=betting_current_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.betting.BETTING_STAT.value:

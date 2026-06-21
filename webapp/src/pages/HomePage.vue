@@ -2,8 +2,9 @@
   <section class="home">
     <div v-if="loading" class="hint">Загрузка...</div>
     <div v-else class="menu-grid">
-      <RouterLink class="menu-btn" to="/players">Игроки</RouterLink>
-      <RouterLink class="menu-btn" to="/poker">Про покер</RouterLink>
+      <RouterLink class="menu-btn" to="/room">♣️ Покер рум</RouterLink>
+      <RouterLink class="menu-btn" to="/players">👤 Игроки</RouterLink>
+      <RouterLink class="menu-btn" to="/poker">💍 Про покер</RouterLink>
       <RouterLink class="menu-btn" to="/bets">Про ставки</RouterLink>
       <RouterLink class="menu-btn" to="/info">Информация</RouterLink>
 
@@ -24,6 +25,7 @@ interface BootstrapState {
   is_approved: boolean;
   has_phone: boolean;
   has_active_poll: boolean;
+  has_active_poker: boolean;
 }
 
 const loading = ref(true);
@@ -39,6 +41,7 @@ onMounted(async () => {
         is_approved: false,
         has_phone: false,
         has_active_poll: false,
+        has_active_poker: false,
       };
       return;
     }
@@ -54,6 +57,7 @@ onMounted(async () => {
       is_approved: false,
       has_phone: false,
       has_active_poll: false,
+      has_active_poker: false,
     };
   } finally {
     loading.value = false;

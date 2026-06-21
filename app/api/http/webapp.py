@@ -37,6 +37,7 @@ class WebAppBootstrapRead(BaseModel):
   is_approved: bool
   has_phone: bool
   has_active_poll: bool
+  has_active_poker: bool
 
 
 class WebAppPlayerCardRead(BaseModel):
@@ -84,6 +85,14 @@ async def _build_bootstrap_response(
 ) -> WebAppBootstrapRead:
   user = await _get_user_by_platform(session=session, platform=platform, user_id=user_id)
   has_active_poll = await PollConfigRepository(session).get_active_month() is not None
+  active_poker = (
+    await session.execute(
+      select(Poker.row_id)
+      .where(Poker.is_going.is_(True))
+      .limit(1)
+    )
+  ).scalar_one_or_none()
+  has_active_poker = active_poker is not None
   if user is None:
     return WebAppBootstrapRead(
       user_row_id=None,
@@ -92,6 +101,7 @@ async def _build_bootstrap_response(
       is_approved=False,
       has_phone=False,
       has_active_poll=has_active_poll,
+      has_active_poker=has_active_poker,
     )
   has_phone = bool(user.tel_number and str(user.tel_number).strip())
   return WebAppBootstrapRead(
@@ -101,6 +111,7 @@ async def _build_bootstrap_response(
     is_approved=bool(user.is_approved),
     has_phone=has_phone,
     has_active_poll=has_active_poll,
+    has_active_poker=has_active_poker,
   )
 
 

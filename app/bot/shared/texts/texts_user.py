@@ -52,6 +52,7 @@ class UserText(Enum):
   POLL_NOT_ACTIVE = "В данный момент опрос не проводится."
   MAIN_MENU = "Главное меню."
   BETTING_MENU = "Раздел ставок."
+  BETTING_CURRENT_MENU = "Текущие турниры"
   BET_RULES = (
     "<b>ПРАВИЛА ТОТАЛИЗАТОРА</b>\n\n"
     "<b>СТАВКИ</b>\n"
@@ -111,8 +112,8 @@ class UserText(Enum):
   BETTING_STAT_SELECTED = "Выбран показатель: {indicator}"
   BETTING_STAT_REPORT = "Статистика ставок:\n\n{report}"
   STAT_EXPORT_CANCELED = "Выгрузка статистики отменена."
-  POKER_MENU = "Раздел покера."
-  POKER_INFO = "Информация о покере."
+  POKER_MENU = "Раздел покера. Важно: в статистику покера попадают игроки, участвовавшие в 30% игр за выбранный период!"
+  POKER_INFO = "Информация про покер!"
   POKER_STAT_BTN = "Здесь про статистику покера. Важно: в статистику попадают игроки, участвовавшие в 30% игр за выбранный период!"
   POKER_STAT_INDICATORS = "Показатели статистики покера:"
   STAT_CHOOSE_SORT = "Выбери показателя для сортировки: "

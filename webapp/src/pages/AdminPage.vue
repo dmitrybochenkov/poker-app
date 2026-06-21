@@ -1,13 +1,19 @@
 <template>
   <section class="simple-page simple-page-centered white-page">
     <div v-if="loading" class="hint">Проверка доступа...</div>
-    <div v-else-if="isAdmin" class="hint">Админ панель: тут будут кнопки как в реплай-клаве</div>
+    <div v-else-if="isAdmin" class="page-menu page-menu-plain">
+      <RouterLink class="menu-btn" to="/admin/create-poll">🗓 Создать опрос</RouterLink>
+      <RouterLink class="menu-btn" to="/admin/start-poker">🎲 Старт покера</RouterLink>
+      <RouterLink class="menu-btn" to="/admin/make-admin">👨🏻‍💻 Добавить админа</RouterLink>
+      <RouterLink class="menu-btn" to="/">🏠 На главную</RouterLink>
+    </div>
     <div v-else class="hint">Нет доступа: только для админа.</div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { RouterLink } from "vue-router";
 import { buildBootstrapUrl, getPlatformBootstrap } from "../services/platform";
 
 const loading = ref(true);

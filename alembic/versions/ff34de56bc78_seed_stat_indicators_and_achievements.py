@@ -67,7 +67,7 @@ ACHIEVEMENTS = [
   {"row_id": 13, "type": "betting", "sort": "none", "description": "Сыщик_Победил в двух годовых турнирах", "pic": "🕵️", "stat_id": 15, "is_permanent": False},
   {"row_id": 14, "type": "betting", "sort": "none", "description": "Маг-предсказатель_Победил в трех годовых турнирах", "pic": "🧙", "stat_id": 15, "is_permanent": False},
   {"row_id": 15, "type": "betting", "sort": "none", "description": "Легенда тотализатора_Победил в четырех годовых турнирах", "pic": "🏅", "stat_id": 15, "is_permanent": True},
-  {"row_id": 16, "type": "betting", "sort": "none", "description": "Законопослушный гражданин_Не имеет неоплаченных ставок в текущий момент времени", "pic": "👮", "stat_id": 28, "is_permanent": False},
+  {"row_id": 16, "type": "betting", "sort": "none", "description": "Законопослушный гражданин_Не имеет неоплаченных ставок в текущем турнире", "pic": "👮", "stat_id": 28, "is_permanent": False},
   {"row_id": 17, "type": "betting", "sort": "desc", "description": "Дрочила_Ставит сам на себя чаще всех", "pic": "🍆", "stat_id": 29, "is_permanent": False},
 ]
 
@@ -104,4 +104,3 @@ def upgrade() -> None:
 def downgrade() -> None:
   op.execute(sa.text("DELETE FROM achievements"))
   op.execute(sa.text("DELETE FROM stat_indicators"))
-

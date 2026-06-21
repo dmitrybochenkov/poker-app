@@ -459,7 +459,7 @@ INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_perm
 INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_permanent) VALUES (13, 'betting', 'none', 'Сыщик_Победил в двух годовых турнирах', '🕵️', 15, 0);
 INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_permanent) VALUES (14, 'betting', 'none', 'Маг-предсказатель_Победил в трех годовых турнирах', '🧙', 15, 0);
 INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_permanent) VALUES (15, 'betting', 'none', 'Легенда тотализатора_Победил в четырех годовых турнирах', '🏅', 15, 1);
-INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_permanent) VALUES (16, 'betting', 'none', 'Законопослушный гражданин_Не имеет неоплаченных ставок в текущий момент времени', '👮', 28, 0);
+INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_permanent) VALUES (16, 'betting', 'none', 'Законопослушный гражданин_Не имеет неоплаченных ставок в текущем турнире', '👮', 28, 0);
 INSERT INTO achievements (row_id, type, sort, description, pic, stat_id, is_permanent) VALUES (17, 'betting', 'desc', 'Дрочила_Ставит сам на себя чаще всех', '🍆', 29, 0);
 
 PRAGMA foreign_keys = ON;

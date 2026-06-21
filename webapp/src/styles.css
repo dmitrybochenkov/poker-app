@@ -63,13 +63,13 @@ body {
 
 .page-menu-overlay {
   min-height: 100%;
-  padding: calc(env(safe-area-inset-top, 0px) + 96px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
   align-content: end;
 }
 
 .page-menu-plain {
   min-height: 100%;
-  padding: calc(env(safe-area-inset-top, 0px) + 96px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
   align-content: end;
 }
 
@@ -772,6 +772,25 @@ body {
   position: relative;
   z-index: 1;
   min-height: 100%;
+}
+
+.submenu-placeholder {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 96px)
+    24px
+    calc(env(safe-area-inset-bottom, 0px) + 112px);
+  text-align: center;
+}
+
+.poker-page .submenu-placeholder .hint,
+.bets-page .submenu-placeholder .hint {
+  color: rgb(255 255 255 / 92%);
+  text-shadow: 0 2px 12px rgb(0 0 0 / 28%);
 }
 
 .roulette-felt {

@@ -12,6 +12,7 @@ import NextPokerPage from "./pages/NextPokerPage.vue";
 import PlaceholderActionsPage from "./pages/PlaceholderActionsPage.vue";
 import AdminPage from "./pages/AdminPage.vue";
 import ApprovalRequiredPage from "./pages/ApprovalRequiredPage.vue";
+import RoomPage from "./pages/RoomPage.vue";
 
 const router = createRouter({
   history: createWebHistory("/webapp/"),
@@ -21,17 +22,21 @@ const router = createRouter({
     { path: "/bets", component: BetsPage, meta: { hideGlobalHome: true } },
     { path: "/info", component: InfoPage },
     { path: "/players", component: PlayersPage },
+    { path: "/room", component: RoomPage },
     { path: "/next-poker", component: NextPokerPage, meta: { hideGlobalHome: true } },
-    { path: "/next-poker/vote", component: PlaceholderActionsPage, props: { title: "✅ Проголосовать" } },
-    { path: "/next-poker/results", component: PlaceholderActionsPage, props: { title: "📊 Посмотреть результаты" } },
-    { path: "/poker/stat", component: PlaceholderActionsPage, props: { title: "🦑 Статистика покера" } },
-    { path: "/poker/history", component: PlaceholderActionsPage, props: { title: "⌛ История" } },
-    { path: "/bets/make", component: PlaceholderActionsPage, props: { title: "🐔 Сделать ставку" } },
-    { path: "/bets/pay", component: PlaceholderActionsPage, props: { title: "🤝 Оплатить ставку" } },
-    { path: "/bets/current", component: PlaceholderActionsPage, props: { title: "🎰 Текущие турниры" } },
-    { path: "/bets/stat", component: PlaceholderActionsPage, props: { title: "🍀 Статистика ставок" } },
+    { path: "/next-poker/vote", component: PlaceholderActionsPage, props: { title: "✅ Проголосовать", theme: "poker" } },
+    { path: "/next-poker/results", component: PlaceholderActionsPage, props: { title: "📊 Посмотреть результаты", theme: "poker" } },
+    { path: "/poker/stat", component: PlaceholderActionsPage, props: { title: "🦑 Статистика покера", theme: "poker" } },
+    { path: "/poker/history", component: PlaceholderActionsPage, props: { title: "⌛ История", theme: "poker" } },
+    { path: "/bets/make", component: PlaceholderActionsPage, props: { title: "🐔 Сделать ставку", theme: "bets" } },
+    { path: "/bets/pay", component: PlaceholderActionsPage, props: { title: "🤝 Оплатить ставку", theme: "bets" } },
+    { path: "/bets/current", component: PlaceholderActionsPage, props: { title: "🎰 Текущие турниры", theme: "bets" } },
+    { path: "/bets/stat", component: PlaceholderActionsPage, props: { title: "🍀 Статистика ставок", theme: "bets" } },
     { path: "/info/actions", component: PlaceholderActionsPage, props: { title: "Информация" } },
     { path: "/admin", component: AdminPage },
+    { path: "/admin/create-poll", component: PlaceholderActionsPage, props: { title: "🗓 Создать опрос" } },
+    { path: "/admin/start-poker", component: PlaceholderActionsPage, props: { title: "🎲 Старт покера" } },
+    { path: "/admin/make-admin", component: PlaceholderActionsPage, props: { title: "👨🏻‍💻 Добавить админа" } },
     { path: "/approval-required", component: ApprovalRequiredPage }
   ]
 });

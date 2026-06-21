@@ -1526,7 +1526,7 @@ async def back_to_main_from_poll_menu(message: Message) -> None:
 async def show_poker_info(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.POKER_STAT_BTN.value, reply_markup=poker_info_keyboard)
+  await message.answer(Text.user.POKER_INFO.value, reply_markup=poker_info_keyboard)
 
 
 @router.message(F.text.in_({Buttons.main_info.BETTING_INFO.value, "ℹ️ Информация про ставки"}))
@@ -2050,7 +2050,7 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
 async def show_current_betting_tournaments(message: Message) -> None:
   if not await _ensure_approved_telegram_user(message):
     return
-  await message.answer(Text.user.BETTING_MENU.value, reply_markup=betting_current_keyboard)
+  await message.answer(Text.user.BETTING_CURRENT_MENU.value, reply_markup=betting_current_keyboard)
 
 
 async def _start_betting_stat_flow(*, message: Message, state: FSMContext, mode: str) -> None:
@@ -2312,6 +2312,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         sort_pic=selected[0].pic,
       )
       image_bytes = render_stat_table_png(title="", report=report)
+      await _delete_message_if_possible(callback)
       await callback.message.answer_photo(
         photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
         caption=_format_stat_caption(
