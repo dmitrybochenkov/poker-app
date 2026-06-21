@@ -222,9 +222,9 @@ function deckCard(index: number) {
   }
 
   return {
-    title: "<2 пик",
+    title: "1 пик",
     role: "number",
-    rank: "<2",
+    rank: "1",
     suit: "♠",
   };
 }

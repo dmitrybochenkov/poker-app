@@ -223,7 +223,10 @@ async def webapp_players(
       )
     )
 
-  return sorted(result, key=lambda item: (-item.profit_rub, item.name))
+  return sorted(
+    [item for item in result if item.wins > 0],
+    key=lambda item: (-item.profit_rub, item.name),
+  )
 
 
 @router.post("/users/{telegram_id}/photo", response_model=WebAppPhotoUploadRead, status_code=status.HTTP_201_CREATED)
