@@ -1170,12 +1170,14 @@ body {
 
 .shelf-trophy {
   margin-left: auto;
-  width: 19%;
-  min-width: 78px;
-  max-width: 124px;
-  height: 86%;
+  width: 25%;
+  min-width: 104px;
+  max-width: 156px;
+  height: 98%;
   display: grid;
   place-items: end center;
+  align-self: end;
+  margin-bottom: -2px;
 }
 
 .trophy-image {
@@ -1537,10 +1539,10 @@ body {
   }
 
   .shelf-trophy {
-    width: 18%;
-    min-width: 62px;
-    max-width: 96px;
-    height: 86%;
+    width: 24%;
+    min-width: 88px;
+    max-width: 132px;
+    height: 96%;
   }
 
   .shelf-book-inner {
@@ -1558,13 +1560,6 @@ body {
 
   .shelf-book-suit {
     font-size: clamp(12px, 1.5vw, 18px);
-  }
-
-  .shelf-trophy {
-    width: 18%;
-    min-width: 62px;
-    max-width: 96px;
-    height: 86%;
   }
 
   .roulette-board {
