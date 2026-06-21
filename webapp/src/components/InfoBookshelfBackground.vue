@@ -1,7 +1,6 @@
 <template>
   <div class="info-library" aria-hidden="true">
     <div class="library-frame">
-      <div class="library-top-board"></div>
       <div
         v-for="(shelf, shelfIndex) in shelves"
         :key="`shelf-${shelfIndex}`"
