@@ -55,7 +55,15 @@
 
     <InfoBookshelfBackground v-else-if="theme === 'info'" />
 
-    <div class="submenu-placeholder">
+    <div v-if="menuItems.length" class="overlay-actions">
+      <div class="page-menu page-menu-overlay">
+        <RouterLink v-for="item in menuItems" :key="item.to" class="menu-btn" :to="item.to">
+          {{ item.label }}
+        </RouterLink>
+      </div>
+    </div>
+
+    <div v-else class="submenu-placeholder">
       <div class="hint">{{ title }}: тут будут кнопки как в реплай-клаве</div>
     </div>
   </section>
@@ -63,15 +71,23 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { RouterLink } from "vue-router";
 import InfoBookshelfBackground from "../components/InfoBookshelfBackground.vue";
+
+type MenuItem = {
+  label: string;
+  to: string;
+};
 
 const props = withDefaults(
   defineProps<{
     title: string;
     theme?: "plain" | "poker" | "bets" | "info";
+    menuItems?: MenuItem[];
   }>(),
   {
     theme: "plain",
+    menuItems: () => [],
   }
 );
 
@@ -84,6 +100,8 @@ const pageClass = computed(() => {
   if (props.theme === "info") return "info-page";
   return "simple-page simple-page-centered white-page";
 });
+
+const menuItems = computed(() => props.menuItems);
 
 function numberColor(number: number): string {
   return redNumbers.has(number) ? "red" : "black";

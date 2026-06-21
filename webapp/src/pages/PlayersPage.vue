@@ -216,25 +216,29 @@ const deck = [
   { title: "Двойка пик", role: "number", rank: "2", suit: "♠" },
 ];
 
+function deckCard(index: number) {
+  return deck[Math.min(index, deck.length - 1)] ?? deck[deck.length - 1];
+}
+
 function formatRub(amount: number): string {
   const sign = amount > 0 ? "+" : "";
   return `${sign}${amount.toLocaleString("ru-RU")} ₽`;
 }
 
 function cardTitle(index: number): string {
-  return deck[index]?.title ?? deck[0].title;
+  return deckCard(index).title;
 }
 
 function cardRole(index: number): string {
-  return deck[index]?.role ?? "jack";
+  return deckCard(index).role;
 }
 
 function cardRank(index: number): string {
-  return deck[index]?.rank ?? "J";
+  return deckCard(index).rank;
 }
 
 function cardSuit(index: number): string {
-  return deck[index]?.suit ?? "♠";
+  return deckCard(index).suit;
 }
 
 function cardTheme(index: number): string {
@@ -310,7 +314,7 @@ async function loadPlayers(): Promise<void> {
   const res = await fetch("/api/webapp/players");
   if (!res.ok) return;
   const data = (await res.json()) as PlayerCardApi[];
-  players.value = data.slice(0, 14).map((item) => ({
+  players.value = data.map((item) => ({
     player_id: item.player_id,
     name: item.name,
     tel_number: item.tel_number ?? null,
@@ -386,7 +390,11 @@ async function savePhone(): Promise<void> {
 
 async function saveBank(): Promise<void> {
   const { platform, userId } = getPlatformBootstrap();
-  const normalized = bankDraft.value.trim();
+  const normalized = bankDraft.value
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/(^|\s|-)([a-zа-яё])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
   if (!userId) return;
   if (!normalized) {
     bankError.value = "Введи название банка";

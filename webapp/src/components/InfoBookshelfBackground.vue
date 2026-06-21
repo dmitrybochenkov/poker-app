@@ -1,8 +1,13 @@
 <template>
   <div class="info-library" aria-hidden="true">
     <div class="library-frame">
-      <div v-for="(shelf, shelfIndex) in shelves" :key="`shelf-${shelfIndex}`" class="library-shelf">
-        <div class="shelf-board shelf-board--top"></div>
+      <div
+        v-for="(shelf, shelfIndex) in shelves"
+        :key="`shelf-${shelfIndex}`"
+        class="library-shelf"
+        :class="{ 'library-shelf--first': shelfIndex === 0 }"
+      >
+        <div v-if="shelfIndex === 0" class="shelf-board shelf-board--top"></div>
         <div class="shelf-books">
           <div
             v-for="(book, bookIndex) in shelf.books"
@@ -49,38 +54,32 @@ type Shelf = {
 const shelves: Shelf[] = [
   {
     books: [
-      { title: "DOYLE\nBRUNSON", suit: "♠", subtitle: "SUPER\nSYSTEM", width: "11.8%", tone: "ink" },
-      { title: "СЕРГЕЙ\nМАЯКИН", suit: "🍾", subtitle: "Я БУХАЛ\nИ БУДУ\nБУХАТЬ", width: "13%", tone: "wine" },
-      { title: "PHIL\nIVEY", suit: "♣", subtitle: "READ\nPEOPLE", width: "10.8%", tone: "emerald" },
-      { title: "CHRIS\nMONEYMAKER", suit: "♣", subtitle: "PLAY\nPOKER", width: "13.2%", tone: "emerald" },
-      { title: "СЕРГЕЙ\nМАЯКИН", suit: "♥", subtitle: "КУЛИНАРНЫЕ\nРЕЦЕПТЫ", width: "13%", tone: "wine" },
-      { title: "DANIEL\nNEGREANU", suit: "♦", subtitle: "POWER\nHOLD'EM", width: "12.6%", tone: "wine" },
-      { title: "PHIL\nHELLMUTH", suit: "♥", subtitle: "HOW I WON\nTHE WSOP", width: "12.8%", tone: "emerald" },
-      { title: "STU\nUNGAR", suit: "♣", subtitle: "ONE OF A\nKIND", width: "10.8%", tone: "ink" },
+      { title: "СЕРГЕЙ\nМАЯКИН", suit: "🍾", subtitle: "Я БУХАЛ\nИ БУДУ\nБУХАТЬ", width: "17.8%", tone: "wine" },
+      { title: "PHIL\nIVEY", suit: "♣", subtitle: "READ\nPEOPLE", width: "12.6%", tone: "emerald" },
+      { title: "CHRIS\nMONEYMAKER", suit: "♣", subtitle: "PLAY\nPOKER", width: "18.2%", tone: "emerald" },
+      { title: "СЕРГЕЙ\nМАЯКИН", suit: "♥", subtitle: "КУЛИНАРНЫЕ\nРЕЦЕПТЫ", width: "18.4%", tone: "wine" },
+      { title: "DANIEL\nNEGREANU", suit: "♦", subtitle: "POWER\nHOLD'EM", width: "17.4%", tone: "wine" },
+      { title: "STU\nUNGAR", suit: "♣", subtitle: "ONE OF A\nKIND", width: "13.2%", tone: "ink" },
     ],
   },
   {
     books: [
-      { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF POKER", width: "11.2%", tone: "emerald" },
-      { title: "СЕРГЕЙ\nКУЗЬМИН", suit: "🤡", subtitle: "КАК СТАВИТЬ\nС ХУЙНЕЙ И\nВЫИГРЫВАТЬ!", width: "14.4%", tone: "wine" },
-      { title: "JOHNNY\nMOSS", suit: "♣", subtitle: "THE GRAND\nOLD MAN", width: "11%", tone: "ink" },
-      { title: "VIKTOR\n\"ISILDUR1\"\nBLOM", suit: "♠", subtitle: "ONLINE\nLEGEND", width: "13.4%", tone: "emerald" },
-      { title: "АЛЕКСАНДР\nИЛЛАРИОНОВ", suit: "🍆", subtitle: "ДРОЧИЛА", width: "14.2%", tone: "wine" },
-      { title: "BERTRAND\nGROSPELLIER", suit: "♦", subtitle: "LIVE POKER\nSTRATEGY", width: "13.6%", tone: "emerald" },
-      { title: "FEDOR\nHOLZ", suit: "♥", subtitle: "NO LIMIT\nHOLD'EM", width: "11.2%", tone: "wine" },
+      { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF POKER", width: "13.4%", tone: "emerald" },
+      { title: "СЕРГЕЙ\nКУЗЬМИН", suit: "🤡", subtitle: "КАК СТАВИТЬ\nС ХУЙНЕЙ И\nВЫИГРЫВАТЬ!", width: "21.5%", tone: "wine" },
+      { title: "VIKTOR\n\"ISILDUR1\"\nBLOM", suit: "♠", subtitle: "ONLINE\nLEGEND", width: "17.5%", tone: "emerald" },
+      { title: "АЛЕКСАНДР\nИЛЛАРИОНОВ", suit: "🍆", subtitle: "ДРОЧИЛА", width: "20.4%", tone: "wine" },
+      { title: "BERTRAND\nGROSPELLIER", suit: "♦", subtitle: "LIVE POKER\nSTRATEGY", width: "18.8%", tone: "emerald" },
     ],
     trophy: true,
   },
   {
     books: [
-      { title: "SAMMY\nFARHA", suit: "♠", subtitle: "POKER\nIS WAR", width: "11.6%", tone: "ink" },
-      { title: "TONY G", suit: "♦", subtitle: "POKER\nBRAT", width: "9.8%", tone: "wine" },
-      { title: "JUSTIN\nBONOMO", suit: "♠", subtitle: "THE POKER\nTHINKER", width: "12.6%", tone: "ink" },
-      { title: "PATRICK\nANTONIUS", suit: "♥", subtitle: "RELENTLESS", width: "12.4%", tone: "wine" },
-      { title: "NIK\nAIRBALL", suit: "♣", subtitle: "EXPLOIT\nTHE LIVE GAME", width: "12.2%", tone: "emerald" },
-      { title: "TOM\nDWAN", suit: "♣", subtitle: "THE\nLEGEND", width: "10.6%", tone: "ink" },
-      { title: "LIV\nBOEREE", suit: "♦", subtitle: "LADY\nLEGEND", width: "11.2%", tone: "wine" },
-      { title: "ROBBI\nJADE LEW", suit: "♣", subtitle: "THE\nWARRIOR", width: "12%", tone: "ink" },
+      { title: "TONY G", suit: "♦", subtitle: "POKER\nBRAT", width: "10.2%", tone: "wine" },
+      { title: "JUSTIN\nBONOMO", suit: "♠", subtitle: "THE POKER\nTHINKER", width: "16.8%", tone: "ink" },
+      { title: "PATRICK\nANTONIUS", suit: "♥", subtitle: "RELENTLESS", width: "17.6%", tone: "wine" },
+      { title: "NIK\nAIRBALL", suit: "♣", subtitle: "EXPLOIT\nTHE LIVE GAME", width: "17.8%", tone: "emerald" },
+      { title: "LIV\nBOEREE", suit: "♦", subtitle: "LADY\nLEGEND", width: "15%", tone: "wine" },
+      { title: "ROBBI\nJADE LEW", suit: "♣", subtitle: "THE\nWARRIOR", width: "17%", tone: "ink" },
     ],
   },
 ];
