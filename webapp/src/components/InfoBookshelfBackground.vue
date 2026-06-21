@@ -8,6 +8,7 @@
         class="library-shelf"
         :class="{ 'library-shelf--first': shelfIndex === 0 }"
       >
+        <template v-if="shelfIndex === 0">
         <div v-if="shelfIndex === 0" class="shelf-board shelf-board--top"></div>
         <div class="shelf-books">
           <div
@@ -29,6 +30,7 @@
           </div>
         </div>
         <div class="shelf-board shelf-board--bottom"></div>
+        </template>
       </div>
     </div>
   </div>
@@ -55,33 +57,15 @@ type Shelf = {
 const shelves: Shelf[] = [
   {
     books: [
-      { title: "СЕРГЕЙ\nМАЯКИН", suit: "🍾", subtitle: "Я БУХАЛ\nИ БУДУ\nБУХАТЬ", width: "17.8%", tone: "wine" },
-      { title: "PHIL\nIVEY", suit: "♣", subtitle: "READ\nPEOPLE", width: "12.6%", tone: "emerald" },
-      { title: "CHRIS\nMONEYMAKER", suit: "♣", subtitle: "PLAY\nPOKER", width: "18.2%", tone: "emerald" },
-      { title: "СЕРГЕЙ\nМАЯКИН", suit: "♥", subtitle: "КУЛИНАРНЫЕ\nРЕЦЕПТЫ", width: "18.4%", tone: "wine" },
-      { title: "DANIEL\nNEGREANU", suit: "♦", subtitle: "POWER\nHOLD'EM", width: "17.4%", tone: "wine" },
-      { title: "STU\nUNGAR", suit: "♣", subtitle: "ONE OF A\nKIND", width: "13.2%", tone: "ink" },
+      { title: "СЕРГЕЙ\nМАЯКИН", suit: "🍾", subtitle: "Я БУХАЛ\nИ БУДУ\nБУХАТЬ", width: "18.5%", tone: "wine" },
+      { title: "PHIL\nIVEY", suit: "♣", subtitle: "READ\nPEOPLE", width: "12.8%", tone: "emerald" },
+      { title: "CHRIS\nMONEYMAKER", suit: "♣", subtitle: "PLAY\nPOKER", width: "18.8%", tone: "emerald" },
+      { title: "СЕРГЕЙ\nМАЯКИН", suit: "♥", subtitle: "КУЛИНАРНЫЕ\nРЕЦЕПТЫ", width: "19%", tone: "wine" },
+      { title: "DANIEL\nNEGREANU", suit: "♦", subtitle: "POWER\nHOLD'EM", width: "17.8%", tone: "wine" },
+      { title: "STU\nUNGAR", suit: "♣", subtitle: "ONE OF A\nKIND", width: "13.1%", tone: "ink" },
     ],
   },
-  {
-    books: [
-      { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF POKER", width: "13.4%", tone: "emerald" },
-      { title: "СЕРГЕЙ\nКУЗЬМИН", suit: "🤡", subtitle: "КАК СТАВИТЬ\nС ХУЙНЕЙ И\nВЫИГРЫВАТЬ!", width: "21.5%", tone: "wine" },
-      { title: "VIKTOR\n\"ISILDUR1\"\nBLOM", suit: "♠", subtitle: "ONLINE\nLEGEND", width: "17.5%", tone: "emerald" },
-      { title: "АЛЕКСАНДР\nИЛЛАРИОНОВ", suit: "🍆", subtitle: "ДРОЧИЛА", width: "20.4%", tone: "wine" },
-      { title: "BERTRAND\nGROSPELLIER", suit: "♦", subtitle: "LIVE POKER\nSTRATEGY", width: "18.8%", tone: "emerald" },
-    ],
-    trophy: true,
-  },
-  {
-    books: [
-      { title: "TONY G", suit: "♦", subtitle: "POKER\nBRAT", width: "10.2%", tone: "wine" },
-      { title: "JUSTIN\nBONOMO", suit: "♠", subtitle: "THE POKER\nTHINKER", width: "16.8%", tone: "ink" },
-      { title: "PATRICK\nANTONIUS", suit: "♥", subtitle: "RELENTLESS", width: "17.6%", tone: "wine" },
-      { title: "NIK\nAIRBALL", suit: "♣", subtitle: "EXPLOIT\nTHE LIVE GAME", width: "17.8%", tone: "emerald" },
-      { title: "LIV\nBOEREE", suit: "♦", subtitle: "LADY\nLEGEND", width: "15%", tone: "wine" },
-      { title: "ROBBI\nJADE LEW", suit: "♣", subtitle: "THE\nWARRIOR", width: "17%", tone: "ink" },
-    ],
-  },
+  { books: [] },
+  { books: [] },
 ];
 </script>
