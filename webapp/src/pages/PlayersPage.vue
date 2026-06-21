@@ -46,7 +46,10 @@
             <span class="player-phone-marker">📞</span>
             <button
               class="player-phone"
-              :class="{ 'is-empty': !player.tel_number, 'is-copied': copiedPhone === player.tel_number }"
+              :class="{
+                'is-empty': !player.tel_number,
+                'is-copied': Boolean(player.tel_number) && copiedPhone === player.tel_number
+              }"
               type="button"
               :disabled="!player.tel_number"
               @click="copyPhone(player.tel_number)"
