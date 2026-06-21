@@ -1107,13 +1107,13 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 0.65%;
-  padding: 0 20px 0;
+  padding: 22px 20px 0;
   overflow: hidden;
   min-height: 0;
 }
 
 .shelf-book {
-  height: 84%;
+  height: 72%;
   min-width: 24px;
   border-radius: 4px 4px 2px 2px;
   padding: 2px;
@@ -1202,7 +1202,7 @@ body {
   width: 13%;
   min-width: 52px;
   max-width: 84px;
-  height: 84%;
+  height: 72%;
   display: grid;
   place-items: end center;
 }
@@ -1577,7 +1577,7 @@ body {
   }
 
   .shelf-books {
-    padding: 0 10px 0;
+    padding: 14px 10px 0;
   }
 
   .shelf-board--bottom {
