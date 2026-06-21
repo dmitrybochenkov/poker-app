@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#FFE78A"/>
+<stop offset="100%" stop-color="#D89C16"/>
+</linearGradient>
+<linearGradient id="navy" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#1F2C4F"/>
+<stop offset="100%" stop-color="#08142F"/>
+</linearGradient>
+</defs>
+
+<path d="M120 105 C60 105 50 180 110 220" fill="none" stroke="#EBCB5A" stroke-width="18" stroke-linecap="round"/>
+<path d="M392 105 C452 105 462 180 402 220" fill="none" stroke="#EBCB5A" stroke-width="18" stroke-linecap="round"/>
+
+<path d="M150 55 H362 V190 C362 270 310 325 256 340 C202 325 150 270 150 190 Z"
+      fill="url(#gold)" stroke="#F7E9A7" stroke-width="8"/>
+
+<path d="M190 80 C180 150 190 220 235 280" fill="none" stroke="#FFF7D0" stroke-width="10" opacity="0.5" stroke-linecap="round"/>
+<circle cx="300" cy="95" r="10" fill="#FFF5BF"/>
+
+<path d="M235 340 L277 340 L290 405 L222 405 Z"
+      fill="url(#gold)" stroke="#F7E9A7" stroke-width="6"/>
+
+<rect x="190" y="390" width="132" height="42" rx="10"
+      fill="url(#gold)" stroke="#F7E9A7" stroke-width="6"/>
+
+<rect x="135" y="415" width="242" height="95" rx="18"
+      fill="url(#navy)"/>
+
+<rect x="170" y="440" width="172" height="48" rx="10"
+      fill="url(#gold)" stroke="#F7E9A7" stroke-width="4"/>
+
+<text x="256" y="473" text-anchor="middle"
+      font-family="Arial, sans-serif"
+      font-size="28"
+      font-weight="700"
+      fill="#12203E">НЕОФАРМ</text>
+
+<rect x="110" y="500" width="292" height="12" rx="6" fill="#08142F"/>
+</svg>
