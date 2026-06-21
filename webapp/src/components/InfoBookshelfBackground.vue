@@ -1,14 +1,12 @@
 <template>
   <div class="info-library" aria-hidden="true">
     <div class="library-frame">
-      <div class="library-top-cap"></div>
+      <div class="library-top-board"></div>
       <div
         v-for="(shelf, shelfIndex) in shelves"
         :key="`shelf-${shelfIndex}`"
         class="library-shelf"
-        :class="{ 'library-shelf--first': shelfIndex === 0 }"
       >
-        <div v-if="shelfIndex === 0" class="shelf-board shelf-board--top"></div>
         <div class="shelf-books">
           <div
             v-for="(book, bookIndex) in shelf.books"
