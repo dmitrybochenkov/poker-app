@@ -76,3 +76,7 @@ export function buildPhotoUploadUrl(platform: WebAppPlatform, userId: number): s
 export function buildPhoneUpdateUrl(platform: WebAppPlatform, userId: number): string {
   return `/api/webapp/users/${platform}/${userId}/phone`;
 }
+
+export function buildBankUpdateUrl(platform: WebAppPlatform, userId: number): string {
+  return `/api/webapp/users/${platform}/${userId}/bank`;
+}

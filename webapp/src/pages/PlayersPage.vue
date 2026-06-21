@@ -65,6 +65,20 @@
               🔧
             </button>
           </p>
+          <p class="player-phone-line">
+            <span class="player-phone-marker">🏦</span>
+            <span class="player-phone" :class="{ 'is-empty': !player.bank_name }">
+              {{ player.bank_name || "не указан" }}
+            </span>
+            <button
+              v-if="isOwnCard(player)"
+              class="player-phone-edit-trigger"
+              type="button"
+              @click="openBankEditor(player)"
+            >
+              🔧
+            </button>
+          </p>
         </div>
         <div class="player-stats">
           <div class="stat-badge" :class="profitClass(player.profit_rub)">
@@ -105,6 +119,23 @@
         </div>
       </form>
     </div>
+    <div v-if="bankEditorFor !== null" class="player-phone-modal-backdrop" @click.self="closeBankEditor">
+      <form class="player-phone-modal" @submit.prevent="saveBank">
+        <p class="player-phone-modal-title">Добавить / изменить банк</p>
+        <input
+          v-model="bankDraft"
+          class="player-phone-input"
+          type="text"
+          maxlength="100"
+          placeholder="Введи название банка"
+        />
+        <p v-if="bankError" class="player-phone-error">{{ bankError }}</p>
+        <div class="player-phone-modal-actions">
+          <button class="phone-decision-btn phone-decision-btn--confirm" type="submit" :disabled="savingBank">✅</button>
+          <button class="phone-decision-btn phone-decision-btn--cancel" type="button" @click="closeBankEditor">❌</button>
+        </div>
+      </form>
+    </div>
     <input
       ref="photoInput"
       class="visually-hidden-input"
@@ -118,6 +149,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import {
+  buildBankUpdateUrl,
   buildBootstrapUrl,
   buildPhotoUploadUrl,
   buildPhoneUpdateUrl,
@@ -128,6 +160,7 @@ type PlayerCardApi = {
   player_id: number;
   name: string;
   tel_number: string | null;
+  bank_name: string | null;
   games: number;
   wins: number;
   losses: number;
@@ -139,6 +172,7 @@ type PlayerCard = {
   player_id: number;
   name: string;
   tel_number: string | null;
+  bank_name: string | null;
   games: number;
   wins: number;
   losses: number;
@@ -160,6 +194,10 @@ const photoInput = ref<HTMLInputElement | null>(null);
 const phoneEditorFor = ref<number | null>(null);
 const phoneDraft = ref("");
 const phoneError = ref("");
+const savingBank = ref(false);
+const bankEditorFor = ref<number | null>(null);
+const bankDraft = ref("");
+const bankError = ref("");
 const copiedPhone = ref<string | null>(null);
 const cameraIconUrl = `${import.meta.env.BASE_URL}icons/camera-add.png`;
 const deck = [
@@ -228,10 +266,22 @@ function openPhoneEditor(player: PlayerCard): void {
   phoneError.value = "";
 }
 
+function openBankEditor(player: PlayerCard): void {
+  bankEditorFor.value = player.player_id;
+  bankDraft.value = player.bank_name ?? "";
+  bankError.value = "";
+}
+
 function closePhoneEditor(): void {
   phoneEditorFor.value = null;
   phoneDraft.value = "";
   phoneError.value = "";
+}
+
+function closeBankEditor(): void {
+  bankEditorFor.value = null;
+  bankDraft.value = "";
+  bankError.value = "";
 }
 
 async function copyPhone(phone: string | null): Promise<void> {
@@ -264,6 +314,7 @@ async function loadPlayers(): Promise<void> {
     player_id: item.player_id,
     name: item.name,
     tel_number: item.tel_number ?? null,
+    bank_name: item.bank_name ?? null,
     games: item.games,
     wins: item.wins,
     losses: item.losses,
@@ -330,6 +381,37 @@ async function savePhone(): Promise<void> {
     await loadPlayers();
   } finally {
     savingPhone.value = false;
+  }
+}
+
+async function saveBank(): Promise<void> {
+  const { platform, userId } = getPlatformBootstrap();
+  const normalized = bankDraft.value.trim();
+  if (!userId) return;
+  if (!normalized) {
+    bankError.value = "Введи название банка";
+    return;
+  }
+
+  try {
+    savingBank.value = true;
+    bankError.value = "";
+    const res = await fetch(buildBankUpdateUrl(platform, userId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ bank_name: normalized }),
+    });
+    if (!res.ok) {
+      bankError.value = "Не удалось сохранить банк";
+      return;
+    }
+
+    closeBankEditor();
+    await loadPlayers();
+  } finally {
+    savingBank.value = false;
   }
 }
 

@@ -44,6 +44,7 @@ class WebAppPlayerCardRead(BaseModel):
   player_id: int
   name: str
   tel_number: str | None = None
+  bank_name: str | None = None
   games: int
   wins: int
   losses: int
@@ -63,11 +64,26 @@ class WebAppPhoneUpdateRead(BaseModel):
   tel_number: str
 
 
+class WebAppBankUpdateWrite(BaseModel):
+  bank_name: str
+
+
+class WebAppBankUpdateRead(BaseModel):
+  bank_name: str
+
+
 def _normalize_phone(value: str) -> str | None:
   digits = "".join(ch for ch in value if ch.isdigit())
   if digits.startswith("7") and len(digits) == 11:
     return f"+{digits}"
   return None
+
+
+def _normalize_bank_name(value: str) -> str | None:
+  normalized = " ".join(value.split()).strip()
+  if not normalized:
+    return None
+  return normalized[:1].upper() + normalized[1:].lower()
 
 
 async def _get_user_by_platform(*, session: AsyncSession, platform: Literal["telegram", "vk"], user_id: int) -> User | None:
@@ -146,7 +162,7 @@ async def webapp_players(
 ) -> list[WebAppPlayerCardRead]:
   approved_users = (
     await session.execute(
-      select(User.row_id, User.name, User.photo_path, User.updated_at, User.tel_number)
+      select(User.row_id, User.name, User.photo_path, User.updated_at, User.tel_number, User.bank_name)
       .where(User.is_approved.is_(True))
       .order_by(User.name.asc())
     )
@@ -194,6 +210,7 @@ async def webapp_players(
         player_id=int(user.row_id),
         name=str(user.name),
         tel_number=(str(user.tel_number).strip() if user.tel_number else None),
+        bank_name=(str(user.bank_name).strip() if user.bank_name else None),
         games=int(stats.games_count or 0),
         wins=wins_by_name.get(str(user.name), 0),
         losses=losses_by_name.get(str(user.name), 0),
@@ -333,3 +350,24 @@ async def update_webapp_user_phone_by_platform(
   await session.commit()
   await session.refresh(user)
   return WebAppPhoneUpdateRead(tel_number=normalized_phone)
+
+
+@router.post("/users/{platform}/{user_id}/bank", response_model=WebAppBankUpdateRead)
+async def update_webapp_user_bank_by_platform(
+  platform: Literal["telegram", "vk"],
+  user_id: int,
+  payload: WebAppBankUpdateWrite,
+  session: AsyncSession = Depends(get_db_session),
+) -> WebAppBankUpdateRead:
+  user = await _get_user_by_platform(session=session, platform=platform, user_id=user_id)
+  if user is None:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+  normalized_bank = _normalize_bank_name(payload.bank_name)
+  if normalized_bank is None:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid bank name")
+
+  user.bank_name = normalized_bank
+  await session.commit()
+  await session.refresh(user)
+  return WebAppBankUpdateRead(bank_name=normalized_bank)
