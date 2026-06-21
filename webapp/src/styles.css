@@ -1540,6 +1540,7 @@ body {
     width: 18%;
     min-width: 62px;
     max-width: 96px;
+    height: 86%;
   }
 
   .shelf-book-inner {
@@ -1560,10 +1561,10 @@ body {
   }
 
   .shelf-trophy {
-    width: 10%;
-    min-width: 34px;
-    max-width: 52px;
-    height: 82%;
+    width: 18%;
+    min-width: 62px;
+    max-width: 96px;
+    height: 86%;
   }
 
   .roulette-board {
