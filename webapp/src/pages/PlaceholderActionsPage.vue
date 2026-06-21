@@ -53,6 +53,8 @@
       </div>
     </div>
 
+    <InfoBookshelfBackground v-else-if="theme === 'info'" />
+
     <div class="submenu-placeholder">
       <div class="hint">{{ title }}: тут будут кнопки как в реплай-клаве</div>
     </div>
@@ -61,6 +63,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import InfoBookshelfBackground from "../components/InfoBookshelfBackground.vue";
 
 const props = withDefaults(
   defineProps<{
