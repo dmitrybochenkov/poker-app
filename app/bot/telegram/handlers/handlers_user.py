@@ -756,10 +756,7 @@ async def _approved_tg_keyboard(user: User):
 
 
 async def _betting_tg_keyboard():
-  async with SessionFactory() as session:
-    active = await PokerRepository(session).get_started()
-  is_open = bool(active is not None and bool(active[0].is_bettable))
-  return betting_dynamic_keyboard(include_make_bet=is_open)
+  return betting_dynamic_keyboard(include_make_bet=True)
 
 
 async def _post_bet_tg_keyboard_for_user(*, telegram_id: int):
@@ -1436,7 +1433,7 @@ async def open_next_poker_date_menu(message: Message) -> None:
   if month is None:
     await message.answer(Text.user.POLL_NOT_ACTIVE.value, reply_markup=await _approved_tg_keyboard(user))
     return
-  await message.answer("Выбери действие:", reply_markup=poll_menu_keyboard)
+  await message.answer("О следующем покере.", reply_markup=poll_menu_keyboard)
 
 
 @router.message(F.text == Buttons.main.ADMIN.value)

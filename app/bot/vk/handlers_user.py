@@ -759,10 +759,7 @@ async def _approved_vk_keyboard(user: User) -> str:
 
 
 async def _betting_vk_keyboard() -> str:
-  async with SessionFactory() as session:
-    active = await PokerRepository(session).get_started()
-  is_open = bool(active is not None and bool(active[0].is_bettable))
-  return betting_dynamic_keyboard(include_make_bet=is_open)
+  return betting_dynamic_keyboard(include_make_bet=True)
 
 
 async def _post_bet_vk_keyboard_for_user(*, vk_id: int) -> str:
@@ -2207,7 +2204,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
     if month is None:
       await send_vk_message(user_id=user_id, message=Text.user.POLL_NOT_ACTIVE.value, keyboard=await _approved_vk_keyboard(user))
       return PlainTextResponse("ok")
-    await send_vk_message(user_id=user_id, message="Выбери действие:", keyboard=poll_menu_keyboard)
+    await send_vk_message(user_id=user_id, message="О следующем покере.", keyboard=poll_menu_keyboard)
     return PlainTextResponse("ok")
 
   if text == Buttons.main.POKER.value:

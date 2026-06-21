@@ -55,24 +55,24 @@ const shelves: Shelf[] = [
   {
     books: [
       { title: "DOYLE\nBRUNSON", suit: "♠", subtitle: "SUPER\nSYSTEM", width: "11%", tone: "ink" },
+      { title: "Сергей\nМаякин", suit: "🍾", subtitle: "Я бухал\nи буду\nБУХАТЬ", width: "10%", tone: "wine" },
       { title: "PHIL\nIVEY", suit: "♣", subtitle: "READ\nPEOPLE", width: "10.5%", tone: "emerald" },
       { title: "CHRIS\nMONEYMAKER", suit: "♣", subtitle: "PLAY\nPOKER", width: "11%", tone: "emerald" },
-      { title: "МЯКИН", suit: "♥", subtitle: "КУЛИНАРНЫЕ\nРЕЦЕПТЫ", width: "10%", tone: "wine" },
+      { title: "Сергей\nМаякин", suit: "♥", subtitle: "КУЛИНАРНЫЕ\nРЕЦЕПТЫ", width: "10%", tone: "wine" },
       { title: "JASON\nKOON", suit: "♦", subtitle: "THINKING\nPLAYER", width: "10%", tone: "wine" },
       { title: "ERIK\nSEIDEL", suit: "♠", subtitle: "SEIDEL\nON POKER", width: "10.5%", tone: "ink" },
       { title: "DANIEL\nNEGREANU", suit: "♦", subtitle: "POWER\nHOLD'EM", width: "10%", tone: "wine" },
       { title: "PHIL\nHELLMUTH", suit: "♥", subtitle: "HOW I WON\nTHE WSOP", width: "10%", tone: "emerald" },
-      { title: "МАЯКИН", suit: "♦", subtitle: "Я БУХАЛ\nИ БУДУ", width: "10%", tone: "wine" },
       { title: "STU\nUNGAR", suit: "♣", subtitle: "ONE OF A\nKIND", width: "10%", tone: "ink" },
     ],
   },
   {
     books: [
       { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF POKER", width: "10%", tone: "emerald" },
-      { title: "КУЗЬМИН", suit: "♣", subtitle: "КАК СТАВИТЬ\nИ ВЫИГРЫВАТЬ", width: "10.5%", tone: "wine" },
+      { title: "Сергей\nКузьмин", suit: "💲", subtitle: "Как ставить\nс хуйней и\nвыигрывать!", width: "10.5%", tone: "wine" },
       { title: "JOHNNY\nMOSS", suit: "♣", subtitle: "THE GRAND\nOLD MAN", width: "10%", tone: "ink" },
       { title: "VIKTOR\n\"ISILDUR1\"\nBLOM", suit: "♠", subtitle: "ONLINE\nLEGEND", width: "10.5%", tone: "emerald" },
-      { title: "ИЛЛАРИОНОВ", suit: "♦", subtitle: "ДРОЧИЛА", width: "10%", tone: "wine" },
+      { title: "Александр\nИлларионов", suit: "🍆", subtitle: "ДРОЧИЛА", width: "10%", tone: "wine" },
       { title: "BERTRAND\nGROSPELLIER", suit: "♦", subtitle: "LIVE POKER\nSTRATEGY", width: "10%", tone: "emerald" },
       { title: "FEDOR\nHOLZ", suit: "♥", subtitle: "NO LIMIT\nHOLD'EM", width: "10%", tone: "wine" },
       { title: "MEN\nNGUYEN", suit: "♠", subtitle: "THE\nMASTER", width: "9.5%", tone: "ink" },

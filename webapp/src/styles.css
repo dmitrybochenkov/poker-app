@@ -665,6 +665,329 @@ body {
   background: #fff;
 }
 
+.admin-page {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 18%, rgb(70 49 115 / 18%), transparent 34%),
+    linear-gradient(180deg, #07060d 0%, #130f22 50%, #090914 100%);
+}
+
+.admin-page__state {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 84px)
+    24px
+    calc(env(safe-area-inset-bottom, 0px) + 24px);
+  color: rgb(255 244 214 / 92%);
+  text-shadow: 0 2px 18px rgb(0 0 0 / 50%);
+}
+
+.admin-console-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 24px)
+    0
+    calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.admin-console {
+  width: 70%;
+  height: 80%;
+  min-width: 280px;
+  max-width: 520px;
+  min-height: 540px;
+  border-radius: 30px;
+  border: 3px solid #8a6bba;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 4%), rgb(0 0 0 / 14%)),
+    linear-gradient(180deg, #211d38 0%, #171327 52%, #130f20 100%);
+  box-shadow:
+    inset 0 0 0 2px rgb(30 20 58 / 95%),
+    inset 0 0 0 10px rgb(255 191 77 / 10%),
+    0 18px 40px rgb(0 0 0 / 42%);
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  gap: 16px;
+  padding: 18px;
+}
+
+.admin-console__header,
+.admin-console__progress,
+.admin-console__danger,
+.admin-console__footer,
+.admin-module {
+  border-radius: 18px;
+  border: 2px solid #0f0b1f;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 5%), rgb(255 255 255 / 0%)),
+    linear-gradient(180deg, #26213f 0%, #1a162b 100%);
+  box-shadow:
+    inset 0 0 0 2px rgb(255 212 122 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.admin-console__header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 68px 1fr 68px;
+  align-items: center;
+  padding: 20px 16px 14px;
+  border-color: #7b5c2d;
+  background:
+    linear-gradient(180deg, rgb(255 206 119 / 7%), rgb(255 206 119 / 0%)),
+    linear-gradient(180deg, #241e3d 0%, #171428 100%);
+}
+
+.admin-console__header::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 16px;
+  border: 3px solid #d49a34;
+  box-shadow: inset 0 0 0 2px rgb(44 28 8 / 70%);
+}
+
+.admin-console__grill {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.admin-console__grill span {
+  height: 10px;
+  border-radius: 999px;
+  background: #161123;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 5%),
+    0 0 0 2px rgb(0 0 0 / 40%);
+}
+
+.admin-console__title-wrap {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.admin-console__title {
+  font-family: "Oswald", "Manrope", sans-serif;
+  font-size: clamp(44px, 6vw, 74px);
+  line-height: 0.95;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #f2cf97;
+  text-shadow:
+    0 3px 0 #2c1705,
+    0 8px 18px rgb(0 0 0 / 36%);
+}
+
+.admin-console__title-mark {
+  font-size: 30px;
+  color: #e0b76b;
+  text-shadow: 0 2px 0 #2c1705;
+}
+
+.admin-console__stack {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-module {
+  display: grid;
+  grid-template-columns: 78px 1fr 48px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+}
+
+.admin-module__icon {
+  height: 78px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 38px;
+  border: 2px solid #09070e;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 8%),
+    inset 0 -4px 10px rgb(0 0 0 / 28%);
+}
+
+.admin-module.tone-olive .admin-module__icon {
+  background: linear-gradient(180deg, #8ca129 0%, #596d14 100%);
+}
+
+.admin-module.tone-blue .admin-module__icon {
+  background: linear-gradient(180deg, #5363d0 0%, #2e3ea1 100%);
+}
+
+.admin-module.tone-red .admin-module__icon {
+  background: linear-gradient(180deg, #dd5c58 0%, #b6302c 100%);
+}
+
+.admin-module.tone-purple .admin-module__icon {
+  background: linear-gradient(180deg, #9f56c4 0%, #6f2a95 100%);
+}
+
+.admin-module__slider {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-module__ticks {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 14px;
+}
+
+.admin-module__ticks span {
+  width: 2px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgb(238 225 191 / 72%);
+}
+
+.admin-module__rail {
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  background: #08070f;
+  box-shadow:
+    inset 0 2px 4px rgb(255 255 255 / 4%),
+    inset 0 -2px 6px rgb(0 0 0 / 80%);
+}
+
+.admin-module__thumb {
+  position: absolute;
+  top: 50%;
+  right: 18%;
+  width: 34px;
+  height: 44px;
+  transform: translateY(-50%);
+  border-radius: 10px;
+  border: 2px solid rgb(20 15 28 / 88%);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 10%),
+    0 8px 14px rgb(0 0 0 / 32%);
+}
+
+.admin-module.tone-olive .admin-module__thumb {
+  background: linear-gradient(180deg, #8cab2f 0%, #5c7415 100%);
+}
+
+.admin-module.tone-blue .admin-module__thumb {
+  background: linear-gradient(180deg, #5873f0 0%, #2e47b6 100%);
+}
+
+.admin-module.tone-red .admin-module__thumb {
+  background: linear-gradient(180deg, #ff635c 0%, #bc2924 100%);
+}
+
+.admin-module.tone-purple .admin-module__thumb {
+  background: linear-gradient(180deg, #b35cff 0%, #7a30bb 100%);
+}
+
+.admin-module__lamp {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  margin-left: auto;
+  background:
+    radial-gradient(circle at 35% 35%, #e8ff8a 0%, #a9f42b 48%, #52a300 82%, #2b5800 100%);
+  box-shadow:
+    0 0 18px rgb(160 255 58 / 55%),
+    inset 0 2px 4px rgb(255 255 255 / 45%);
+}
+
+.admin-console__progress {
+  padding: 16px 18px;
+  display: flex;
+  align-items: end;
+  gap: 6px;
+}
+
+.admin-console__bar {
+  flex: 1;
+  min-width: 10px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #4b465d 0%, #2f2b3f 100%);
+  border: 1px solid rgb(12 10 18 / 85%);
+}
+
+.admin-console__bar.is-active {
+  background: linear-gradient(180deg, #b0ef29 0%, #7bd315 100%);
+  box-shadow: 0 0 12px rgb(165 255 56 / 38%);
+}
+
+.admin-console__danger {
+  padding: 16px;
+  display: grid;
+  place-items: center;
+  background:
+    repeating-linear-gradient(
+      -55deg,
+      rgb(205 150 53 / 40%) 0 14px,
+      rgb(36 28 18 / 15%) 14px 28px
+    ),
+    linear-gradient(180deg, #241e3d 0%, #171428 100%);
+}
+
+.admin-console__danger-ring {
+  width: min(50vw, 180px);
+  aspect-ratio: 1 / 1;
+  max-width: 180px;
+  border-radius: 999px;
+  padding: 16px;
+  background: linear-gradient(180deg, #372b48 0%, #120f1f 100%);
+  border: 3px solid #0c0a15;
+  box-shadow:
+    inset 0 0 0 4px rgb(255 255 255 / 6%),
+    0 16px 26px rgb(0 0 0 / 32%);
+}
+
+.admin-console__danger-core {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 32% 26%, rgb(255 255 255 / 28%), transparent 24%),
+    linear-gradient(180deg, #ff6757 0%, #c22320 100%);
+  box-shadow:
+    inset 0 -10px 18px rgb(81 7 6 / 44%),
+    0 10px 18px rgb(0 0 0 / 34%);
+}
+
+.admin-console__footer {
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-console__footer-lamp {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 35%, #e8ff8a 0%, #a9f42b 48%, #52a300 82%, #2b5800 100%);
+  box-shadow:
+    0 0 16px rgb(160 255 58 / 48%),
+    inset 0 2px 4px rgb(255 255 255 / 45%);
+}
+
 .bets-bg {
   background: radial-gradient(circle at 20% 10%, #1c3752 0%, #102437 45%, #0a1725 100%);
 }
@@ -1198,6 +1521,51 @@ body {
 }
 
 @media (max-width: 480px) {
+  .admin-console {
+    width: 76%;
+    height: 78%;
+    min-width: 264px;
+    min-height: 500px;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .admin-console__header {
+    grid-template-columns: 52px 1fr 52px;
+    padding: 16px 12px 12px;
+  }
+
+  .admin-console__title {
+    font-size: clamp(36px, 8vw, 56px);
+  }
+
+  .admin-module {
+    grid-template-columns: 64px 1fr 36px;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .admin-module__icon {
+    height: 64px;
+    font-size: 30px;
+  }
+
+  .admin-module__thumb {
+    width: 28px;
+    height: 38px;
+  }
+
+  .admin-module__lamp,
+  .admin-console__footer-lamp {
+    width: 28px;
+    height: 28px;
+  }
+
+  .admin-console__danger-ring {
+    max-width: 148px;
+    padding: 12px;
+  }
+
   .library-frame {
     padding: 18px 12px 14px;
     gap: 14px;
