@@ -1177,7 +1177,7 @@ body {
   display: grid;
   place-items: end center;
   align-self: end;
-  margin-bottom: -1px;
+  margin-bottom: -20px;
 }
 
 .trophy-image {
@@ -1543,6 +1543,7 @@ body {
     min-width: 116px;
     max-width: 172px;
     height: 138%;
+    margin-bottom: -16px;
   }
 
   .shelf-book-inner {
