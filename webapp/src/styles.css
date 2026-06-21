@@ -33,6 +33,7 @@ body {
 }
 
 .content {
+  height: 100%;
   min-height: 0;
   display: grid;
   overflow: hidden;
@@ -40,6 +41,7 @@ body {
 
 .home,
 .simple-page {
+  height: 100%;
   min-height: 0;
   display: grid;
   align-content: stretch;
@@ -56,21 +58,24 @@ body {
   text-align: center;
 }
 
-.page-menu {
-  display: grid;
-  gap: 12px;
-}
-
 .page-menu-overlay {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
   min-height: 100%;
   padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
-  align-content: end;
 }
 
 .page-menu-plain {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
   min-height: 100%;
   padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
-  align-content: end;
 }
 
 .menu-grid {
@@ -664,12 +669,25 @@ body {
   background: radial-gradient(circle at 20% 10%, #1c3752 0%, #102437 45%, #0a1725 100%);
 }
 
-.info-bg {
-  background: radial-gradient(circle at 20% 10%, #2a4469 0%, #172a46 45%, #0f1e36 100%);
+.info-page {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 96px)
+    24px
+    calc(env(safe-area-inset-bottom, 0px) + 112px);
+  background:
+    linear-gradient(rgb(26 18 10 / 20%), rgb(26 18 10 / 20%)),
+    url("./assets/info-bookshelf.png") center center / cover no-repeat;
 }
 
 .poker-page {
   position: relative;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -687,7 +705,9 @@ body {
 .poker-page .overlay-actions {
   position: relative;
   z-index: 1;
+  height: 100%;
   min-height: 100%;
+  display: grid;
 }
 
 .table-rail {
@@ -763,6 +783,7 @@ body {
 
 .bets-page {
   position: relative;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: #17753b;
@@ -771,7 +792,9 @@ body {
 .bets-page .overlay-actions {
   position: relative;
   z-index: 1;
+  height: 100%;
   min-height: 100%;
+  display: grid;
 }
 
 .submenu-placeholder {
@@ -788,7 +811,8 @@ body {
 }
 
 .poker-page .submenu-placeholder .hint,
-.bets-page .submenu-placeholder .hint {
+.bets-page .submenu-placeholder .hint,
+.info-page .hint {
   color: rgb(255 255 255 / 92%);
   text-shadow: 0 2px 12px rgb(0 0 0 / 28%);
 }

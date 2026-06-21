@@ -5,11 +5,11 @@
       <RouterLink class="menu-btn" to="/room">♣️ Покер рум</RouterLink>
       <RouterLink class="menu-btn" to="/players">👤 Игроки</RouterLink>
       <RouterLink class="menu-btn" to="/poker">💍 Про покер</RouterLink>
-      <RouterLink class="menu-btn" to="/bets">Про ставки</RouterLink>
-      <RouterLink class="menu-btn" to="/info">Информация</RouterLink>
+      <RouterLink class="menu-btn" to="/bets">🍀 Про ставки</RouterLink>
+      <RouterLink class="menu-btn" to="/info">ℹ️ Информация</RouterLink>
 
       <RouterLink class="menu-btn menu-btn-admin" to="/admin">
-        Админ панель
+        🔑 Админ панель
       </RouterLink>
     </div>
   </section>

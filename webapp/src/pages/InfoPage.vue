@@ -1,5 +1,5 @@
 <template>
-  <section class="simple-page simple-page-centered info-bg">
+  <section class="info-page">
     <div class="hint">Информация: тут будут кнопки как в реплай-клаве</div>
   </section>
 </template>

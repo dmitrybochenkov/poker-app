@@ -65,7 +65,7 @@ import { computed } from "vue";
 const props = withDefaults(
   defineProps<{
     title: string;
-    theme?: "plain" | "poker" | "bets";
+    theme?: "plain" | "poker" | "bets" | "info";
   }>(),
   {
     theme: "plain",
@@ -78,6 +78,7 @@ const redNumbers = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 3
 const pageClass = computed(() => {
   if (props.theme === "poker") return "poker-page";
   if (props.theme === "bets") return "bets-page";
+  if (props.theme === "info") return "info-page";
   return "simple-page simple-page-centered white-page";
 });
 

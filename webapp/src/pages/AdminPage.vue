@@ -1,5 +1,5 @@
 <template>
-  <section class="simple-page simple-page-centered white-page">
+  <section class="simple-page white-page">
     <div v-if="loading" class="hint">Проверка доступа...</div>
     <div v-else-if="isAdmin" class="page-menu page-menu-plain">
       <RouterLink class="menu-btn" to="/admin/create-poll">🗓 Создать опрос</RouterLink>
