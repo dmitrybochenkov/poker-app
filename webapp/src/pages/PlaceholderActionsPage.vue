@@ -55,8 +55,10 @@
 
     <InfoBookshelfBackground v-else-if="theme === 'info'" />
 
-    <div v-if="menuItems.length" class="overlay-actions">
-      <div class="page-menu page-menu-overlay">
+    <div v-if="resolvedContentHtml || menuItems.length" class="overlay-panel-layout">
+      <article v-if="resolvedContentHtml" class="page-content-card" v-html="resolvedContentHtml"></article>
+
+      <div v-if="menuItems.length" class="page-menu page-menu-overlay page-menu-overlay--compact">
         <RouterLink v-for="item in menuItems" :key="item.to" class="menu-btn" :to="item.to">
           {{ item.label }}
         </RouterLink>
@@ -70,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import InfoBookshelfBackground from "../components/InfoBookshelfBackground.vue";
 
@@ -84,10 +86,14 @@ const props = withDefaults(
     title: string;
     theme?: "plain" | "poker" | "bets" | "info";
     menuItems?: MenuItem[];
+    contentHtml?: string;
+    contentApi?: string;
   }>(),
   {
     theme: "plain",
     menuItems: () => [],
+    contentHtml: "",
+    contentApi: "",
   }
 );
 
@@ -102,8 +108,37 @@ const pageClass = computed(() => {
 });
 
 const menuItems = computed(() => props.menuItems);
+const resolvedContentHtml = ref(props.contentHtml || "");
 
 function numberColor(number: number): string {
   return redNumbers.has(number) ? "red" : "black";
 }
+
+watch(
+  () => [props.contentApi, props.contentHtml] as const,
+  async ([contentApi, contentHtml]) => {
+    if (contentHtml) {
+      resolvedContentHtml.value = contentHtml;
+      return;
+    }
+
+    if (!contentApi) {
+      resolvedContentHtml.value = "";
+      return;
+    }
+
+    try {
+      const response = await fetch(contentApi);
+      if (!response.ok) {
+        resolvedContentHtml.value = "Справка пока пустая.";
+        return;
+      }
+      const payload = (await response.json()) as { body_html?: string };
+      resolvedContentHtml.value = payload.body_html?.trim() || "Справка пока пустая.";
+    } catch {
+      resolvedContentHtml.value = "Справка пока пустая.";
+    }
+  },
+  { immediate: true }
+);
 </script>

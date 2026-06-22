@@ -13,6 +13,33 @@ import PlaceholderActionsPage from "./pages/PlaceholderActionsPage.vue";
 import AdminPage from "./pages/AdminPage.vue";
 import ApprovalRequiredPage from "./pages/ApprovalRequiredPage.vue";
 import RoomPage from "./pages/RoomPage.vue";
+import { buildInfoContentUrl } from "./services/platform";
+
+const infoMainMenu = [
+  { label: "ℹ️💍 Про покер", to: "/info/poker" },
+  { label: "ℹ️🍀 Про ставки", to: "/info/bets" },
+  { label: "🏠 На главную", to: "/" },
+];
+
+const pokerInfoMenu = [
+  { label: "ℹ️🌟 Ачивки для покера", to: "/info/poker/achievements" },
+  { label: "ℹ️📊 Показатели для покера", to: "/info/poker/metrics" },
+  { label: "⌛ История", to: "/poker/history" },
+  { label: "🏠 На главную", to: "/" },
+];
+
+const betsInfoMenu = [
+  { label: "📖 Правила", to: "/info/bets/rules" },
+  { label: "ℹ️🌟 Ачивки для ставок", to: "/info/bets/achievements" },
+  { label: "ℹ️📊 Показатели для ставок", to: "/info/bets/metrics" },
+  { label: "🏠 На главную", to: "/" },
+];
+
+const bettingCurrentMenu = [
+  { label: "💰 Регулярный турнир", to: "/bets/current/regular" },
+  { label: "🎄💰 Годовой турнир", to: "/bets/current/year" },
+  { label: "🏠 На главную", to: "/" },
+];
 
 const router = createRouter({
   history: createWebHistory("/webapp/"),
@@ -30,7 +57,26 @@ const router = createRouter({
     { path: "/poker/history", component: PlaceholderActionsPage, props: { title: "⌛ История", theme: "poker" } },
     { path: "/bets/make", component: PlaceholderActionsPage, props: { title: "🐔 Сделать ставку", theme: "bets" } },
     { path: "/bets/pay", component: PlaceholderActionsPage, props: { title: "🤝 Оплатить ставку", theme: "bets" } },
-    { path: "/bets/current", component: PlaceholderActionsPage, props: { title: "🎰 Текущие турниры", theme: "bets" } },
+    {
+      path: "/bets/current",
+      component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
+      props: {
+        title: "🎰 Текущие турниры",
+        theme: "bets",
+        menuItems: bettingCurrentMenu,
+      },
+    },
+    {
+      path: "/bets/current/regular",
+      component: PlaceholderActionsPage,
+      props: { title: "💰 Регулярный турнир", theme: "bets" },
+    },
+    {
+      path: "/bets/current/year",
+      component: PlaceholderActionsPage,
+      props: { title: "🎄💰 Годовой турнир", theme: "bets" },
+    },
     { path: "/bets/stat", component: PlaceholderActionsPage, props: { title: "🍀 Статистика ставок", theme: "bets" } },
     {
       path: "/info/poker",
@@ -39,11 +85,8 @@ const router = createRouter({
       props: {
         title: "ℹ️💍 Про покер",
         theme: "info",
-        menuItems: [
-          { label: "ℹ️🌟 Ачивки для покера", to: "/info/poker/achievements" },
-          { label: "ℹ️📊 Показатели для покера", to: "/info/poker/metrics" },
-          { label: "⌛ История", to: "/poker/history" },
-        ],
+        contentApi: buildInfoContentUrl("poker", "root"),
+        menuItems: pokerInfoMenu,
       },
     },
     {
@@ -53,18 +96,40 @@ const router = createRouter({
       props: {
         title: "ℹ️🍀 Про ставки",
         theme: "info",
-        menuItems: [
-          { label: "📖 Правила", to: "/info/bets/rules" },
-          { label: "ℹ️🌟 Ачивки для ставок", to: "/info/bets/achievements" },
-          { label: "ℹ️📊 Показатели для ставок", to: "/info/bets/metrics" },
-        ],
+        contentApi: buildInfoContentUrl("bets", "root"),
+        menuItems: betsInfoMenu,
       },
     },
-    { path: "/info/poker/achievements", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️🌟 Ачивки для покера", theme: "info" } },
-    { path: "/info/poker/metrics", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️📊 Показатели для покера", theme: "info" } },
-    { path: "/info/bets/rules", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "📖 Правила", theme: "info" } },
-    { path: "/info/bets/achievements", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️🌟 Ачивки для ставок", theme: "info" } },
-    { path: "/info/bets/metrics", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️📊 Показатели для ставок", theme: "info" } },
+    {
+      path: "/info/poker/achievements",
+      component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
+      props: { title: "ℹ️🌟 Ачивки для покера", theme: "info", contentApi: buildInfoContentUrl("poker", "achievements"), menuItems: pokerInfoMenu },
+    },
+    {
+      path: "/info/poker/metrics",
+      component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
+      props: { title: "ℹ️📊 Показатели для покера", theme: "info", contentApi: buildInfoContentUrl("poker", "metrics"), menuItems: pokerInfoMenu },
+    },
+    {
+      path: "/info/bets/rules",
+      component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
+      props: { title: "📖 Правила", theme: "info", contentApi: buildInfoContentUrl("bets", "rules"), menuItems: betsInfoMenu },
+    },
+    {
+      path: "/info/bets/achievements",
+      component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
+      props: { title: "ℹ️🌟 Ачивки для ставок", theme: "info", contentApi: buildInfoContentUrl("bets", "achievements"), menuItems: betsInfoMenu },
+    },
+    {
+      path: "/info/bets/metrics",
+      component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
+      props: { title: "ℹ️📊 Показатели для ставок", theme: "info", contentApi: buildInfoContentUrl("bets", "metrics"), menuItems: betsInfoMenu },
+    },
     { path: "/admin", component: AdminPage, meta: { hideGlobalHome: true } },
     { path: "/admin/create-poll", component: PlaceholderActionsPage, props: { title: "🗓 Создать опрос" } },
     { path: "/admin/start-poker", component: PlaceholderActionsPage, props: { title: "🎲 Старт покера" } },

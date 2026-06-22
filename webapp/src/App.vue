@@ -4,7 +4,7 @@
       <RouterView />
     </main>
     <footer v-if="!isHome && !hideGlobalHome" class="global-nav">
-      <RouterLink class="menu-btn home-btn" to="/">На главный экран</RouterLink>
+      <RouterLink class="menu-btn home-btn" to="/">🏠 На главную</RouterLink>
     </footer>
   </div>
 </template>

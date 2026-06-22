@@ -80,3 +80,7 @@ export function buildPhoneUpdateUrl(platform: WebAppPlatform, userId: number): s
 export function buildBankUpdateUrl(platform: WebAppPlatform, userId: number): string {
   return `/api/webapp/users/${platform}/${userId}/bank`;
 }
+
+export function buildInfoContentUrl(section: "poker" | "bets", topic: "rules" | "achievements" | "metrics" | "root"): string {
+  return `/api/webapp/info/${section}/${topic}`;
+}
