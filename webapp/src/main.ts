@@ -20,7 +20,7 @@ const router = createRouter({
     { path: "/", component: HomePage },
     { path: "/poker", component: PokerPage, meta: { hideGlobalHome: true } },
     { path: "/bets", component: BetsPage, meta: { hideGlobalHome: true } },
-    { path: "/info", component: InfoPage },
+    { path: "/info", component: InfoPage, meta: { hideGlobalHome: true } },
     { path: "/players", component: PlayersPage },
     { path: "/room", component: RoomPage },
     { path: "/next-poker", component: NextPokerPage, meta: { hideGlobalHome: true } },
@@ -35,6 +35,7 @@ const router = createRouter({
     {
       path: "/info/poker",
       component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
       props: {
         title: "ℹ️💍 Про покер",
         theme: "info",
@@ -48,6 +49,7 @@ const router = createRouter({
     {
       path: "/info/bets",
       component: PlaceholderActionsPage,
+      meta: { hideGlobalHome: true },
       props: {
         title: "ℹ️🍀 Про ставки",
         theme: "info",
@@ -58,11 +60,11 @@ const router = createRouter({
         ],
       },
     },
-    { path: "/info/poker/achievements", component: PlaceholderActionsPage, props: { title: "ℹ️🌟 Ачивки для покера", theme: "info" } },
-    { path: "/info/poker/metrics", component: PlaceholderActionsPage, props: { title: "ℹ️📊 Показатели для покера", theme: "info" } },
-    { path: "/info/bets/rules", component: PlaceholderActionsPage, props: { title: "📖 Правила", theme: "info" } },
-    { path: "/info/bets/achievements", component: PlaceholderActionsPage, props: { title: "ℹ️🌟 Ачивки для ставок", theme: "info" } },
-    { path: "/info/bets/metrics", component: PlaceholderActionsPage, props: { title: "ℹ️📊 Показатели для ставок", theme: "info" } },
+    { path: "/info/poker/achievements", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️🌟 Ачивки для покера", theme: "info" } },
+    { path: "/info/poker/metrics", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️📊 Показатели для покера", theme: "info" } },
+    { path: "/info/bets/rules", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "📖 Правила", theme: "info" } },
+    { path: "/info/bets/achievements", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️🌟 Ачивки для ставок", theme: "info" } },
+    { path: "/info/bets/metrics", component: PlaceholderActionsPage, meta: { hideGlobalHome: true }, props: { title: "ℹ️📊 Показатели для ставок", theme: "info" } },
     { path: "/admin", component: AdminPage, meta: { hideGlobalHome: true } },
     { path: "/admin/create-poll", component: PlaceholderActionsPage, props: { title: "🗓 Создать опрос" } },
     { path: "/admin/start-poker", component: PlaceholderActionsPage, props: { title: "🎲 Старт покера" } },
