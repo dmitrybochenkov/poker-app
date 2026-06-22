@@ -22,7 +22,9 @@
           </div>
 
           <div v-if="shelf.trophy" class="shelf-trophy">
-            <img :src="trophySrc" alt="" class="trophy-image" />
+            <div class="shelf-trophy-slot">
+              <img :src="trophySrc" alt="" class="trophy-image" />
+            </div>
           </div>
         </div>
         <div class="shelf-board shelf-board--bottom"></div>
@@ -62,7 +64,7 @@ const shelves: Shelf[] = [
   },
   {
     books: [
-      { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF POKER", width: "13.4%", tone: "emerald" },
+      { title: "LINUS\nLOELIGER", suit: "♠", subtitle: "ELEMENTS\nOF\nPOKER", width: "13.4%", tone: "emerald" },
       { title: "СЕРГЕЙ\nКУЗЬМИН", suit: "🤡", subtitle: "КАК СТАВИТЬ\nС ХУЙНЕЙ И\nВЫИГРЫВАТЬ!", width: "21.5%", tone: "wine" },
       { title: "VIKTOR\n\"ISILDUR1\"\nBLOM", suit: "♠", subtitle: "ONLINE\nLEGEND", width: "17.5%", tone: "emerald" },
       { title: "АЛЕКСАНДР\nИЛЛАРИОНОВ", suit: "🍆", subtitle: "ДРОЧИЛА", width: "20.4%", tone: "wine" },
