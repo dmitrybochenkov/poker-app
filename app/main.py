@@ -84,7 +84,7 @@ def _resolve_dist_asset(dist_dir: Path, relative_path: str) -> Path | None:
 
 
 @app.get("/", include_in_schema=False, response_model=None)
-async def site_index() -> FileResponse | HTMLResponse:
+async def site_index():
   site_index_file = settings.resolved_site_dist_dir / "index.html"
   if site_index_file.is_file():
     return FileResponse(site_index_file)
@@ -103,16 +103,16 @@ async def site_index() -> FileResponse | HTMLResponse:
   )
 
 
-@app.get("/app", include_in_schema=False)
-async def webapp_index_redirect() -> FileResponse | HTMLResponse:
+@app.get("/app", include_in_schema=False, response_model=None)
+async def webapp_index_redirect():
   webapp_index_file = settings.resolved_webapp_dist_dir / "index.html"
   if webapp_index_file.is_file():
     return FileResponse(webapp_index_file)
   return HTMLResponse("<h1>WebApp build not found</h1>", status_code=503)
 
 
-@app.get("/app/{full_path:path}", include_in_schema=False)
-async def webapp_assets(full_path: str) -> FileResponse | HTMLResponse:
+@app.get("/app/{full_path:path}", include_in_schema=False, response_model=None)
+async def webapp_assets(full_path: str):
   dist_dir = settings.resolved_webapp_dist_dir
   if not dist_dir.exists():
     return HTMLResponse("<h1>WebApp build not found</h1>", status_code=503)
