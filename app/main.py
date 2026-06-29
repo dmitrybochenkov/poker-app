@@ -83,7 +83,7 @@ def _resolve_dist_asset(dist_dir: Path, relative_path: str) -> Path | None:
   return None
 
 
-@app.get("/", include_in_schema=False)
+@app.get("/", include_in_schema=False, response_model=None)
 async def site_index() -> FileResponse | HTMLResponse:
   site_index_file = settings.resolved_site_dist_dir / "index.html"
   if site_index_file.is_file():
