@@ -15,7 +15,7 @@ async def setup_telegram_webhook() -> None:
     return
 
   await telegram_bot.set_webhook(
-    url=f"{settings.public_base_url.rstrip('/')}/webhooks/telegram",
+    url=f"{settings.public_base_url.rstrip('/')}/webhooks/tg",
     secret_token=settings.telegram_webhook_secret or None,
     drop_pending_updates=True,
   )

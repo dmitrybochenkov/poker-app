@@ -1,6 +1,5 @@
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -11,6 +10,7 @@ from PIL import Image, ImageOps
 
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.texts import Text
+from app.config.settings import settings
 from app.db.models.poker import Poker
 from app.db.dependencies import get_db_session
 from app.db.models.poker_data import PokerData
@@ -21,17 +21,22 @@ from app.db.repositories.stat_indicator_repository import StatIndicatorRepositor
 from app.db.repositories.user_repository import UserRepository
 
 router = APIRouter(prefix="/api/webapp", tags=["webapp"])
-
-STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
-USER_PHOTOS_DIR = STATIC_DIR / "user_photos"
+USER_PHOTOS_DIR = settings.resolved_user_photos_dir
 USER_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _build_static_url(path: str) -> str:
+  base = settings.api_base_url.strip().rstrip("/")
+  if base:
+    return f"{base}/api/static/{path}"
+  return f"/api/static/{path}"
 
 
 def _build_photo_url(user: User) -> str | None:
   if not user.photo_path:
     return None
   version = int(user.updated_at.timestamp()) if user.updated_at is not None else 0
-  return f"/static/{user.photo_path}?v={version}"
+  return f"{_build_static_url(user.photo_path)}?v={version}"
 
 
 class WebAppBootstrapRead(BaseModel):
@@ -262,11 +267,7 @@ async def webapp_players(
         wins=wins_by_name.get(str(user.name), 0),
         losses=losses_by_name.get(str(user.name), 0),
         profit_rub=int(int(stats.profit_kopecks or 0) / 100),
-        photo_url=(
-          f"/static/{user.photo_path}?v={int(user.updated_at.timestamp()) if user.updated_at is not None else 0}"
-          if user.photo_path
-          else None
-        ),
+        photo_url=_build_photo_url(user),
       )
     )
 

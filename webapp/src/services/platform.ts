@@ -7,6 +7,28 @@ export type PlatformBootstrap = {
   userId: number | null;
 };
 
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function inferApiBaseUrl(): string {
+  const configured = String(import.meta.env.VITE_API_BASE_URL ?? "").trim();
+  if (configured) {
+    return trimTrailingSlash(configured);
+  }
+
+  const { protocol, hostname, origin } = window.location;
+  if (hostname.startsWith("app.")) {
+    return `${protocol}//api.${hostname.slice(4)}`;
+  }
+
+  return trimTrailingSlash(origin);
+}
+
+function buildApiUrl(path: string): string {
+  return `${inferApiBaseUrl()}${path}`;
+}
+
 function readVkUserIdFromQuery(): number | null {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get("vk_user_id");
@@ -66,21 +88,25 @@ export function initPlatformWebApp(): void {
 }
 
 export function buildBootstrapUrl(platform: WebAppPlatform, userId: number): string {
-  return `/api/webapp/bootstrap/${platform}/${userId}`;
+  return buildApiUrl(`/api/webapp/bootstrap/${platform}/${userId}`);
+}
+
+export function buildPlayersUrl(): string {
+  return buildApiUrl("/api/webapp/players");
 }
 
 export function buildPhotoUploadUrl(platform: WebAppPlatform, userId: number): string {
-  return `/api/webapp/users/${platform}/${userId}/photo`;
+  return buildApiUrl(`/api/webapp/users/${platform}/${userId}/photo`);
 }
 
 export function buildPhoneUpdateUrl(platform: WebAppPlatform, userId: number): string {
-  return `/api/webapp/users/${platform}/${userId}/phone`;
+  return buildApiUrl(`/api/webapp/users/${platform}/${userId}/phone`);
 }
 
 export function buildBankUpdateUrl(platform: WebAppPlatform, userId: number): string {
-  return `/api/webapp/users/${platform}/${userId}/bank`;
+  return buildApiUrl(`/api/webapp/users/${platform}/${userId}/bank`);
 }
 
 export function buildInfoContentUrl(section: "poker" | "bets", topic: "rules" | "achievements" | "metrics" | "root"): string {
-  return `/api/webapp/info/${section}/${topic}`;
+  return buildApiUrl(`/api/webapp/info/${section}/${topic}`);
 }

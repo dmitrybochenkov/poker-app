@@ -16,7 +16,7 @@ from app.db.dependencies import get_db_session
 from app.db.repositories.user_repository import UserRepository
 from app.schemas.registration import RegistrationRead, RegistrationRequest
 
-router = APIRouter(prefix="/registration", tags=["registration"])
+router = APIRouter(prefix="/api/registration", tags=["registration"])
 
 
 @router.post("/request", response_model=RegistrationRead, status_code=status.HTTP_201_CREATED)

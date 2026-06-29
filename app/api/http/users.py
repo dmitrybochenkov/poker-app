@@ -20,7 +20,7 @@ from app.db.dependencies import get_db_session
 from app.db.repositories.user_repository import UserRepository
 from app.schemas.user import UserCorrectionRequest, UserCreate, UserRead
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)

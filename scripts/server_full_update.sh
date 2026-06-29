@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="${1:-/opt/poker-app}"
+ROOT_DIR="${1:-/opt/apps/poker-u-molodogo/backend}"
 SERVICE_NAME="${2:-poker-app}"
 BRANCH="${3:-main}"
 
@@ -49,14 +49,19 @@ if [[ -d "webapp" ]]; then
 fi
 
 echo "==> Restarting backend service: $SERVICE_NAME"
-sudo systemctl restart "$SERVICE_NAME"
+if ! sudo -n systemctl restart "$SERVICE_NAME"; then
+  echo "Error: passwordless sudo is required for restarting $SERVICE_NAME."
+  exit 1
+fi
 
 if systemctl list-unit-files | grep -q '^caddy\.service'; then
   echo "==> Reloading caddy"
-  sudo systemctl reload caddy
+  if ! sudo -n systemctl reload caddy; then
+    echo "Warning: could not reload caddy without sudo password. Skipping."
+  fi
 fi
 
 echo "==> Service status"
-sudo systemctl --no-pager --full status "$SERVICE_NAME" | sed -n '1,12p'
+sudo -n systemctl --no-pager --full status "$SERVICE_NAME" | sed -n '1,12p'
 
 echo "Done."

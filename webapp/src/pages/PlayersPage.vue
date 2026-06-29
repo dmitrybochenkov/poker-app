@@ -151,6 +151,7 @@ import { onMounted, ref } from "vue";
 import {
   buildBankUpdateUrl,
   buildBootstrapUrl,
+  buildPlayersUrl,
   buildPhotoUploadUrl,
   buildPhoneUpdateUrl,
   getPlatformBootstrap,
@@ -334,7 +335,7 @@ async function loadBootstrap(): Promise<void> {
 }
 
 async function loadPlayers(): Promise<void> {
-  const res = await fetch("/api/webapp/players");
+  const res = await fetch(buildPlayersUrl());
   if (!res.ok) return;
   const data = (await res.json()) as PlayerCardApi[];
   players.value = data.map((item) => ({

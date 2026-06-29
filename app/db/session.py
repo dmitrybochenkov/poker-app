@@ -3,7 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config.settings import settings
 
-engine = create_async_engine(settings.database_url, echo=settings.debug)
+settings.resolved_data_dir.mkdir(parents=True, exist_ok=True)
+settings.resolved_logs_dir.mkdir(parents=True, exist_ok=True)
+settings.resolved_static_dir.mkdir(parents=True, exist_ok=True)
+settings.resolved_user_photos_dir.mkdir(parents=True, exist_ok=True)
+
+engine = create_async_engine(settings.effective_database_url, echo=settings.debug)
 
 
 @event.listens_for(engine.sync_engine, "connect")

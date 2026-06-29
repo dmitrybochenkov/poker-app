@@ -42,7 +42,7 @@ const bettingCurrentMenu = [
 ];
 
 const router = createRouter({
-  history: createWebHistory("/webapp/"),
+  history: createWebHistory("/app/"),
   routes: [
     { path: "/", component: HomePage },
     { path: "/poker", component: PokerPage, meta: { hideGlobalHome: true } },

@@ -26,7 +26,7 @@ def collect_chars(raw: str) -> set[str]:
 
 
 def main() -> int:
-  db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("poker_app.db")
+  db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data/poker_app.db")
   if not db_path.exists():
     print(f"DB not found: {db_path}")
     return 1

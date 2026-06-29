@@ -34,7 +34,7 @@ def _print_report(path: Path, recipient_phone: str) -> None:
 def main() -> None:
   # Update this number if recipient changes.
   recipient_phone = "+7 917 529-71-81"
-  root = Path("/opt/poker-app")
+  root = Path(__file__).resolve().parents[1]
   files = [
     root / "receipt_test_1.pdf",
     root / "receipt_test_2.pdf",

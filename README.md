@@ -1,152 +1,63 @@
-poker-bot/
-  app/
-    main.py
+# Poker u Molodogo
 
-    config/
-      settings.py
-      logging.py
+Рабочая копия репозитория предполагается в каталоге:
 
-    api/
-      http/
-        health.py
-        telegram_webhook.py
-        vk_webhook.py
+`/opt/apps/poker-u-molodogo/backend`
 
-    bot/
-      shared/
-        texts/
-          user.py
-          admin.py
-        buttons/
-          common.py
-        states/
-          user.py
-          admin.py
-        navigation/
-          pagination.py
+Целевая серверная структура на Dimension-X:
 
-      telegram/
-        handlers/
-          user.py
-          admin.py
-          poker.py
-          betting.py
-        renderer.py
-        adapter.py
+```text
+/opt/apps/poker-u-molodogo/
+├── backend/   # этот git-репозиторий
+├── webapp/    # собранный или отдельный frontend при необходимости
+├── site/      # будущий публичный сайт
+├── data/      # SQLite, user photos, прочие постоянные данные
+├── logs/      # runtime-логи
+├── scripts/   # внешние служебные скрипты, если понадобятся
+├── .env
+└── README.md
+```
 
-      vk/
-        handlers/
-          user.py
-          admin.py
-          poker.py
-          betting.py
-        renderer.py
-        adapter.py
+## Базовые принципы
 
-    application/
-      dto/
-        user.py
-        poker.py
-        betting.py
-        stats.py
+- код хранится отдельно от постоянных данных;
+- SQLite не должен лежать рядом с исходниками;
+- все постоянные данные проекта должны жить в `../data` относительно backend-директории;
+- владельцем проекта должен быть пользователь `krang`;
+- `root` используется только для `systemd`, `caddy`, `wireguard` и системных конфигов.
 
-      use_cases/
-        registration/
-          start_registration.py
-          approve_registration.py
+## Текущие URL
 
-        poker/
-          create_game.py
-          start_game.py
-          finish_game.py
-          show_current_game.py
+- `https://poker-u-molodogo.dimension-x.dedyn.io/` — корень проекта;
+- `https://poker-u-molodogo.dimension-x.dedyn.io/app/` — Telegram WebApp;
+- `https://poker-u-molodogo.dimension-x.dedyn.io/api/` — backend API;
+- `https://poker-u-molodogo.dimension-x.dedyn.io/webhooks/tg` — Telegram webhook;
+- `https://poker-u-molodogo.dimension-x.dedyn.io/webhooks/vk` — VK webhook.
 
-        buyins/
-          add_buyin.py
-          rebuy.py
-          cashout.py
-          list_buyins.py
+## Environment
 
-        betting/
-          create_bet.py
-          settle_bet.py
-          cancel_bet.py
-          list_bets.py
+Рекомендуемый `.env` для backend:
 
-        stats/
-          player_stats.py
-          game_stats.py
-          buyin_chart.py
+```env
+PUBLIC_BASE_URL=https://poker-u-molodogo.dimension-x.dedyn.io
+API_BASE_URL=https://poker-u-molodogo.dimension-x.dedyn.io
+WEBAPP_BASE_URL=https://poker-u-molodogo.dimension-x.dedyn.io/app
 
-    domain/
-      models/
-        user.py
-        poker_game.py
-        player_in_game.py
-        buyin.py
-        bet.py
+DATA_DIR=../data
+LOGS_DIR=../logs
+STATIC_DIR=../data/static
+USER_PHOTOS_DIR=../data/static/user_photos
+WEBAPP_DIST_DIR=../webapp/dist
+SITE_DIST_DIR=../site/dist
+DATABASE_URL=
+```
 
-      services/
-        registration_service.py
-        poker_service.py
-        buyin_service.py
-        betting_service.py
-        stats_service.py
+Если `DATABASE_URL` пустой, приложение автоматически использует:
 
-      rules/
-        access.py
-        validators.py
-        calculations.py
+`sqlite+aiosqlite:///.../data/poker_app.db`
 
-    infrastructure/
-      db/
-        base.py
-        models/
-          user.py
-          poker_game.py
-          buyin.py
-          bet.py
-        repositories/
-          user_repository.py
-          poker_repository.py
-          buyin_repository.py
-          bet_repository.py
+## Deploy scripts
 
-      integrations/
-        telegram/
-        vk/
-
-      charts/
-        buyin_chart_builder.py
-
-    core/
-      enums.py
-      exceptions.py
-      dependencies.py
-
-    utils/
-      dates.py
-      strings.py
-      regex.py
-
-  alembic/
-    versions/
-
-  tests/
-    application/
-    domain/
-    api/
-
-  .env
-  .env.example
-  alembic.ini
-  pyproject.toml
-  README.md
-Как мыслить по слоям:
-
-api/http — webhook endpoints.
-bot/telegram и bot/vk — только платформенная обвязка.
-application/use_cases — реальные сценарии, которые вызывают обе платформы.
-domain — бизнес-логика покера, ставок, закупов, расчётов.
-infrastructure/db — SQLAlchemy модели, репозитории и SQLite.
-infrastructure/charts — генерация графиков в файл/bytes.
+- локальный deploy по умолчанию ходит на `dimension-x:999`;
+- удалённое обновление ожидает checkout в `/opt/apps/poker-u-molodogo/backend`;
+- restart/reload сервисов выполняется через `sudo -n`, то есть на сервере должен быть настроен passwordless sudo для нужных команд.

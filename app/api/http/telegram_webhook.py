@@ -3,7 +3,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from app.bot.telegram.runtime import telegram_bot, telegram_dispatcher
 from app.config.settings import settings
 
-router = APIRouter(prefix="/webhooks/telegram", tags=["telegram"])
+router = APIRouter(prefix="/webhooks/tg", tags=["telegram"])
 
 
 @router.post("")
