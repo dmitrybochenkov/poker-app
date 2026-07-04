@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from unicodedata import category
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def is_emoji_char(ch: str) -> bool:
   code = ord(ch)
@@ -26,7 +28,7 @@ def collect_chars(raw: str) -> set[str]:
 
 
 def main() -> int:
-  db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data/poker_app.db")
+  db_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "data" / "poker_app.db"
   if not db_path.exists():
     print(f"DB not found: {db_path}")
     return 1

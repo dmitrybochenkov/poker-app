@@ -26,7 +26,7 @@ USER_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _build_static_url(path: str) -> str:
-  base = settings.api_base_url.strip().rstrip("/")
+  base = settings.effective_api_base_url
   if base:
     return f"{base}/api/static/{path}"
   return f"/api/static/{path}"

@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS_DIR = ROOT / "app" / "assets" / "emoji"
+ASSETS_DIR = ROOT / "backend" / "app" / "assets" / "emoji"
 DEFAULT_DB = ROOT / "data" / "poker_app.db"
 
 

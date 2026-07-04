@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 import asyncio
 import logging
 import random
+import re
 import urllib.request
 from zoneinfo import ZoneInfo
 
@@ -413,6 +414,16 @@ def _format_stat_caption(
 
 def _strip_html_tags(text: str) -> str:
   return text.replace("<b>", "").replace("</b>", "")
+
+
+def _normalize_vk_button_text(text: str) -> str:
+  normalized = " ".join((text or "").replace("\ufe0f", "").split()).strip().lower()
+  normalized = re.sub(r"^[^\w\dа-яё]+", "", normalized, flags=re.IGNORECASE)
+  return normalized
+
+
+def _vk_button_matches(text: str, button_text: str) -> bool:
+  return _normalize_vk_button_text(text) == _normalize_vk_button_text(button_text)
 
 
 def _money_kopecks_from_chips(*, chips: int, buyins: int, buyin_size_chips: int, buyin_size_kopecks: int) -> int:
@@ -2398,7 +2409,7 @@ async def handle_user_message_new(*, user_id: int, text: str, raw_message: dict 
     await send_vk_message(user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=await _betting_vk_keyboard())
     return PlainTextResponse("ok")
 
-  if text == Buttons.betting.MAKE_BET.value:
+  if _vk_button_matches(text, Buttons.betting.MAKE_BET.value):
     async with SessionFactory() as session:
       user_repository = UserRepository(session)
       user = await user_repository.get_by_vk_id(user_id)

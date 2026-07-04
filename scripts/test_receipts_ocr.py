@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+BACKEND_DIR = ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+  sys.path.insert(0, str(BACKEND_DIR))
 
 from app.services.receipt_ocr import (
   extract_amount_rub,
@@ -34,10 +40,9 @@ def _print_report(path: Path, recipient_phone: str) -> None:
 def main() -> None:
   # Update this number if recipient changes.
   recipient_phone = "+7 917 529-71-81"
-  root = Path(__file__).resolve().parents[1]
   files = [
-    root / "receipt_test_1.pdf",
-    root / "receipt_test_2.pdf",
+    ROOT / "receipt_test_1.pdf",
+    ROOT / "receipt_test_2.pdf",
   ]
   for file_path in files:
     _print_report(file_path, recipient_phone)

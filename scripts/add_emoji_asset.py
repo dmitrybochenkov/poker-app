@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS_DIR = ROOT / "app" / "assets" / "emoji"
+ASSETS_DIR = ROOT / "backend" / "app" / "assets" / "emoji"
 
 
 def is_emoji_char(ch: str) -> bool:

@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKEND_DIR="${ROOT_DIR}/backend"
+WEBAPP_DIR="${ROOT_DIR}/webapp"
 cd "$ROOT_DIR"
 
 if [[ ! -d ".git" ]]; then
@@ -9,8 +11,13 @@ if [[ ! -d ".git" ]]; then
   exit 1
 fi
 
-if [[ ! -d ".venv" ]]; then
-  echo "Error: .venv not found in $ROOT_DIR"
+PYTHON_VENV="${ROOT_DIR}/.venv"
+if [[ ! -d "$PYTHON_VENV" && -d "$BACKEND_DIR/.venv" ]]; then
+  PYTHON_VENV="$BACKEND_DIR/.venv"
+fi
+
+if [[ ! -d "$PYTHON_VENV" ]]; then
+  echo "Error: python venv not found in $ROOT_DIR/.venv or $BACKEND_DIR/.venv"
   exit 1
 fi
 
@@ -26,18 +33,19 @@ if [[ -z "${COMMIT_MSG// }" ]]; then
 fi
 
 echo "==> Activating venv"
-source .venv/bin/activate
+source "$PYTHON_VENV/bin/activate"
 
 echo "==> Updating python deps"
+cd "$BACKEND_DIR"
 python -m pip install -U pip >/dev/null
 python -m pip install -e .
 
 echo "==> Applying alembic migrations"
 alembic upgrade head
 
-if [[ -d "webapp" ]]; then
+if [[ -d "$WEBAPP_DIR" ]]; then
   echo "==> Building webapp"
-  cd webapp
+  cd "$WEBAPP_DIR"
   if [[ -f "package-lock.json" ]]; then
     npm ci
   else

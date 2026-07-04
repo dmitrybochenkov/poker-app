@@ -5,6 +5,7 @@
 # Python cache
 __pycache__/
 *.py[cod]
+*.pyo
 
 # Tool caches
 .ruff_cache/
@@ -16,6 +17,7 @@ __pycache__/
 *.sqlite3
 *.db-wal
 *.db-shm
+data/backup/*.db
 
 # Build artifacts
 build/
@@ -28,13 +30,16 @@ htmlcov/
 
 # Editor / OS
 .DS_Store
+**/.DS_Store
 .vscode/
 *.code-workspace
-
-# Alembic cache
-alembic/__pycache__/
+asr_events*.jsonl
 
 credentials.json
+logs/*
+!logs/.gitkeep
+data/static/user_photos/*
+!data/static/user_photos/.gitkeep
 
 # Local receipt OCR tests
 receipt_test_*.pdf

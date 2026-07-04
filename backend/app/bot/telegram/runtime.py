@@ -11,11 +11,12 @@ telegram_bot = Bot(token=settings.telegram_bot_token) if settings.telegram_bot_t
 
 
 async def setup_telegram_webhook() -> None:
-  if telegram_bot is None or not settings.public_base_url:
+  public_base_url = settings.effective_public_base_url
+  if telegram_bot is None or not public_base_url:
     return
 
   await telegram_bot.set_webhook(
-    url=f"{settings.public_base_url.rstrip('/')}/webhooks/tg",
+    url=f"{public_base_url}/webhooks/tg",
     secret_token=settings.telegram_webhook_secret or None,
     drop_pending_updates=True,
   )

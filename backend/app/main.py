@@ -1,7 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,26 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
-
-def _normalize_origin(raw: str) -> str:
-  value = raw.strip().rstrip("/")
-  if not value:
-    return ""
-  parts = urlsplit(value)
-  if parts.scheme and parts.netloc:
-    return f"{parts.scheme}://{parts.netloc}"
-  return value
-
-
-cors_origins = []
-for origin in settings.cors_allowed_origins.split(","):
-  normalized = _normalize_origin(origin)
-  if normalized and normalized not in cors_origins:
-    cors_origins.append(normalized)
-if settings.webapp_base_url:
-  webapp_origin = _normalize_origin(settings.webapp_base_url)
-  if webapp_origin not in cors_origins:
-    cors_origins.append(webapp_origin)
+cors_origins = settings.effective_cors_origins
 
 if cors_origins:
   app.add_middleware(
