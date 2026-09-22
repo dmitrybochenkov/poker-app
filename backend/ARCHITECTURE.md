@@ -188,6 +188,277 @@ infrastructure/              # adapters только при появлении �
 
 ---
 
+# CHANGE SAFETY CONTRACT
+
+Этот раздел нормативен для всех будущих задач Codex в repository. Его цель — выбирать проверки по реальному риску и сохранять либо улучшать защиту затронутого поведения. Количество строк, файлов и субъективная простота реализации не определяют риск.
+
+## Task grades
+
+| Grade | Риск и типичные изменения | Baseline verification |
+| --- | --- | --- |
+| **G0 — Documentation / non-runtime** | Markdown, comments, design notes и текст, не используемый runtime | Production tests обычно не нужны; проверить content, diff и status |
+| **G1 — Local low-risk** | Shared user-facing text без control-flow change, formatter, изолированный pure helper, локальный presentation mapping, readability refactor хорошо покрытого компонента | Определить affected tests и запустить direct targeted tests; compile/static check — только когда полезен |
+| **G2 — Functional/domain change** | Handler behavior, use case, repository query/mutation, notification behavior, validation, bugfix, миграция одного vertical flow, ограниченно используемый shared component | Test Impact Analysis, regression/specification или characterization coverage, direct и related-domain tests, нужные transport/repository и compile/import/static checks |
+| **G3 — High-risk / architectural / shared-boundary** | Auth, identity, transactions, routing, schema, startup, concurrency, public API, shared TG/VK/WebApp infrastructure, крупная migration или dependency-boundary change | Все проверки G2, full pytest, compileall, application import smoke, relevant static, migration, security и structural checks |
+
+G0 перестаёт быть G0, если documentation task меняет executable documentation, generated runtime artifact или configuration, которую читает приложение.
+
+## Automatic grade escalation
+
+Задача автоматически получает минимум **G3**, даже при diff в несколько строк, если затрагивает:
+
+- authentication или authorization;
+- canonical identity mapping;
+- transaction ownership или commit semantics;
+- database schema или Alembic migrations;
+- routing либо handler registration/dispatch order;
+- shared cross-platform infrastructure;
+- application startup или runtime configuration;
+- concurrency или locking;
+- security boundary;
+- public API compatibility.
+
+При нескольких областях применяется самый высокий grade. Маленький diff не является основанием снизить grade.
+
+## Declaration before implementation
+
+До первого изменения production code рабочий план должен содержать:
+
+```text
+TASK GRADE: Gx
+
+Reason:
+...
+
+Affected components:
+...
+
+Expected blast radius:
+...
+
+Required test scope:
+...
+```
+
+Отдельное подтверждение пользователя не требуется, если сама задача уже одобрена. При обнаружении большего blast radius grade повышается вместе с test scope. Понижение во время реализации требует явного объяснения.
+
+Каждая будущая code task начинается с последовательности:
+
+1. прочитать `ARCHITECTURE.md`;
+2. определить `TASK GRADE`;
+3. выполнить Test Impact Analysis;
+4. определить необходимый safety net;
+5. только после этого менять production code.
+
+## Test Impact Analysis
+
+Перед production change определить и записать в рабочем плане:
+
+- непосредственно изменяемый код;
+- его callers и consumers;
+- shared dependencies;
+- затронутые business flows;
+- transport и persistence boundaries;
+- external side effects;
+- существующие tests этих областей.
+
+На этой карте строится минимально достаточный набор проверок. Цель — получить достаточную уверенность для фактического blast radius, а не запустить максимальное число тестов.
+
+## Characterization before refactor
+
+При refactor существующего поведения порядок обязателен:
+
+```text
+inspect current behavior
+→ identify behavior contract
+→ add characterization test where coverage is missing
+→ confirm the test passes on the old implementation
+→ refactor
+→ confirm the same test still passes
+```
+
+Characterization test фиксирует непосредственно затронутое observable behavior. Его нельзя писать после refactor так, чтобы он лишь повторял новую внутреннюю реализацию. Покрывать весь legacy module не требуется.
+
+## Bugfix contract
+
+Для воспроизводимого дефекта:
+
+```text
+reproduce
+→ write a failing regression test
+→ confirm the expected failure reason
+→ implement the minimal fix
+→ confirm the regression test passes
+→ run the impacted test set
+```
+
+Сначала исправить bug, а затем написать тест, который никогда не наблюдал failure, нельзя. Если автоматическое воспроизведение неразумно или невозможно, нужно объяснить причину и выбрать проверяемый альтернативный verification method.
+
+## New behavior contract
+
+Specification test нового business behavior описывает observable outcome:
+
+```text
+given state → when operation → then state / result / side effect
+```
+
+По возможности сначала пишется тест и подтверждается его осмысленный failure, затем реализация. Для тривиального wiring/config change не нужна искусственная red-test ceremony, если она не добавляет уверенности.
+
+## What tests should observe
+
+Предпочтение отдаётся business/public behavior, а не private implementation details. Без необходимости тест не должен фиксировать:
+
+- порядок вызова private helpers;
+- точное количество внутренних repository calls;
+- структуру функции;
+- детали реализации, не являющиеся контрактом.
+
+Исключение — случаи, где порядок сам является публичным или safety contract, например Telegram handler registration и VK dispatch order.
+
+Mocks ставятся преимущественно на external boundaries: Telegram API, VK API, Google/external API, filesystem/network, clock и randomness. Не следует автоматически mock every internal layer: тест должен проходить через реально изменяемый код.
+
+## Existing tests are contract
+
+Существующие passing tests считаются частью behavioral safety net. Если production change ломает тест, сначала классифицировать причину:
+
+- **A. Production regression** — поведение нужно исправить, expectation сохраняется;
+- **B. Intentional behavior change** — изменение прямо требуется задачей, старый contract осознанно заменяется.
+
+Нельзя автоматически менять expected value, ослаблять assertion, удалять тест, добавлять `skip`/`xfail` или менять fixture только ради green suite. Для refactor expectations не меняются. При intentional behavior change в отчёте явно указываются старый и новый contracts.
+
+## Tests must not be gamed
+
+Запрещено получать green suite путём:
+
+- удаления failing tests;
+- `skip` или `xfail`;
+- ослабления meaningful assertions;
+- catch-all exception swallowing;
+- чрезмерного mocking, обходящего изменённый path;
+- изменения fixture так, чтобы problematic path больше не выполнялся.
+
+Если существующий test ошибочен, это отдельно доказывается через фактический contract и описывается в отчёте.
+
+## Equal or better safety
+
+> Code touched by a task should leave the repository with equal or better behavioral regression protection than before.
+
+Если задача меняет важное ранее непокрытое поведение, добавляется focused coverage именно для него. Это не требует повышать coverage всего файла, тестировать unrelated legacy или исправлять соседние flows.
+
+## Test scope baseline
+
+### G0
+
+- runtime pytest по умолчанию не запускается;
+- проверяются content/document validity, diff и status.
+
+### G1
+
+- direct targeted tests;
+- relevant formatter/helper/text tests;
+- optional compile/static check, когда он проверяет реальный риск.
+
+### G2
+
+- direct targeted tests;
+- related-domain tests;
+- regression/specification/characterization tests;
+- relevant transport/repository tests;
+- compile/import/static checks по результатам impact analysis.
+
+Full pytest для G2 не обязателен, если impact area надёжно ограничена. В итоговом отчёте нужно объяснить, почему выбранного набора достаточно.
+
+### G3
+
+- все применимые G2 checks;
+- full pytest;
+- `compileall`;
+- application import/startup smoke;
+- relevant static checks;
+- migration checks при schema changes;
+- security и structural/routing checks, когда затронуты соответствующие boundaries.
+
+Это baseline, а не rigid command table. Test Impact Analysis может добавить проверки.
+
+## Fast feedback
+
+Во время реализации проверки расширяются постепенно:
+
+```text
+single regression/specification test
+→ affected test module
+→ related domain tests
+→ broader checks required by grade
+```
+
+Full pytest не запускается после каждой небольшой правки. Для G3 он обязателен один раз на финальном проверяемом состоянии, а также повторно только после последующих изменений, способных повлиять на результат.
+
+## Test organization and naming
+
+- Новые tests размещаются в существующей test organization проекта.
+- Параллельная test architecture без необходимости не создаётся.
+- Имя описывает behavior: `test_start_betting_rejects_non_admin`, а не `test_case_7` или `test_execute_works`.
+- Fixtures и helpers вводятся только при реальном повторении и не должны скрывать сценарий.
+
+## Refactor, behavior change and bugfix
+
+- **REFACTOR:** observable behavior сохраняется.
+- **BEHAVIOR CHANGE:** observable contract намеренно меняется.
+- **BUGFIX:** неправильное поведение заменяется ожидаемым и закрепляется regression test.
+
+Behavior change нельзя называть refactor. Когда возможно, structural refactor и behavior change оформляются отдельными commits.
+
+## Commit contract
+
+Для нетривиальной работы предпочтительны логические commits:
+
+```text
+characterization/regression tests
+→ implementation/refactor
+→ wiring
+→ docs
+```
+
+Для bugfix предпочтительны отдельный failing regression-test commit и следующий fix commit. Unrelated cleanup в эти commits не включается.
+
+## Final report contract
+
+Для каждой G1–G3 code task итоговый отчёт содержит:
+
+```text
+TASK GRADE:
+Gx
+
+CHANGED:
+...
+
+TEST IMPACT:
+...
+
+TESTS ADDED/CHANGED:
+...
+
+TESTS RUN:
+exact scopes/commands and results
+
+NOT RUN:
+broader tests and why they were not required
+
+BEHAVIOR:
+preserved and intentionally changed behavior
+
+DEFERRED:
+relevant debt deliberately outside scope
+```
+
+Для G3 дополнительно указываются full-suite, compile/static/import results и применимые migration/security/routing checks.
+
+## No unrequested cleanup
+
+Unrelated failing test, lint debt, uncovered legacy code или архитектурное нарушение не дают автоматического разрешения исправлять их в текущей задаче. Если такой долг блокирует verification, он описывается отдельно; выполняется только минимально необходимое изменение после явного обоснования.
+
+---
+
 # First Vertical Migration Design: Start Betting
 
 Этот раздел — проверяемый design. Он не разрешает реализацию без отдельного подтверждения.
