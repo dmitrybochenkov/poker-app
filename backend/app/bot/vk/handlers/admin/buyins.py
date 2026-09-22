@@ -33,7 +33,7 @@ from .common import (
 )
 
 
-async def _event_0_19(
+async def handle_poker_buyin_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -125,7 +125,7 @@ async def _event_0_19(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_20(
+async def handle_poker_buyin_correct_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -191,7 +191,7 @@ async def _event_0_20(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_21(
+async def handle_buyin_correction_confirmation_event(
     *,
     admin_user_id,
     peer_id,
@@ -281,7 +281,7 @@ async def _event_0_21(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_22(
+async def handle_poker_buyin_count_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -444,7 +444,7 @@ async def _event_0_22(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_23(
+async def handle_poker_buyin_cancel_event(
     *,
     admin_user_id,
     peer_id,
@@ -470,7 +470,7 @@ async def _event_0_23(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_02(*, user_id, text):
+async def handle_admin_buyin_correct_amount_text(*, user_id, text):
     if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_BUYIN_CORRECT_AMOUNT:
         if not text.isdigit():
             await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_INVALID.value)
@@ -496,7 +496,7 @@ async def _text_1_02(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_20(*, user_id, text):
+async def handle_buyin_menu_text(*, user_id, text):
     if text == Buttons.room.BUYIN.value or text == Buttons.admin_room_correct.BUYIN_CORRECT.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)

@@ -30,7 +30,7 @@ from .common import (
 )
 
 
-async def _text_1_01(*, user_id, text, raw_message):
+async def handle_navigation_access_check_text(*, user_id, text, raw_message):
     if text in {
         Buttons.main.BETTING.value,
         Buttons.main.INFO.value,
@@ -76,7 +76,7 @@ async def _text_1_01(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_02(*, user_id, text, raw_message):
+async def handle_main_admin_text(*, user_id, text, raw_message):
     if text == Buttons.main.ADMIN.value:
         user = await _get_vk_user(user_id)
         if user is None or not user.is_approved:
@@ -98,7 +98,7 @@ async def _text_1_02(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_03(*, user_id, text, raw_message):
+async def handle_admin_main_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.admin_main.TO_MAIN.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -122,7 +122,7 @@ async def _text_1_03(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_04(*, user_id, text, raw_message):
+async def handle_main_betting_text(*, user_id, text, raw_message):
     if text == Buttons.main.BETTING.value:
         if vk_user_states.get(user_id) == WAITING_FOR_BET_PAYMENT_RECEIPT:
             vk_user_states.pop(user_id, None)
@@ -135,7 +135,7 @@ async def _text_1_04(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_05(*, user_id, text, raw_message):
+async def handle_main_info_text(*, user_id, text, raw_message):
     if text == Buttons.main.INFO.value:
         await send_vk_message(
             user_id=user_id, message=InlineText.TEXT_1_05_TEXT_01, keyboard=main_info_keyboard
@@ -144,7 +144,7 @@ async def _text_1_05(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_06(*, user_id, text, raw_message):
+async def handle_main_next_poker_date_text(*, user_id, text, raw_message):
     if text == Buttons.main.NEXT_POKER_DATE.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -175,7 +175,7 @@ async def _text_1_06(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_07(*, user_id, text, raw_message):
+async def handle_main_poker_text(*, user_id, text, raw_message):
     if text == Buttons.main.POKER.value:
         await send_vk_message(
             user_id=user_id, message=Text.user.POKER_MENU.value, keyboard=poker_keyboard
@@ -184,7 +184,7 @@ async def _text_1_07(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_08(*, user_id, text, raw_message):
+async def handle_betting_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.betting.TO_MAIN.value:
         if vk_user_states.get(user_id) == WAITING_FOR_BET_PAYMENT_RECEIPT:
             vk_user_states.pop(user_id, None)
@@ -206,7 +206,7 @@ async def _text_1_08(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_09(*, user_id, text, raw_message):
+async def handle_poker_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.poker.TO_MAIN.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -225,7 +225,7 @@ async def _text_1_09(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_10(*, user_id, text, raw_message):
+async def handle_room_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.room.TO_MAIN.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -249,7 +249,7 @@ async def _text_1_10(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_11(*, user_id, text, raw_message):
+async def handle_poll_menu_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.poll_menu.TO_MAIN.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -273,7 +273,7 @@ async def _text_1_11(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_12(*, user_id, text, raw_message):
+async def handle_poker_info_text(*, user_id, text, raw_message):
     if text in {Buttons.main_info.POKER_INFO.value, InlineText.TEXT_1_12_TEXT_01}:
         await send_vk_message(
             user_id=user_id, message=Text.user.POKER_INFO.value, keyboard=poker_info_keyboard
@@ -282,7 +282,7 @@ async def _text_1_12(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_13(*, user_id, text, raw_message):
+async def handle_betting_info_text(*, user_id, text, raw_message):
     if text in {Buttons.main_info.BETTING_INFO.value, InlineText.TEXT_1_13_TEXT_01}:
         await send_vk_message(
             user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_info_keyboard
@@ -291,7 +291,7 @@ async def _text_1_13(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_14(*, user_id, text, raw_message):
+async def handle_main_info_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.main_info.TO_MAIN.value:
         user = await _get_vk_user(user_id)
         if user is None:

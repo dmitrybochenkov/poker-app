@@ -31,6 +31,8 @@ htmlcov/
 # Editor / OS
 .DS_Store
 **/.DS_Store
+._*
+**/._*
 .vscode/
 *.code-workspace
 asr_events*.jsonl

@@ -33,7 +33,7 @@ from .common import (
 )
 
 
-async def _event_0_00(
+async def handle_approve_event(
     *,
     admin_user_id,
     peer_id,
@@ -64,7 +64,7 @@ async def _event_0_00(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_01(
+async def handle_reject_event(
     *,
     admin_user_id,
     peer_id,
@@ -95,7 +95,7 @@ async def _event_0_01(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_03(
+async def handle_correct_event(
     *,
     admin_user_id,
     peer_id,
@@ -125,7 +125,7 @@ async def _event_0_03(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_04(
+async def handle_link_event(
     *,
     admin_user_id,
     peer_id,
@@ -160,7 +160,7 @@ async def _event_0_04(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_05(
+async def handle_link_to_event(
     *,
     admin_user_id,
     peer_id,
@@ -196,7 +196,7 @@ async def _event_0_05(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_06(
+async def handle_link_page_event(
     *,
     admin_user_id,
     peer_id,
@@ -236,7 +236,7 @@ async def _event_0_06(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_07(
+async def handle_make_admin_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -275,7 +275,7 @@ async def _event_0_07(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_00(*, user_id, text):
+async def handle_admin_corrected_name_text(*, user_id, text):
     if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_CORRECTED_NAME:
         pending_row_id = vk_user_contexts.get(user_id, {}).get("pending_row_id")
         corrected_name = " ".join(text.split())
@@ -296,7 +296,7 @@ async def _text_1_00(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_04(*, user_id, text):
+async def handle_approve_command_text(*, user_id, text):
     if text.lower().startswith("approve "):
         parts = text.split()
         if len(parts) != 2 or not parts[1].isdigit():
@@ -310,7 +310,7 @@ async def _text_1_04(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_05(*, user_id, text):
+async def handle_correct_command_text(*, user_id, text):
     if text.lower().startswith("correct "):
         parts = text.split(maxsplit=2)
         if len(parts) != 3 or not parts[1].isdigit() or not parts[2].strip():
@@ -328,7 +328,7 @@ async def _text_1_05(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_06(*, user_id, text):
+async def handle_reject_command_text(*, user_id, text):
     if text.lower().startswith("reject "):
         parts = text.split()
         if len(parts) != 2 or not parts[1].isdigit():
@@ -342,7 +342,7 @@ async def _text_1_06(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_07(*, user_id, text):
+async def handle_link_command_text(*, user_id, text):
     if text.lower().startswith("link "):
         parts = text.split()
         if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():

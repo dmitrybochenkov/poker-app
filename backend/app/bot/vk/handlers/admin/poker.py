@@ -35,7 +35,7 @@ from .common import (
 )
 
 
-async def _event_0_08(
+async def handle_poker_start_param_event(
     *,
     admin_user_id,
     peer_id,
@@ -116,7 +116,7 @@ async def _event_0_08(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_29(
+async def handle_poker_start_betting_inline_event(
     *,
     admin_user_id,
     peer_id,
@@ -142,7 +142,7 @@ async def _event_0_29(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_09(*, user_id, text):
+async def handle_admin_main_start_poker_text(*, user_id, text):
     if text == Buttons.admin_main.START_POKER.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)
@@ -180,7 +180,7 @@ async def _text_1_09(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_10(*, user_id, text):
+async def handle_admin_room_finish_poker_text(*, user_id, text):
     if text == Buttons.admin_room.FINISH_POKER.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)
@@ -208,7 +208,7 @@ async def _text_1_10(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_14(*, user_id, text):
+async def handle_admin_room_correct_poker_text(*, user_id, text):
     if text == Buttons.admin_room.CORRECT_POKER.value:
         async with SessionFactory() as session:
             if not await is_vk_admin(session=session, vk_id=user_id):
@@ -221,7 +221,7 @@ async def _text_1_14(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_15(*, user_id, text):
+async def handle_admin_room_correct_to_admin_room_text(*, user_id, text):
     if text == Buttons.admin_room_correct.TO_ADMIN_ROOM.value:
         async with SessionFactory() as session:
             if not await is_vk_admin(session=session, vk_id=user_id):
@@ -234,7 +234,7 @@ async def _text_1_15(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_21(*, user_id, text):
+async def handle_admin_room_to_room_text(*, user_id, text):
     if text == Buttons.admin_room.TO_ROOM.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)

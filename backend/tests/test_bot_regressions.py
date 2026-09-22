@@ -120,7 +120,7 @@ async def test_vk_admin_poll_cancel_uses_existing_keyboard_cleanup(monkeypatch):
     monkeypatch.setattr(vk_admin_polls, "send_vk_message_event_answer", AsyncMock())
     monkeypatch.setattr(vk_admin_polls, "send_vk_message", AsyncMock())
 
-    result = await vk_admin_polls._event_0_27(
+    result = await vk_admin_polls.handle_polladmin_cancel_event(
         admin_user_id=1,
         peer_id=1,
         event_id="event",
@@ -173,7 +173,7 @@ async def test_vk_start_betting_continues_after_one_failed_delivery(monkeypatch)
     monkeypatch.setattr(vk_admin_bets, "UserRepository", UserRepo)
     monkeypatch.setattr(vk_admin_bets, "PokerRepository", PokerRepo)
 
-    result = await vk_admin_bets._text_1_12(
+    result = await vk_admin_bets.handle_admin_room_start_betting_text(
         user_id=99, text=Buttons.admin_room.START_BETTING.value
     )
 

@@ -30,7 +30,7 @@ from .common import (
 )
 
 
-async def _event_0_25(
+async def handle_polladmin_other_event(
     *,
     admin_user_id,
     peer_id,
@@ -64,7 +64,7 @@ async def _event_0_25(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_26(
+async def handle_polladmin_month_event(
     *,
     admin_user_id,
     peer_id,
@@ -123,7 +123,7 @@ async def _event_0_26(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_27(
+async def handle_polladmin_cancel_event(
     *,
     admin_user_id,
     peer_id,
@@ -148,7 +148,7 @@ async def _event_0_27(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_13(*, user_id, text):
+async def handle_admin_main_create_poll_text(*, user_id, text):
     if text == Buttons.admin_main.CREATE_POLL.value:
         async with SessionFactory() as session:
             if not await is_vk_admin(session=session, vk_id=user_id):

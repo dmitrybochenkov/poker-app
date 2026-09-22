@@ -40,7 +40,7 @@ from .common import (
 )
 
 
-async def _event_0_09(
+async def handle_poker_add_player_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -123,7 +123,7 @@ async def _event_0_09(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_10(
+async def handle_poker_add_player_new_event(
     *,
     admin_user_id,
     peer_id,
@@ -159,7 +159,7 @@ async def _event_0_10(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_11(
+async def handle_poker_add_player_cancel_event(
     *,
     admin_user_id,
     peer_id,
@@ -183,7 +183,7 @@ async def _event_0_11(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_12(
+async def handle_poker_room_manage_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -224,7 +224,7 @@ async def _event_0_12(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_13(
+async def handle_poker_room_approve_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -287,7 +287,7 @@ async def _event_0_13(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_14(
+async def handle_poker_room_reject_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -337,7 +337,7 @@ async def _event_0_14(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_15(
+async def handle_poker_remove_player_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -409,7 +409,7 @@ async def _event_0_15(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_16(
+async def handle_poker_unban_player_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -459,7 +459,7 @@ async def _event_0_16(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_01(*, user_id, text):
+async def handle_admin_new_player_name_text(*, user_id, text):
     if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_NEW_PLAYER_NAME:
         name = " ".join((text or "").split())
         if not name:
@@ -547,7 +547,7 @@ async def _text_1_01(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_16(*, user_id, text):
+async def handle_add_player_text(*, user_id, text):
     if (
         text == Buttons.admin_room.ADD_PLAYER.value
         or text == Buttons.admin_room_correct.ADD_PLAYER.value
@@ -581,7 +581,7 @@ async def _text_1_16(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_17(*, user_id, text):
+async def handle_remove_player_text(*, user_id, text):
     if (
         text == Buttons.admin_room.REMOVE_PLAYER.value
         or text == Buttons.admin_room_correct.REMOVE_PLAYER.value
@@ -608,7 +608,7 @@ async def _text_1_17(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_18(*, user_id, text):
+async def handle_admin_room_unban_player_text(*, user_id, text):
     if text == Buttons.admin_room.UNBAN_PLAYER.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)

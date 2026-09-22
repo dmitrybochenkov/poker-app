@@ -43,7 +43,7 @@ from .common import (
 )
 
 
-async def _event_0_00(
+async def handle_poll_noop_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_noop":
@@ -54,7 +54,7 @@ async def _event_0_00(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_01(
+async def handle_poll_month_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_month":
@@ -65,7 +65,7 @@ async def _event_0_01(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_02(
+async def handle_poll_page_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_page":
@@ -99,7 +99,7 @@ async def _event_0_02(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_03(
+async def handle_poll_day_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_day":
@@ -141,7 +141,7 @@ async def _event_0_03(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_04(
+async def handle_poll_suggest_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_suggest":
@@ -165,7 +165,7 @@ async def _event_0_04(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_05(
+async def handle_poll_done_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_done":
@@ -219,7 +219,7 @@ async def _event_0_05(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_06(
+async def handle_poll_cancel_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "poll_cancel":
@@ -238,7 +238,7 @@ async def _event_0_06(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_32(*, user_id, text, raw_message):
+async def handle_poker_poll_text(*, user_id, text, raw_message):
     if text in {Buttons.poker.POLL.value, Buttons.poll_menu.VOTE.value}:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -285,7 +285,7 @@ async def _text_1_32(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_33(*, user_id, text, raw_message):
+async def handle_poll_menu_results_text(*, user_id, text, raw_message):
     if text == Buttons.poll_menu.RESULTS.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -348,7 +348,7 @@ async def _text_1_33(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_37(*, user_id, text, raw_message):
+async def handle_poll_custom_day_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_POLL_CUSTOM_DAY:
         user = await _get_vk_user(user_id)
         if user is None or not user.is_approved:

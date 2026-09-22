@@ -14,7 +14,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
 
     if not admin_user_id or not peer_id or not event_id:
         return None
-    result = await registrations._event_0_00(
+    result = await registrations.handle_approve_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -25,7 +25,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._event_0_01(
+    result = await registrations.handle_reject_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -36,7 +36,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await bets._event_0_02(
+    result = await bets.handle_bet_receipt_actions_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -47,7 +47,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._event_0_03(
+    result = await registrations.handle_correct_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -58,7 +58,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._event_0_04(
+    result = await registrations.handle_link_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -69,7 +69,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._event_0_05(
+    result = await registrations.handle_link_to_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -80,7 +80,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._event_0_06(
+    result = await registrations.handle_link_page_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -91,7 +91,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._event_0_07(
+    result = await registrations.handle_make_admin_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -102,7 +102,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._event_0_08(
+    result = await poker.handle_poker_start_param_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -113,7 +113,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_09(
+    result = await players.handle_poker_add_player_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -124,7 +124,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_10(
+    result = await players.handle_poker_add_player_new_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -135,7 +135,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_11(
+    result = await players.handle_poker_add_player_cancel_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -146,7 +146,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_12(
+    result = await players.handle_poker_room_manage_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -157,7 +157,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_13(
+    result = await players.handle_poker_room_approve_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -168,7 +168,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_14(
+    result = await players.handle_poker_room_reject_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -179,7 +179,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_15(
+    result = await players.handle_poker_remove_player_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -190,7 +190,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._event_0_16(
+    result = await players.handle_poker_unban_player_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -201,7 +201,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await cashier._event_0_17(
+    result = await cashier.handle_poker_set_cashier_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -212,7 +212,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await cashier._event_0_18(
+    result = await cashier.handle_poker_room_set_cashier_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -223,7 +223,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._event_0_19(
+    result = await buyins.handle_poker_buyin_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -234,7 +234,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._event_0_20(
+    result = await buyins.handle_poker_buyin_correct_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -245,7 +245,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._event_0_21(
+    result = await buyins.handle_buyin_correction_confirmation_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -256,7 +256,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._event_0_22(
+    result = await buyins.handle_poker_buyin_count_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -267,7 +267,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._event_0_23(
+    result = await buyins.handle_poker_buyin_cancel_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -278,7 +278,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await cashier._event_0_24(
+    result = await cashier.handle_poker_cashout_select_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -289,7 +289,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await polls._event_0_25(
+    result = await polls.handle_polladmin_other_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -300,7 +300,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await polls._event_0_26(
+    result = await polls.handle_polladmin_month_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -311,7 +311,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await polls._event_0_27(
+    result = await polls.handle_polladmin_cancel_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -322,7 +322,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await chips._event_0_28(
+    result = await chips.handle_poker_calc_run_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -333,7 +333,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._event_0_29(
+    result = await poker.handle_poker_start_betting_inline_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -348,70 +348,70 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
 
 
 async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextResponse | None:
-    result = await registrations._text_1_00(user_id=user_id, text=text)
+    result = await registrations.handle_admin_corrected_name_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._text_1_01(user_id=user_id, text=text)
+    result = await players.handle_admin_new_player_name_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._text_1_02(user_id=user_id, text=text)
+    result = await buyins.handle_admin_buyin_correct_amount_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await cashier._text_1_03(user_id=user_id, text=text)
+    result = await cashier.handle_admin_cashout_amount_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._text_1_04(user_id=user_id, text=text)
+    result = await registrations.handle_approve_command_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._text_1_05(user_id=user_id, text=text)
+    result = await registrations.handle_correct_command_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._text_1_06(user_id=user_id, text=text)
+    result = await registrations.handle_reject_command_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await registrations._text_1_07(user_id=user_id, text=text)
+    result = await registrations.handle_link_command_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await management._text_1_08(user_id=user_id, text=text)
+    result = await management.handle_admin_main_make_admin_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._text_1_09(user_id=user_id, text=text)
+    result = await poker.handle_admin_main_start_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._text_1_10(user_id=user_id, text=text)
+    result = await poker.handle_admin_room_finish_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await chips._text_1_11(user_id=user_id, text=text)
+    result = await chips.handle_admin_room_calculate_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await bets._text_1_12(user_id=user_id, text=text)
+    result = await bets.handle_admin_room_start_betting_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await polls._text_1_13(user_id=user_id, text=text)
+    result = await polls.handle_admin_main_create_poll_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._text_1_14(user_id=user_id, text=text)
+    result = await poker.handle_admin_room_correct_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._text_1_15(user_id=user_id, text=text)
+    result = await poker.handle_admin_room_correct_to_admin_room_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._text_1_16(user_id=user_id, text=text)
+    result = await players.handle_add_player_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._text_1_17(user_id=user_id, text=text)
+    result = await players.handle_remove_player_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await players._text_1_18(user_id=user_id, text=text)
+    result = await players.handle_admin_room_unban_player_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await cashier._text_1_19(user_id=user_id, text=text)
+    result = await cashier.handle_set_cashier_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await buyins._text_1_20(user_id=user_id, text=text)
+    result = await buyins.handle_buyin_menu_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker._text_1_21(user_id=user_id, text=text)
+    result = await poker.handle_admin_room_to_room_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
     return None

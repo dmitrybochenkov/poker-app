@@ -36,7 +36,7 @@ from .common import (
 )
 
 
-async def _event_0_28(
+async def handle_poker_calc_run_event(
     *,
     admin_user_id,
     peer_id,
@@ -93,7 +93,7 @@ async def _event_0_28(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_11(*, user_id, text):
+async def handle_admin_room_calculate_poker_text(*, user_id, text):
     if text == Buttons.admin_room.CALCULATE_POKER.value:
         async with SessionFactory() as session:
             if not await is_vk_admin(session=session, vk_id=user_id):

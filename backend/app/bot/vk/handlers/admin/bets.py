@@ -36,7 +36,7 @@ from .common import (
 )
 
 
-async def _event_0_02(
+async def handle_bet_receipt_actions_event(
     *,
     admin_user_id,
     peer_id,
@@ -229,7 +229,7 @@ async def _event_0_02(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_12(*, user_id, text):
+async def handle_admin_room_start_betting_text(*, user_id, text):
     if text == Buttons.admin_room.START_BETTING.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)

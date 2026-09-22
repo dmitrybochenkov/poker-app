@@ -40,7 +40,7 @@ from .common import (
 )
 
 
-async def _event_0_17(
+async def handle_poker_set_cashier_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -86,7 +86,7 @@ async def _event_0_17(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_18(
+async def handle_poker_room_set_cashier_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -146,7 +146,7 @@ async def _event_0_18(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_24(
+async def handle_poker_cashout_select_event(
     *,
     admin_user_id,
     peer_id,
@@ -249,7 +249,7 @@ async def _event_0_24(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_03(*, user_id, text):
+async def handle_admin_cashout_amount_text(*, user_id, text):
     if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_CASHOUT_AMOUNT:
         if not text.isdigit() or int(text) < 0:
             await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_INVALID.value)
@@ -335,7 +335,7 @@ async def _text_1_03(*, user_id, text):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_19(*, user_id, text):
+async def handle_set_cashier_text(*, user_id, text):
     if (
         text == Buttons.admin_room.SET_CASHIER.value
         or text == Buttons.admin_room_correct.SET_CASHIER.value

@@ -16,7 +16,7 @@ from .common import (
 )
 
 
-async def _text_1_08(*, user_id, text):
+async def handle_admin_main_make_admin_text(*, user_id, text):
     if text == Buttons.admin_main.MAKE_ADMIN.value:
         async with SessionFactory() as session:
             repository = UserRepository(session)

@@ -20,7 +20,7 @@ from .common import (
 )
 
 
-async def _text_1_15(*, user_id, text, raw_message):
+async def handle_bettinginfo_betting_rules_text(*, user_id, text, raw_message):
     if text == Buttons.bettingInfo.BETTING_RULES.value:
         await send_vk_message(
             user_id=user_id,
@@ -31,7 +31,7 @@ async def _text_1_15(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_16(*, user_id, text, raw_message):
+async def handle_bettinginfo_betting_stat_info_text(*, user_id, text, raw_message):
     if text == Buttons.bettingInfo.BETTING_STAT_INFO.value:
         async with SessionFactory() as session:
             indicators = await StatIndicatorRepository(session).list_by_type(
@@ -46,7 +46,7 @@ async def _text_1_16(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_17(*, user_id, text, raw_message):
+async def handle_bettinginfo_betting_ach_info_text(*, user_id, text, raw_message):
     if text == Buttons.bettingInfo.BETTING_ACH_INFO.value:
         async with SessionFactory() as session:
             achievements = await AchievementRepository(session).list_by_type(
@@ -67,7 +67,7 @@ async def _text_1_17(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_18(*, user_id, text, raw_message):
+async def handle_pokerinfo_poker_stat_info_text(*, user_id, text, raw_message):
     if text == Buttons.pokerInfo.POKER_STAT_INFO.value:
         async with SessionFactory() as session:
             indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
@@ -80,7 +80,7 @@ async def _text_1_18(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_19(*, user_id, text, raw_message):
+async def handle_pokerinfo_poker_ach_info_text(*, user_id, text, raw_message):
     if text == Buttons.pokerInfo.POKER_ACH_INFO.value:
         async with SessionFactory() as session:
             achievements = await AchievementRepository(session).list_by_type(

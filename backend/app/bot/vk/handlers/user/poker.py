@@ -46,7 +46,7 @@ from .common import (
 )
 
 
-async def _text_1_00(*, user_id, text, raw_message):
+async def handle_chips_input_text(*, user_id, text, raw_message):
     if text.isdigit():
         chips = int(text)
         async with SessionFactory() as session:
@@ -169,7 +169,7 @@ async def _text_1_00(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_30(*, user_id, text, raw_message):
+async def handle_main_room_text(*, user_id, text, raw_message):
     if text == Buttons.main.ROOM.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)
@@ -292,7 +292,7 @@ async def _text_1_30(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_31(*, user_id, text, raw_message):
+async def handle_room_poker_admin_text(*, user_id, text, raw_message):
     if text == Buttons.room.POKER_ADMIN.value:
         user = await _get_vk_user(user_id)
         if user is None:
@@ -319,7 +319,7 @@ async def _text_1_31(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_34(*, user_id, text, raw_message):
+async def handle_room_status_text(*, user_id, text, raw_message):
     if text == Buttons.room.STATUS.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)

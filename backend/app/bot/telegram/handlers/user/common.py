@@ -97,69 +97,14 @@ def _format_rub_from_kopecks(value_kopecks: int) -> str:
     return f"{rub}.{kop:02d}"
 
 
-def _format_payment_requisites(owner: User | None) -> str:
-    if owner is None:
-        return InlineText.FORMAT_PAYMENT_REQUISITES_TEXT_01
-    phone = (owner.tel_number or "").strip()
-    bank = (owner.bank_name or "").strip()
-    if phone and bank:
-        return f"{phone} ({bank})"
-    if phone:
-        return phone
-    return InlineText.FORMAT_PAYMENT_REQUISITES_TEXT_02
 
 
-def _format_unpaid_bets_lines(bets: list) -> str:
-    if not bets:
-        return "-"
-    return "\n".join(
-        f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText._FORMAT_UNPAID_BETS_LINES_MARKER_15_PART_2}{int(bet.amount_kopecks) // 100}{InlineText._FORMAT_UNPAID_BETS_LINES_MARKER_15_PART_4}'
-        for bet in bets
-    )
 
 
-def _pick_fifo_bets_to_close(*, bets: list, paid_kopecks: int) -> list:
-    selected: list = []
-    running = 0
-    for bet in bets:
-        running += int(bet.amount_kopecks)
-        selected.append(bet)
-        if running == paid_kopecks:
-            return selected
-        if running > paid_kopecks:
-            return []
-    return []
 
 
-async def _download_telegram_receipt_bytes(message: Message) -> bytes | None:
-    from app.bot.telegram.runtime import telegram_bot
-
-    if telegram_bot is None:
-        return None
-    file_id: str | None = None
-    if message.photo:
-        file_id = message.photo[-1].file_id
-    elif message.document is not None:
-        file_id = message.document.file_id
-    if not file_id:
-        return None
-    try:
-        tg_file = await telegram_bot.get_file(file_id)
-        if tg_file.file_path is None:
-            return None
-        buffer = io.BytesIO()
-        await telegram_bot.download_file(tg_file.file_path, destination=buffer)
-        return buffer.getvalue()
-    except Exception:
-        return None
 
 
-def _telegram_external_file_id(message: Message) -> str | None:
-    if message.photo:
-        return message.photo[-1].file_unique_id
-    if message.document is not None:
-        return message.document.file_unique_id
-    return None
 
 
 def _format_waiting_players(players: list) -> str:
@@ -293,149 +238,24 @@ async def _notify_admins_about_chips_entry(
             await send_vk_message(user_id=admin.vk_id, message=full_text)
 
 
-def _month_bounds(month: date) -> tuple[date, date]:
-    first = date(month.year, month.month, 1)
-    if month.month == 12:
-        nxt = date(month.year + 1, 1, 1)
-    else:
-        nxt = date(month.year, month.month + 1, 1)
-    return first, (nxt.fromordinal(nxt.toordinal() - 1))
 
 
-def _parse_month_key(value: str | None) -> date:
-    if not value:
-        today = date.today()
-        return date(today.year, today.month, 1)
-    year_s, mon_s = str(value).split("-")
-    return date(int(year_s), int(mon_s), 1)
 
 
-def _parse_iso_dates(values: list[str] | None) -> list[date]:
-    if not values:
-        return []
-    result: list[date] = []
-    for item in values:
-        try:
-            result.append(date.fromisoformat(str(item)))
-        except Exception:
-            continue
-    return sorted(set(result))
 
 
-def _month_name_ru_upper(month: date) -> str:
-    names = [
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_01,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_02,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_03,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_04,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_05,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_06,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_07,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_08,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_09,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_10,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_11,
-        InlineText.MONTH_NAME_RU_UPPER_TEXT_12,
-    ]
-    return names[month.month - 1]
 
 
-def _poll_choose_text(month: date) -> str:
-    return f'{InlineText.POLL_CHOOSE_TEXT_TEXT_01_PART_1}{_month_name_ru_upper(month)}{InlineText.POLL_CHOOSE_TEXT_TEXT_01_PART_2}'
 
 
-def _poll_days_for_month(month: date) -> list[date]:
-    day = date(month.year, month.month, 1)
-    result: list[date] = []
-    while day.month == month.month:
-        if day.weekday() in {4, 5}:
-            result.append(day)
-        day = date.fromordinal(day.toordinal() + 1)
-    return result
 
 
-def _parse_custom_day_input(raw: str, *, month: date) -> date | None:
-    digits = "".join(ch for ch in raw if ch.isdigit())
-    if not digits:
-        return None
-    day = int(digits)
-    try:
-        value = date(month.year, month.month, day)
-    except Exception:
-        return None
-    return value
 
 
-def _format_poll_summary(
-    *, month: date, selected_dates: list[date], month_counts: list[tuple[date, int]]
-) -> str:
-    lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
-    if selected_dates:
-        lines.append(InlineText.FORMAT_POLL_SUMMARY_TEXT_01 + ", ".join(str(item.day) for item in selected_dates))
-    else:
-        lines.append(InlineText.FORMAT_POLL_SUMMARY_TEXT_02)
-    if month_counts:
-        lines.append("")
-        lines.append(InlineText.FORMAT_POLL_SUMMARY_TEXT_03)
-        for day, count in month_counts:
-            lines.append(f"{day.day:02d}.{day.month:02d}: {count}")
-    return "\n".join(lines)
 
 
-def _render_poll_results_chart(
-    *,
-    month: date,
-    month_counts: list[tuple[date, int]],
-    month_votes: list[tuple[date, int]] | None = None,
-    user_names: dict[int, str] | None = None,
-    days: list[date] | None = None,
-) -> bytes:
-    day_counts = {d: int(c) for d, c in month_counts}
-    days = days or _poll_days_for_month(month)
-    days = [item for item in days if int(day_counts.get(item, 0)) > 0]
-    weekday_short = {
-        0: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_01,
-        1: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_02,
-        2: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_03,
-        3: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_04,
-        4: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_05,
-        5: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_06,
-        6: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_07,
-    }
-    x_labels = [f"{item.strftime('%d.%m')}\n{weekday_short[item.weekday()]}" for item in days]
-    if month_votes and user_names:
-        day_to_index = {day: idx for idx, day in enumerate(days)}
-        day_user_voted: dict[tuple[int, int], int] = {}
-        for vote_day, player_row_id in month_votes:
-            if vote_day in day_to_index:
-                day_user_voted[(int(player_row_id), day_to_index[vote_day])] = 1
-        series: dict[str, list[tuple[int, int]]] = {}
-        for player_row_id, name in user_names.items():
-            points = [
-                (idx, day_user_voted.get((int(player_row_id), idx), 0)) for idx in range(len(days))
-            ]
-            if any(value for _, value in points):
-                series[name] = points
-        if not series:
-            series = {
-                InlineText.RENDER_POLL_RESULTS_CHART_TEXT_08: [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]
-            }
-    else:
-        series = {InlineText.RENDER_POLL_RESULTS_CHART_TEXT_09: [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]}
-    return render_buyins_session_chart_png(
-        title=f'{InlineText.RENDER_POLL_RESULTS_CHART_TEXT_10_PART_1}{month.strftime('%m.%Y')}{InlineText.RENDER_POLL_RESULTS_CHART_TEXT_10_PART_2}',
-        series=series,
-        x_labels=x_labels,
-        chart_type="barh",
-    )
 
 
-async def _poll_all_days_for_month(*, session, month: date) -> list[date]:
-    month_start, month_end = _month_bounds(month)
-    extra_dates = await PollVoteRepository(session).get_month_extra_dates(
-        month_start=month_start, month_end=month_end
-    )
-    return sorted(set(_poll_days_for_month(month)) | set(extra_dates))
 
 
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
@@ -1060,3 +880,24 @@ REGISTRATION_USER_STATES = {
     RegistrationState.waiting_for_bank_name.state,
     RegistrationState.waiting_for_phone.state,
 }
+
+from .poll_helpers import (
+    _month_bounds as _month_bounds,
+    _parse_month_key as _parse_month_key,
+    _parse_iso_dates as _parse_iso_dates,
+    _month_name_ru_upper as _month_name_ru_upper,
+    _poll_choose_text as _poll_choose_text,
+    _poll_days_for_month as _poll_days_for_month,
+    _parse_custom_day_input as _parse_custom_day_input,
+    _format_poll_summary as _format_poll_summary,
+    _render_poll_results_chart as _render_poll_results_chart,
+    _poll_all_days_for_month as _poll_all_days_for_month,
+)
+
+from .receipts_helpers import (
+    _format_payment_requisites as _format_payment_requisites,
+    _format_unpaid_bets_lines as _format_unpaid_bets_lines,
+    _pick_fifo_bets_to_close as _pick_fifo_bets_to_close,
+    _download_telegram_receipt_bytes as _download_telegram_receipt_bytes,
+    _telegram_external_file_id as _telegram_external_file_id,
+)

@@ -43,7 +43,7 @@ from .common import (
 )
 
 
-async def _event_0_07(
+async def handle_pokerhist_cancel_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerhist_cancel":
@@ -57,7 +57,7 @@ async def _event_0_07(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_08(
+async def handle_pokerhistyear_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerhistyear":
@@ -95,7 +95,7 @@ async def _event_0_08(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_09(
+async def handle_pokerhistpage_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerhistpage":
@@ -136,7 +136,7 @@ async def _event_0_09(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_10(
+async def handle_pokerhistdate_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerhistdate":
@@ -167,7 +167,7 @@ async def _event_0_10(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_28(
+async def handle_pokerstat_page_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_page":
@@ -198,7 +198,7 @@ async def _event_0_28(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_29(
+async def handle_pokerstat_toggle_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_toggle":
@@ -239,7 +239,7 @@ async def _event_0_29(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_30(
+async def handle_pokerstat_done_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_done":
@@ -325,7 +325,7 @@ async def _event_0_30(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_31(
+async def handle_pokerstat_sort_page_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_sort_page":
@@ -363,7 +363,7 @@ async def _event_0_31(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_32(
+async def handle_pokerstat_sort_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_sort":
@@ -409,7 +409,7 @@ async def _event_0_32(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_33(
+async def handle_pokerstat_sort_done_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_sort_done":
@@ -469,7 +469,7 @@ async def _event_0_33(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_34(
+async def handle_pokerstat_sort_cancel_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_sort_cancel":
@@ -490,7 +490,7 @@ async def _event_0_34(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_35(
+async def handle_poker_stat_year_actions_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action in {
@@ -580,7 +580,7 @@ async def _event_0_35(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_36(
+async def handle_pokerstat_cancel_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "pokerstat_cancel":
@@ -601,7 +601,7 @@ async def _event_0_36(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_20(*, user_id, text, raw_message):
+async def handle_poker_history_text(*, user_id, text, raw_message):
     if text in {Buttons.poker.HISTORY.value, Buttons.pokerInfo.HISTORY.value}:
         async with SessionFactory() as session:
             pokers = await PokerRepository(session).list_all()
@@ -627,7 +627,7 @@ async def _text_1_20(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_21(*, user_id, text, raw_message):
+async def handle_poker_poker_stat_text(*, user_id, text, raw_message):
     if text == Buttons.poker.POKER_STAT.value:
         user_ctx = vk_user_contexts.setdefault(user_id, {})
         user_ctx["pokerstat_years"] = ""

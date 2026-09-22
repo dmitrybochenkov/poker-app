@@ -66,7 +66,7 @@ from .common import (
 )
 
 
-async def _event_0_19(
+async def handle_bet_tournament_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action in {"bet_tournament_regular", "bet_tournament_year"}:
@@ -145,7 +145,7 @@ async def _event_0_19(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_20(
+async def handle_bet_size_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "bet_size":
@@ -199,7 +199,7 @@ async def _event_0_20(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_21(
+async def handle_bet_winner_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "bet_winner":
@@ -262,7 +262,7 @@ async def _event_0_21(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_22(
+async def handle_bet_loser_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "bet_loser":
@@ -313,7 +313,7 @@ async def _event_0_22(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_23(
+async def handle_bet_confirmation_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action in {"bet_confirm_yes", "bet_confirm_no"}:
@@ -430,7 +430,7 @@ async def _event_0_23(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_26(*, user_id, text, raw_message):
+async def handle_make_bet_text(*, user_id, text, raw_message):
     if _vk_button_matches(text, Buttons.betting.MAKE_BET.value):
         async with SessionFactory() as session:
             user_repository = UserRepository(session)
@@ -471,7 +471,7 @@ async def _text_1_26(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_27(*, user_id, text, raw_message):
+async def handle_betting_pay_bet_text(*, user_id, text, raw_message):
     if text == Buttons.betting.PAY_BET.value:
         async with SessionFactory() as session:
             user_repository = UserRepository(session)
@@ -509,7 +509,7 @@ async def _text_1_27(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_28(*, user_id, text, raw_message):
+async def handle_bet_amount_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_BET_AMOUNT:
         menu_buttons = {
             Buttons.main.ROOM.value,
@@ -528,7 +528,7 @@ async def _text_1_28(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_29(*, user_id, text, raw_message):
+async def handle_bet_payment_receipt_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_BET_PAYMENT_RECEIPT:
         text_value = (text or "").strip()
         if text_value == Buttons.betting.TO_MAIN.value:

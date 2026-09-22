@@ -40,7 +40,7 @@ from .common import (
 )
 
 
-async def _event_0_24(
+async def handle_betstat_page_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_page":
@@ -72,7 +72,7 @@ async def _event_0_24(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_25(
+async def handle_betstat_toggle_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_toggle":
@@ -117,7 +117,7 @@ async def _event_0_25(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_26(
+async def handle_betstat_mode_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_mode":
@@ -151,7 +151,7 @@ async def _event_0_26(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_27(
+async def handle_betting_stat_year_actions_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action in {
@@ -255,7 +255,7 @@ async def _event_0_27(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_37(
+async def handle_betstat_done_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_done":
@@ -338,7 +338,7 @@ async def _event_0_37(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_38(
+async def handle_betstat_sort_page_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_sort_page":
@@ -377,7 +377,7 @@ async def _event_0_38(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_39(
+async def handle_betstat_sort_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_sort":
@@ -425,7 +425,7 @@ async def _event_0_39(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_40(
+async def handle_betstat_sort_done_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_sort_done":
@@ -489,7 +489,7 @@ async def _event_0_40(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_41(
+async def handle_betstat_sort_cancel_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_sort_cancel":
@@ -511,7 +511,7 @@ async def _event_0_41(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_42(
+async def handle_betstat_cancel_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "betstat_cancel":
@@ -533,7 +533,7 @@ async def _event_0_42(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_22(*, user_id, text, raw_message):
+async def handle_betting_current_tours_text(*, user_id, text, raw_message):
     if text == Buttons.betting.CURRENT_TOURS.value:
         await send_vk_message(
             user_id=user_id,
@@ -544,7 +544,7 @@ async def _text_1_22(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_23(*, user_id, text, raw_message):
+async def handle_betting_betting_stat_text(*, user_id, text, raw_message):
     if text == Buttons.betting.BETTING_STAT.value:
         user_ctx = vk_user_contexts.setdefault(user_id, {})
         user_ctx["betstat_years"] = ""
@@ -570,7 +570,7 @@ async def _text_1_23(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_24(*, user_id, text, raw_message):
+async def handle_current_tournament_stat_text(*, user_id, text, raw_message):
     if text in {
         Buttons.betting_current.REG_TOURNAMENT.value,
         Buttons.betting_current.YEAR_TOURNAMENT.value,
@@ -603,7 +603,7 @@ async def _text_1_24(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_25(*, user_id, text, raw_message):
+async def handle_betting_current_to_main_text(*, user_id, text, raw_message):
     if text == Buttons.betting_current.TO_MAIN.value:
         await send_vk_message(
             user_id=user_id,

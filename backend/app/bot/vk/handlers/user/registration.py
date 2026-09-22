@@ -34,7 +34,7 @@ from .common import (
 )
 
 
-async def _event_0_11(
+async def handle_registration_existing_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "registration_existing":
@@ -78,7 +78,7 @@ async def _event_0_11(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_12(
+async def handle_registration_played_before_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action in {"registration_played_before_yes", "registration_played_before_no"}:
@@ -128,7 +128,7 @@ async def _event_0_12(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_13(
+async def handle_registration_existing_page_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "registration_existing_page":
@@ -171,7 +171,7 @@ async def _event_0_13(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_14(
+async def handle_registration_new_name_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "registration_new_name":
@@ -190,7 +190,7 @@ async def _event_0_14(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_15(
+async def handle_registration_platform_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action in {"registration_platform_tg", "registration_platform_vk"}:
@@ -237,7 +237,7 @@ async def _event_0_15(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_16(
+async def handle_registration_optional_bank_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "registration_optional_bank":
@@ -264,7 +264,7 @@ async def _event_0_16(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_17(
+async def handle_registration_optional_phone_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "registration_optional_phone":
@@ -291,7 +291,7 @@ async def _event_0_17(
     return HANDLER_UNMATCHED
 
 
-async def _event_0_18(
+async def handle_registration_optional_skip_event(
     *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
 ):
     if action == "registration_optional_skip":
@@ -325,7 +325,7 @@ async def _event_0_18(
     return HANDLER_UNMATCHED
 
 
-async def _text_1_35(*, user_id, text, raw_message):
+async def handle_new_user_registration_text(*, user_id, text, raw_message):
     if text == Buttons.new_user.REGISTRATION.value:
         if vk_user_states.get(user_id) in {
             WAITING_FOR_PLAYED_BEFORE,
@@ -362,7 +362,7 @@ async def _text_1_35(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_36(*, user_id, text, raw_message):
+async def handle_new_user_about_text(*, user_id, text, raw_message):
     if text == Buttons.new_user.ABOUT.value:
         async with SessionFactory() as session:
             repository = UserRepository(session)
@@ -378,7 +378,7 @@ async def _text_1_36(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_38(*, user_id, text, raw_message):
+async def handle_played_before_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_PLAYED_BEFORE:
         normalized_text = text.lower()
         if normalized_text == Buttons.registration_inline.YES.value.lower():
@@ -414,7 +414,7 @@ async def _text_1_38(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_39(*, user_id, text, raw_message):
+async def handle_new_name_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_NEW_NAME:
         name = " ".join(text.split())
         vk_user_states[user_id] = WAITING_FOR_OPTIONAL_DETAILS_ACTION
@@ -428,7 +428,7 @@ async def _text_1_39(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_40(*, user_id, text, raw_message):
+async def handle_optional_bank_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_BANK:
         bank_name = " ".join(text.split()).title()
         if not bank_name:
@@ -460,7 +460,7 @@ async def _text_1_40(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_41(*, user_id, text, raw_message):
+async def handle_optional_phone_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_PHONE:
         normalized_phone = _normalize_phone(text)
         if normalized_phone is None:
@@ -494,7 +494,7 @@ async def _text_1_41(*, user_id, text, raw_message):
     return HANDLER_UNMATCHED
 
 
-async def _text_1_42(*, user_id, text, raw_message):
+async def handle_optional_details_action_text(*, user_id, text, raw_message):
     if vk_user_states.get(user_id) == WAITING_FOR_OPTIONAL_DETAILS_ACTION:
         await send_vk_message(
             user_id=user_id,
