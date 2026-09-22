@@ -1,121 +1,88 @@
 from enum import Enum
 
+from .user import betting, general, poker, polls, registration, statistics
+
 
 class UserText(Enum):
-  BOT_INFO = (
-    "Привет👋, я покер-бот🤖.\n\n"
-    "Я помогаю проводить покерные игры: считаю закупы🏦 и переводы💲 победителям💍 от проигравших❌.\n\n"
-    "Я веду статистику игр с 2023 года, а также умею принимать ставки на результаты покерных игр.\n\n"
-    "Чтобы начать пользоваться моими функциями, тебе нужно зарегистрироваться."
-  )
-
-  REGISTRATION_PLAYED_BEFORE_Q = "Ты раньше играл с нами?"
-  REGISTRATION_PLAYED_BEFORE_Y = "Найди себя в списке. Если тебя нет - жми Меня нет в списке."
-  REGISTRATION_PLAYED_BEFORE_EMPTY = "Не найдено ранее игравших пользователей - введи свое имя:"
-  REGISTRATION_NEW_NAME_PROMPT = "Введи свои имя и фамилию русскими буквами через пробел. Пожалуйста, вводи настоящие!"
-  REGISTRATION_EXIST = "Ты уже зарегистрирован."
-  REGISTRATION_WAIT = "Заявка отправлена. После её рассмотрения тебе придёт сообщение."
-  REGISTRATION_APPROVED = "Ты успешно зарегистрирован!"
-  REGISTRATION_NOT_APPROVED = "Ты не зарегистрирован! Спроси у админа почему."
-  REGISTRATION_PENDING = "Твоя заявка уже ожидает подтверждения администратора."
-  REGISTRATION_IN_PROGRESS = "Мы уже начали регистрацию. Продолжай по предыдущему сообщению."
-  REGISTRATION_EMPTY_NAME = "Имя не должно быть пустым."
-  REGISTRATION_CHOOSE_FROM_LIST = "Не нашел такую запись в списке. Выбери игрока из списка."
-  REGISTRATION_READ_ERROR = "Не удалось прочитать данные. Попробуй ещё раз."
-  REGISTRATION_ID_ERROR = "Не удалось определить Telegram ID."
-  REGISTRATION_OPTIONAL_DETAILS_PROMPT = "Если хочешь, укажи свои банк и номер телефона. В случае твоей победы по этим данным тебе быстрее переведут деньги."
-  REGISTRATION_PLATFORM_PROMPT = "Выбери платформу для уведомлений:"
-  REGISTRATION_BANK_PROMPT = "Введи название банка:"
-  REGISTRATION_PHONE_PROMPT = "Введи номер телефона, начиная с 7:"
-  REGISTRATION_PHONE_INVALID = "Номер должен начинаться с 7 и содержать 11 цифр."
-
-  START_POKER = "Начало покера. Желающим принять участие в игре пора заходить в покер рум!"
-  START_BETTING = "Ставки открыты. Можно делать ставки на текущую игру."
-  FINISH_POKER = "Покер завершен.\n\nИтог:\n🏦 Закупы: {buyins}\n💸 Кешаут: {cashout_rub} ₽"
-  FINISH_CHIPS_PROMPT = "Покер завершен. Посчитай свои фишки и отправь число мне."
-  FINISH_CHIPS_SAVED = "Фишки сохранены: {chips}.\nИтог: {money_rub} ₽ {reaction}"
-  FINISH_CHIPS_INVALID = "Введи целое число фишек, кратное {step}."
-  FINISH_CHIPS_NOT_READY = "Сейчас ввод фишек закрыт."
-  FINISH_CHIPS_NOT_IN_GAME = "Ты не участвуешь в этой игре."
-  STATUS_NEED_REGISTRATION = "Сначала зарегистрируйся."
-  STATUS_PENDING = "Твоя заявка еще на рассмотрении у администратора."
-  STATUS_ROOM_CLOSED = "Сейчас покер рум закрыт."
-  STATUS_ROOM_NOT_ADDED = "Ты не добавлен в покер рум! Спроси у админа почему."
-  ROOM_REMOVED_BY_ADMIN = "Ты исключен из покер рума администратором."
-  ROOM_UNBANNED_BY_ADMIN = "Тебе снова разрешен вход в покер рум."
-  STATUS_BUYINS = "🏦 Закупы: {buyins}"
-  ROOM_JOINED = "Добро пожаловать в покер рум!"
-  ROOM_ALREADY_JOINED = "Ты уже добавлен в покер рум."
-  POLL_CHOOSE_DATES = "Выбери даты на месяц и нажми '🚀 Готово'."
-  POLL_SAVED = "Опрос сохранен."
-  POLL_CANCELED = "Опрос отменен."
-  POLL_NOT_ACTIVE = "В данный момент опрос не проводится."
-  MAIN_MENU = "Главное меню."
-  BETTING_MENU = "Информация про ставки."
-  BETTING_CURRENT_MENU = "Текущие турниры"
-  BET_RULES = (
-    "<b>ПРАВИЛА ТОТАЛИЗАТОРА</b>\n\n"
-    "<b>СТАВКИ</b>\n"
-    "✅ В чат приходит сообщение о необходимости поставить ставку на результат игры.\n"
-    "✅ Каждый игрок выбирает размер ставки (🐤 - 200р или 🐔 - 400 р), победителя и проигравшего.\n"
-    "✅ За угаданного победителя <b>или</b> проигравшего, игрок получает <b>1 балл</b> или <b>2 балла</b> (в зависимости от выбранного размера ставки).\n"
-    "✅ За угаданных <b>одновременно</b> победителя <b>и</b> проигравшего, игрок получает <b>3 балла</b> или <b>5 баллов</b> (в зависимости от выбранного размера ставки).\n\n"
-    "<b>Важно!</b>\n"
-    "📍 Ставить ставки могут только зарегистрированные игроки\n"
-    "📍 Ставка <b>обязательна</b> для каждого участника игры \n"
-    "📍 Ставить на собственный проигрыш нельзя\n"
-    "📍 Ставку нельзя изменить после ее подтверждения\n"
-    "📍 В начале каждого месяца ботом будет рассылаться напоминание о необходимости перевести деньги за поставленную ставку\n\n"
-    "<b>ТУРНИРЫ</b>\n"
-    "Ежегодно проводится 2 ставочных турнира.\n"
-    "✅ Годовой турнир (🎄💰) стартует 1 января каждого года и длится целый год.\n"
-    "✅ Регулярный турнир (💰). Стартует 2 раза в год: с 01.01 по 30.04 и с 1.05 по 31.08.\n\n"
-    "Ставки всех участников распределяются по действующим турнирам: 80% ставки идет в 💰 (если он проводится в данный момент времени) и 20% - в 🎄💰 (либо 100%, если в данное время проводится только годовой турнир).\n\n"
-    "По адресу '🍀 Ставки' ➡  '🎰 Текущие турниры' можно посмотреть актуальную информацию о действующих турнирах.\n\n"
-    "<b>ВЫПЛАТЫ</b>\n"
-    "Выплаты производятся по завершении каждого турнира при условии оплаты всеми игроками своих ставок.\n"
-    "В годовом турнире учитываются баллы <b>за весь год</b>!\n"
-    "Размеры выплат: 🥇 - 50% банка, 🥈 - 33% банка, 🥉 - 17% банка."
-  )
-  BETTING_NOT_OPEN = "Сейчас ставки закрыты."
-  BETTING_TOURNAMENT_CHOOSE = "Выбери турнир для ставки:"
-  BETTING_SIZE_CHOOSE = "Выбери размер ставки:"
-  BETTING_WINNER_CHOOSE = "Выбери предполагаемого победителя:"
-  BETTING_LOSER_CHOOSE = "Выбери предполагаемого проигравшего:"
-  BETTING_CONFIRM = "❗ Проверь ставку, изменить ее будет нельзя:\nРазмер: {amount_rub} ₽\nПобедитель: {winner}\nПроигравший: {loser}"
-  BETTING_AMOUNT_PROMPT = "Введи сумму ставки в рублях (целым числом)."
-  BETTING_AMOUNT_INVALID = "Сумма должна быть положительным целым числом."
-  BETTING_ALREADY_EXISTS = "Ты уже поставил ставку. Изменить ее нельзя."
-  BETTING_CREATED = "🍀 Ставка принята\nРазмер: {amount_rub} ₽\nПобедитель: {winner}\nПроигравший: {loser}"
-  BETTING_PAY_EMPTY = "У тебя нет неоплаченных ставок."
-  BETTING_PAY_LIST = (
-    "Вот твои неоплаченные ставки:\n{lines}\n\n"
-    "💰 Всего: {total_rub} ₽\n"
-    "❗ Перевести задолженность по ставкам (за любое количество игр) можно сюда: [{payment_requisites}]\n"
-    "🧾 Затем пришли мне квитанцию о переводе."
-  )
-  BETTING_PAY_CANCELED = "Оплата ставок отменена."
-  BETTING_PAY_AMOUNT_INVALID = "Пришли квитанцию о переводе (фото или PDF)."
-  BETTING_PAY_MATCHED = "Оплата принята. Закрыто ставок: {count}. Остаток долга: {debt_rub} ₽."
-  BETTING_PAY_NEED_MANUAL = "Сумма не совпала с последовательностью старых долгов. Передал админу на ручную проверку."
-  BETTING_PAY_RECEIPT_SENT = "Квитанцию получил, передал админу на проверку."
-  BETTING_CURRENT_EMPTY = "Активных турниров для ставок сейчас нет."
-  BETTING_CURRENT_LIST = "Сейчас открыты турниры:\n{tournaments}"
-  BETTING_USER_BETS_EMPTY = "У тебя пока нет ставок в текущей игре."
-  BETTING_USER_BETS = "Твои текущие ставки:\n{bets}"
-  BETTING_STAT_INDICATORS = "Показатели статистики ставок:"
-  BETTING_STAT_MODE = "Выбери режим статистики ставок:"
-  STAT_CHOOSE_YEAR = "Выбери год(а) для статистики и нажми 'Готово'. По умолчанию будет статистика за текущий год."
-  STAT_CHOOSE_PARAMS = "Выбери показател(ь/и) статистики и нажми 'Готово'. По умолчанию: для статистики ставок — 'Денег выиграно', для текущих турниров — 'Баллы'."
-  BET_STAT_CHOOSE_SORT = "Выбери показателя для сортировки: "
-  BET_STAT_CHOOSED_SORT_DEFAULT = "По умолчанию будет сортировка по первому элементу."
-  BETTING_STAT_SELECTED = "Выбран показатель: {indicator}"
-  BETTING_STAT_REPORT = "Статистика ставок:\n\n{report}"
-  STAT_EXPORT_CANCELED = "Выгрузка статистики отменена."
-  POKER_MENU = "Раздел покера. Важно: в статистику покера попадают игроки, участвовавшие в 30% игр за выбранный период!"
-  POKER_INFO = "Информация про покер."
-  POKER_STAT_BTN = "Здесь про статистику покера. Важно: в статистику попадают игроки, участвовавшие в 30% игр за выбранный период!"
-  POKER_STAT_INDICATORS = "Показатели статистики покера:"
-  STAT_CHOOSE_SORT = "Выбери показателя для сортировки: "
-  STAT_CHOOSED_SORT_DEFAULT = "По умолчанию будет сортировка по первому элементу."
-  POKER_STAT_REPORT = "Статистика покера:\n\n{report}"
+    BOT_INFO = general.BOT_INFO
+    REGISTRATION_PLAYED_BEFORE_Q = registration.REGISTRATION_PLAYED_BEFORE_Q
+    REGISTRATION_PLAYED_BEFORE_Y = registration.REGISTRATION_PLAYED_BEFORE_Y
+    REGISTRATION_PLAYED_BEFORE_EMPTY = registration.REGISTRATION_PLAYED_BEFORE_EMPTY
+    REGISTRATION_NEW_NAME_PROMPT = registration.REGISTRATION_NEW_NAME_PROMPT
+    REGISTRATION_EXIST = registration.REGISTRATION_EXIST
+    REGISTRATION_WAIT = registration.REGISTRATION_WAIT
+    REGISTRATION_APPROVED = registration.REGISTRATION_APPROVED
+    REGISTRATION_NOT_APPROVED = registration.REGISTRATION_NOT_APPROVED
+    REGISTRATION_PENDING = registration.REGISTRATION_PENDING
+    REGISTRATION_IN_PROGRESS = registration.REGISTRATION_IN_PROGRESS
+    REGISTRATION_EMPTY_NAME = registration.REGISTRATION_EMPTY_NAME
+    REGISTRATION_CHOOSE_FROM_LIST = registration.REGISTRATION_CHOOSE_FROM_LIST
+    REGISTRATION_READ_ERROR = registration.REGISTRATION_READ_ERROR
+    REGISTRATION_ID_ERROR = registration.REGISTRATION_ID_ERROR
+    REGISTRATION_OPTIONAL_DETAILS_PROMPT = registration.REGISTRATION_OPTIONAL_DETAILS_PROMPT
+    REGISTRATION_PLATFORM_PROMPT = registration.REGISTRATION_PLATFORM_PROMPT
+    REGISTRATION_BANK_PROMPT = registration.REGISTRATION_BANK_PROMPT
+    REGISTRATION_PHONE_PROMPT = registration.REGISTRATION_PHONE_PROMPT
+    REGISTRATION_PHONE_INVALID = registration.REGISTRATION_PHONE_INVALID
+    START_POKER = poker.START_POKER
+    START_BETTING = betting.START_BETTING
+    FINISH_POKER = poker.FINISH_POKER
+    FINISH_CHIPS_PROMPT = poker.FINISH_CHIPS_PROMPT
+    FINISH_CHIPS_SAVED = poker.FINISH_CHIPS_SAVED
+    FINISH_CHIPS_INVALID = poker.FINISH_CHIPS_INVALID
+    FINISH_CHIPS_NOT_READY = poker.FINISH_CHIPS_NOT_READY
+    FINISH_CHIPS_NOT_IN_GAME = poker.FINISH_CHIPS_NOT_IN_GAME
+    STATUS_NEED_REGISTRATION = registration.STATUS_NEED_REGISTRATION
+    STATUS_PENDING = registration.STATUS_PENDING
+    STATUS_ROOM_CLOSED = poker.STATUS_ROOM_CLOSED
+    STATUS_ROOM_NOT_ADDED = poker.STATUS_ROOM_NOT_ADDED
+    ROOM_REMOVED_BY_ADMIN = poker.ROOM_REMOVED_BY_ADMIN
+    ROOM_UNBANNED_BY_ADMIN = poker.ROOM_UNBANNED_BY_ADMIN
+    STATUS_BUYINS = poker.STATUS_BUYINS
+    ROOM_JOINED = poker.ROOM_JOINED
+    ROOM_ALREADY_JOINED = poker.ROOM_ALREADY_JOINED
+    POLL_CHOOSE_DATES = polls.POLL_CHOOSE_DATES
+    POLL_SAVED = polls.POLL_SAVED
+    POLL_CANCELED = polls.POLL_CANCELED
+    POLL_NOT_ACTIVE = polls.POLL_NOT_ACTIVE
+    MAIN_MENU = general.MAIN_MENU
+    BETTING_MENU = betting.BETTING_MENU
+    BETTING_CURRENT_MENU = betting.BETTING_CURRENT_MENU
+    BET_RULES = betting.BET_RULES
+    BETTING_NOT_OPEN = betting.BETTING_NOT_OPEN
+    BETTING_TOURNAMENT_CHOOSE = betting.BETTING_TOURNAMENT_CHOOSE
+    BETTING_SIZE_CHOOSE = betting.BETTING_SIZE_CHOOSE
+    BETTING_WINNER_CHOOSE = betting.BETTING_WINNER_CHOOSE
+    BETTING_LOSER_CHOOSE = betting.BETTING_LOSER_CHOOSE
+    BETTING_CONFIRM = betting.BETTING_CONFIRM
+    BETTING_AMOUNT_PROMPT = betting.BETTING_AMOUNT_PROMPT
+    BETTING_AMOUNT_INVALID = betting.BETTING_AMOUNT_INVALID
+    BETTING_ALREADY_EXISTS = betting.BETTING_ALREADY_EXISTS
+    BETTING_CREATED = betting.BETTING_CREATED
+    BETTING_PAY_EMPTY = betting.BETTING_PAY_EMPTY
+    BETTING_PAY_LIST = betting.BETTING_PAY_LIST
+    BETTING_PAY_CANCELED = betting.BETTING_PAY_CANCELED
+    BETTING_PAY_AMOUNT_INVALID = betting.BETTING_PAY_AMOUNT_INVALID
+    BETTING_PAY_MATCHED = betting.BETTING_PAY_MATCHED
+    BETTING_PAY_NEED_MANUAL = betting.BETTING_PAY_NEED_MANUAL
+    BETTING_PAY_RECEIPT_SENT = betting.BETTING_PAY_RECEIPT_SENT
+    BETTING_CURRENT_EMPTY = betting.BETTING_CURRENT_EMPTY
+    BETTING_CURRENT_LIST = betting.BETTING_CURRENT_LIST
+    BETTING_USER_BETS_EMPTY = betting.BETTING_USER_BETS_EMPTY
+    BETTING_USER_BETS = betting.BETTING_USER_BETS
+    BETTING_STAT_INDICATORS = statistics.BETTING_STAT_INDICATORS
+    BETTING_STAT_MODE = statistics.BETTING_STAT_MODE
+    STAT_CHOOSE_YEAR = statistics.STAT_CHOOSE_YEAR
+    STAT_CHOOSE_PARAMS = statistics.STAT_CHOOSE_PARAMS
+    BET_STAT_CHOOSE_SORT = statistics.BET_STAT_CHOOSE_SORT
+    BET_STAT_CHOOSED_SORT_DEFAULT = statistics.BET_STAT_CHOOSED_SORT_DEFAULT
+    BETTING_STAT_SELECTED = statistics.BETTING_STAT_SELECTED
+    BETTING_STAT_REPORT = statistics.BETTING_STAT_REPORT
+    STAT_EXPORT_CANCELED = statistics.STAT_EXPORT_CANCELED
+    POKER_MENU = poker.POKER_MENU
+    POKER_INFO = poker.POKER_INFO
+    POKER_STAT_BTN = statistics.POKER_STAT_BTN
+    POKER_STAT_INDICATORS = statistics.POKER_STAT_INDICATORS
+    STAT_CHOOSE_SORT = statistics.STAT_CHOOSE_SORT
+    STAT_CHOOSED_SORT_DEFAULT = statistics.STAT_CHOOSED_SORT_DEFAULT
+    POKER_STAT_REPORT = statistics.POKER_STAT_REPORT

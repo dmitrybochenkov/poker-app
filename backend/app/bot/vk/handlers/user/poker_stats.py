@@ -1,7 +1,10 @@
 from datetime import date, datetime
 
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.texts.inline.vk.user import poker_stats as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -29,7 +32,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -75,7 +77,7 @@ async def _event_0_08(
         )
         if not dates:
             await send_vk_message_event_answer(
-                event_id=event_id, user_id=user_id, peer_id=peer_id, text="Нет игр за выбранный год"
+                event_id=event_id, user_id=user_id, peer_id=peer_id, text=InlineText.EVENT_0_08_TEXT_01
             )
             return PlainTextResponse("ok")
         await send_vk_message_event_answer(
@@ -86,7 +88,7 @@ async def _event_0_08(
         )
         await send_vk_message(
             user_id=user_id,
-            message=f"Выбери дату игры ({int(year)}):",
+            message=f'{InlineText.EVENT_0_08_TEXT_02_PART_1}{int(year)}{InlineText.EVENT_0_08_TEXT_02_PART_2}',
             keyboard=poker_history_dates_keyboard(year=int(year), dates=list(dates), page=0),
         )
         return PlainTextResponse("ok")
@@ -114,7 +116,7 @@ async def _event_0_09(
         )
         if not dates:
             await send_vk_message_event_answer(
-                event_id=event_id, user_id=user_id, peer_id=peer_id, text="Нет игр за выбранный год"
+                event_id=event_id, user_id=user_id, peer_id=peer_id, text=InlineText.EVENT_0_09_TEXT_01
             )
             return PlainTextResponse("ok")
         await send_vk_message_event_answer(
@@ -125,7 +127,7 @@ async def _event_0_09(
         )
         await send_vk_message(
             user_id=user_id,
-            message=f"Выбери дату игры ({int(year)}):",
+            message=f'{InlineText.EVENT_0_09_TEXT_02_PART_1}{int(year)}{InlineText.EVENT_0_09_TEXT_02_PART_2}',
             keyboard=poker_history_dates_keyboard(
                 year=int(year), dates=list(dates), page=int(page)
             ),
@@ -250,7 +252,7 @@ async def _event_0_30(
             indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
             if not selected_ids:
                 default_indicator = next(
-                    (item for item in indicators if str(item.description).strip() == "Денег всего"),
+                    (item for item in indicators if str(item.description).strip() == InlineText.EVENT_0_30_TEXT_01),
                     None,
                 )
                 if default_indicator is None and indicators:
@@ -279,7 +281,7 @@ async def _event_0_30(
                     indicators=selected, years=selected_years, sort_pic=selected[0].pic
                 )
                 await send_vk_message_event_answer(
-                    event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово"
+                    event_id=event_id, user_id=user_id, peer_id=peer_id, text=InlineText.EVENT_0_30_TEXT_02
                 )
                 await _delete_event_message_if_possible(
                     peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -290,7 +292,7 @@ async def _event_0_30(
                     image_bytes=image_bytes,
                     filename="poker_stat.png",
                     message=_format_stat_caption(
-                        report_type="Статистика покера",
+                        report_type=InlineText.EVENT_0_30_TEXT_03,
                         indicators=selected,
                         years=selected_years,
                         include_period=True,
@@ -442,7 +444,7 @@ async def _event_0_33(
                 poker_repository=PokerRepository(session),
             ).get_poker_stat(indicators=selected, years=selected_years, sort_pic=sort_pic)
         await send_vk_message_event_answer(
-            event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово"
+            event_id=event_id, user_id=user_id, peer_id=peer_id, text=InlineText.EVENT_0_33_TEXT_01
         )
         await _delete_event_message_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -453,7 +455,7 @@ async def _event_0_33(
             image_bytes=image_bytes,
             filename="poker_stat.png",
             message=_format_stat_caption(
-                report_type="Статистика покера",
+                report_type=InlineText.EVENT_0_33_TEXT_02,
                 indicators=selected,
                 years=selected_years,
                 include_period=True,
@@ -613,12 +615,12 @@ async def _text_1_20(*, user_id, text, raw_message):
         )
         if not years:
             await send_vk_message(
-                user_id=user_id, message="Нет завершенных игр.", keyboard=poker_info_keyboard
+                user_id=user_id, message=InlineText.TEXT_1_20_TEXT_01, keyboard=poker_info_keyboard
             )
             return PlainTextResponse("ok")
         await send_vk_message(
             user_id=user_id,
-            message="Выбери год:",
+            message=InlineText.TEXT_1_20_TEXT_02,
             keyboard=poker_history_year_keyboard(years=years),
         )
         return PlainTextResponse("ok")
@@ -639,7 +641,7 @@ async def _text_1_21(*, user_id, text, raw_message):
         if not years:
             await send_vk_message(
                 user_id=user_id,
-                message=Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру."),
+                message=Text.user.POKER_STAT_REPORT.value.format(report=InlineText.TEXT_1_21_TEXT_01),
             )
             return PlainTextResponse("ok")
         await send_vk_message(

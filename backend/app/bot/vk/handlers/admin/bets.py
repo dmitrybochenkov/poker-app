@@ -1,9 +1,13 @@
+from fastapi.responses import PlainTextResponse
+
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.chips_runtime import (
     TG_ADMIN_ROOM_STATUS_MSG_IDS,
     VK_ADMIN_ROOM_STATUS_MSG_IDS,
 )
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.shared import formatting as FormattingText
+from app.bot.shared.texts.inline.vk.admin import bets as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import betting_keyboard as tg_betting_keyboard
 from app.bot.vk.api import (
@@ -22,7 +26,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.google_backup import backup_tables_to_google
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -71,7 +74,7 @@ async def _event_0_02(
                     event_id=event_id,
                     user_id=admin_user_id,
                     peer_id=peer_id,
-                    text="Квитанция не найдена",
+                    text=InlineText.EVENT_0_02_TEXT_01,
                 )
                 return PlainTextResponse("ok")
             unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
@@ -90,14 +93,14 @@ async def _event_0_02(
                     event_id=event_id,
                     user_id=admin_user_id,
                     peer_id=peer_id,
-                    text="Обновлено",
+                    text=InlineText.EVENT_0_02_TEXT_02,
                 )
                 await _clear_event_inline_keyboard_if_possible(
                     peer_id=peer_id, conversation_message_id=conversation_message_id
                 )
                 await send_vk_message(
                     user_id=admin_user_id,
-                    message=f"🧾 Ручное подтверждение квитанции #{int(receipt_row_id)}",
+                    message=f'{InlineText.EVENT_0_02_TEXT_03_PART_1}{int(receipt_row_id)}',
                     keyboard=bet_receipt_manual_keyboard(
                         receipt_row_id=int(receipt_row_id),
                         bets=unpaid,
@@ -115,14 +118,14 @@ async def _event_0_02(
                     event_id=event_id,
                     user_id=admin_user_id,
                     peer_id=peer_id,
-                    text="Страница",
+                    text=InlineText.EVENT_0_02_TEXT_04,
                 )
                 await _clear_event_inline_keyboard_if_possible(
                     peer_id=peer_id, conversation_message_id=conversation_message_id
                 )
                 await send_vk_message(
                     user_id=admin_user_id,
-                    message=f"🧾 Ручное подтверждение квитанции #{int(receipt_row_id)}",
+                    message=f'{InlineText.EVENT_0_02_TEXT_05_PART_1}{int(receipt_row_id)}',
                     keyboard=bet_receipt_manual_keyboard(
                         receipt_row_id=int(receipt_row_id),
                         bets=unpaid,
@@ -138,14 +141,14 @@ async def _event_0_02(
                     event_id=event_id,
                     user_id=admin_user_id,
                     peer_id=peer_id,
-                    text="Отменено",
+                    text=InlineText.EVENT_0_02_TEXT_06,
                 )
                 await _clear_event_inline_keyboard_if_possible(
                     peer_id=peer_id, conversation_message_id=conversation_message_id
                 )
                 await send_vk_message(
                     user_id=admin_user_id,
-                    message=f"🧾 Квитанция #{int(receipt_row_id)}\nОтменено. Без изменений.",
+                    message=f'{InlineText.EVENT_0_02_TEXT_07_PART_1}{int(receipt_row_id)}{InlineText.EVENT_0_02_TEXT_07_PART_2}',
                 )
                 return PlainTextResponse("ok")
 
@@ -155,7 +158,7 @@ async def _event_0_02(
                     event_id=event_id,
                     user_id=admin_user_id,
                     peer_id=peer_id,
-                    text="Выбери хотя бы одну ставку",
+                    text=InlineText.EVENT_0_02_TEXT_08,
                 )
                 return PlainTextResponse("ok")
 
@@ -172,18 +175,18 @@ async def _event_0_02(
             remaining = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
             remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
             closed_lines = "\n".join(
-                f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+                f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText._EVENT_0_02_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText.EVENT_0_02_TEXT_13_PART_5}'
                 for bet in chosen
             )
             remaining_lines = "\n".join(
-                f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+                f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText._EVENT_0_02_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText.EVENT_0_02_TEXT_13_PART_5}'
                 for bet in remaining
             )
             owner = await user_repo.get_by_row_id(int(receipt.user_row_id))
-            user_message = f"Оплата принята. Закрыто ставок: {len(chosen)}. " + (
-                "Остаток долга: 0 ₽."
+            user_message = f'{InlineText.EVENT_0_02_TEXT_09_PART_1}{len(chosen)}{InlineText.EVENT_0_02_TEXT_09_PART_2}' + (
+                InlineText.EVENT_0_02_TEXT_10
                 if remaining_kopecks == 0
-                else f"Остаток долга:\n{remaining_lines}"
+                else f'{InlineText.EVENT_0_02_TEXT_11_PART_1}{remaining_lines}'
             )
             from app.bot.telegram.runtime import telegram_bot
 
@@ -211,7 +214,7 @@ async def _event_0_02(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Готово",
+            text=InlineText.EVENT_0_02_TEXT_12,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -219,11 +222,7 @@ async def _event_0_02(
         await send_vk_message(
             user_id=admin_user_id,
             message=(
-                f"🧾 Решение по квитанции #{int(receipt_row_id)}\n"
-                f"Оплата принята.\n"
-                f"Закрытые ставки:\n{closed_lines}\n"
-                f"Закрыто ставок: {len(chosen)}\n"
-                f"Остаток долга: {_format_rub_from_kopecks(int(remaining_kopecks))} ₽"
+                f'{InlineText.EVENT_0_02_TEXT_13_PART_1}{int(receipt_row_id)}{InlineText.EVENT_0_02_TEXT_13_PART_2}{closed_lines}{InlineText.EVENT_0_02_TEXT_13_PART_3}{len(chosen)}{InlineText.EVENT_0_02_TEXT_13_PART_4}{_format_rub_from_kopecks(int(remaining_kopecks))}{InlineText.EVENT_0_02_TEXT_13_PART_5}'
             ),
         )
         return PlainTextResponse("ok")
@@ -289,17 +288,25 @@ async def _text_1_12(*, user_id, text):
 
         if telegram_bot is not None:
             for recipient_id in tg_user_ids:
-                await telegram_bot.send_message(
-                    chat_id=recipient_id,
-                    text=Text.user.START_BETTING.value,
-                    reply_markup=tg_betting_keyboard,
-                )
+                try:
+                    await telegram_bot.send_message(
+                        chat_id=recipient_id,
+                        text=Text.user.START_BETTING.value,
+                        reply_markup=tg_betting_keyboard,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to announce betting start to Telegram user %s", recipient_id
+                    )
         for recipient_id in vk_user_ids:
-            await send_vk_message(
-                user_id=recipient_id,
-                message=Text.user.START_BETTING.value,
-                keyboard=betting_keyboard,
-            )
+            try:
+                await send_vk_message(
+                    user_id=recipient_id,
+                    message=Text.user.START_BETTING.value,
+                    keyboard=betting_keyboard,
+                )
+            except Exception:
+                logger.exception("Failed to announce betting start to VK user %s", recipient_id)
 
         await send_vk_message(user_id=user_id, message=Text.admin.BETTING_START_SUCCESS.value)
         return PlainTextResponse("ok")

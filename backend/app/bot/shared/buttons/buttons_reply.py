@@ -1,87 +1,89 @@
 from enum import Enum
 
+from app.bot.shared.texts.inline.shared import buttons_reply as InlineText
+
 
 class NewUserBtns(Enum):
-  ABOUT = "ℹ️ О покер боте"
-  REGISTRATION = "💾 Зарегистрироваться"
+  ABOUT = InlineText.NEWUSERBTNS_TEXT_01
+  REGISTRATION = InlineText.NEWUSERBTNS_TEXT_02
 
 class MainBtns(Enum):
-  NEXT_POKER_DATE = "📅 Следующий покер"
-  ROOM = "♣️ Покер рум"
-  POKER = "💍 Про покер"
-  BETTING = "🍀 Про ставки"
-  INFO = "ℹ️ Информация"
-  ADMIN = "🔑 Админ панель"
+  NEXT_POKER_DATE = InlineText.MAINBTNS_TEXT_01
+  ROOM = InlineText.MAINBTNS_TEXT_02
+  POKER = InlineText.MAINBTNS_TEXT_03
+  BETTING = InlineText.MAINBTNS_TEXT_04
+  INFO = InlineText.MAINBTNS_TEXT_05
+  ADMIN = InlineText.MAINBTNS_TEXT_06
 
 
 class PollMenuBtns(Enum):
-  VOTE = "✅ Проголосовать"
-  RESULTS = "📊 Посмотреть результаты"
-  TO_MAIN = "🏠 На главную"
+  VOTE = InlineText.POLLMENUBTNS_TEXT_01
+  RESULTS = InlineText.POLLMENUBTNS_TEXT_02
+  TO_MAIN = InlineText.POLLMENUBTNS_TEXT_03
 
 
 class MainInfoBtns(Enum):
-  POKER_INFO = "ℹ️💍 Про покер"
-  BETTING_INFO = "ℹ️🍀 Про ставки"
-  TO_MAIN = "🏠 На главную"
+  POKER_INFO = InlineText.MAININFOBTNS_TEXT_01
+  BETTING_INFO = InlineText.MAININFOBTNS_TEXT_02
+  TO_MAIN = InlineText.MAININFOBTNS_TEXT_03
 
 class AdminMainBtns(Enum):
-  START_POKER = "🎲 Старт покера"
-  CREATE_POLL = "🗓 Создать опрос"
-  MAKE_ADMIN = "👨🏻‍💻 Добавить админа"
-  TO_MAIN = "🏠 На главную"
+  START_POKER = InlineText.ADMINMAINBTNS_TEXT_01
+  CREATE_POLL = InlineText.ADMINMAINBTNS_TEXT_02
+  MAKE_ADMIN = InlineText.ADMINMAINBTNS_TEXT_03
+  TO_MAIN = InlineText.ADMINMAINBTNS_TEXT_04
 
 class RoomBtns(Enum):
-  STATUS = "ℹ️ Статус"
-  BUYIN = "🏦 Закуп"
-  TO_MAIN = "🏠 На главную"
-  POKER_ADMIN = "🔑 Покер админ панель"
+  STATUS = InlineText.ROOMBTNS_TEXT_01
+  BUYIN = InlineText.ROOMBTNS_TEXT_02
+  TO_MAIN = InlineText.ROOMBTNS_TEXT_03
+  POKER_ADMIN = InlineText.ROOMBTNS_TEXT_04
 
 class AdminRoomBtns(Enum):
-  SET_CASHIER = "🏦 Назначить кассира"
-  START_BETTING = "🍀 Старт ставок"
-  FINISH_POKER = "🏁 Финиш покера"
-  CALCULATE_POKER = "🤖 Рассчитать покер" # 
-  ADD_PLAYER = "👨 Добавить игрока"
-  REMOVE_PLAYER = "❌ Удалить игрока"
-  UNBAN_PLAYER = "✅ Разрешить обратно"
-  CORRECT_POKER = "🔧 Корректировать покер"
-  TO_ROOM = "♣️ В ПокерРум"
+  SET_CASHIER = InlineText.ADMINROOMBTNS_TEXT_01
+  START_BETTING = InlineText.ADMINROOMBTNS_TEXT_02
+  FINISH_POKER = InlineText.ADMINROOMBTNS_TEXT_03
+  CALCULATE_POKER = InlineText.ADMINROOMBTNS_TEXT_04
+  ADD_PLAYER = InlineText.ADMINROOMBTNS_TEXT_05
+  REMOVE_PLAYER = InlineText.ADMINROOMBTNS_TEXT_06
+  UNBAN_PLAYER = InlineText.ADMINROOMBTNS_TEXT_07
+  CORRECT_POKER = InlineText.ADMINROOMBTNS_TEXT_08
+  TO_ROOM = InlineText.ADMINROOMBTNS_TEXT_09
 
 
 class AdminRoomCorrectBtns(Enum):
-  SET_CASHIER = "🏦 Назначить кассира"
-  ADD_PLAYER = "👨 Добавить игрока"
-  REMOVE_PLAYER = "❌ Удалить игрока"
-  BUYIN_CORRECT = "🏦 Корректировать закупы"
-  TO_ADMIN_ROOM = "↩️ Назад"
+  SET_CASHIER = InlineText.ADMINROOMCORRECTBTNS_TEXT_01
+  ADD_PLAYER = InlineText.ADMINROOMCORRECTBTNS_TEXT_02
+  REMOVE_PLAYER = InlineText.ADMINROOMCORRECTBTNS_TEXT_03
+  BUYIN_CORRECT = InlineText.ADMINROOMCORRECTBTNS_TEXT_04
+  TO_ADMIN_ROOM = InlineText.ADMINROOMCORRECTBTNS_TEXT_05
 
 class BettingBtns(Enum):
-  MAKE_BET = "🐔 Сделать ставку"
-  PAY_BET = "🤝 Оплатить ставку"
-  CURRENT_TOURS = "🎰 Текущие турниры"
-  BETTING_STAT = "🍀 Статистика ставок"
-  TO_MAIN = "🏠 На главную"
+  MAKE_BET = InlineText.BETTINGBTNS_TEXT_01
+  PAY_BET = InlineText.BETTINGBTNS_TEXT_02
+  CURRENT_TOURS = InlineText.BETTINGBTNS_TEXT_03
+  BETTING_STAT = InlineText.BETTINGBTNS_TEXT_04
+  TO_MAIN = InlineText.BETTINGBTNS_TEXT_05
 
 class BettingInfoBtns(Enum):
-  BETTING_RULES = "📖 Правила"
-  BETTING_ACH_INFO = "ℹ️🌟 Ачивки для ставок"
-  BETTING_STAT_INFO = "ℹ️📊 Показатели для ставок"
-  TO_MAIN = "🏠 На главную"
+  BETTING_RULES = InlineText.BETTINGINFOBTNS_TEXT_01
+  BETTING_ACH_INFO = InlineText.BETTINGINFOBTNS_TEXT_02
+  BETTING_STAT_INFO = InlineText.BETTINGINFOBTNS_TEXT_03
+  TO_MAIN = InlineText.BETTINGINFOBTNS_TEXT_04
 
 class BettingCurrentBtns(Enum):
-  REG_TOURNAMENT = "💰 Регулярный турнир"
-  YEAR_TOURNAMENT = "🎄💰 Годовой турнир"
-  TO_MAIN = "🏠 На главную"
+  REG_TOURNAMENT = InlineText.BETTINGCURRENTBTNS_TEXT_01
+  YEAR_TOURNAMENT = InlineText.BETTINGCURRENTBTNS_TEXT_02
+  TO_MAIN = InlineText.BETTINGCURRENTBTNS_TEXT_03
 
 class PokerBtns(Enum):
-  POKER_STAT = "🦑 Статистика покера"
-  HISTORY = "⌛ История"
-  POLL = "🗓 Опрос"
-  TO_MAIN = "🏠 На главную"
+  POKER_STAT = InlineText.POKERBTNS_TEXT_01
+  HISTORY = InlineText.POKERBTNS_TEXT_02
+  POLL = InlineText.POKERBTNS_TEXT_03
+  TO_MAIN = InlineText.POKERBTNS_TEXT_04
 
 class PokerInfoBtns(Enum):
-  POKER_ACH_INFO = "ℹ️🌟 Ачивки для покера"
-  POKER_STAT_INFO = "ℹ️📊 Показатели для покера"
-  HISTORY = "⌛ История"
-  TO_MAIN = "🏠 На главную"
+  POKER_ACH_INFO = InlineText.POKERINFOBTNS_TEXT_01
+  POKER_STAT_INFO = InlineText.POKERINFOBTNS_TEXT_02
+  HISTORY = InlineText.POKERINFOBTNS_TEXT_03
+  TO_MAIN = InlineText.POKERINFOBTNS_TEXT_04

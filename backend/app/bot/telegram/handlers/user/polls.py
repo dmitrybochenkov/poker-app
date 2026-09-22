@@ -2,6 +2,8 @@ from datetime import date
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
+
+from app.bot.shared.texts.inline.telegram.user import polls as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     new_user_keyboard,
@@ -122,13 +124,13 @@ async def show_poll_results(message: Message) -> None:
     try:
         await message.answer_photo(
             photo=BufferedInputFile(image_bytes, filename="poll_results.png"),
-            caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+            caption=f'{InlineText.SHOW_POLL_RESULTS_TEXT_01_PART_1}{month.strftime('%m.%Y')}',
             reply_markup=poll_menu_keyboard,
         )
     except Exception:
         await message.answer_document(
             document=BufferedInputFile(image_bytes, filename="poll_results.png"),
-            caption=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+            caption=f'{InlineText.SHOW_POLL_RESULTS_TEXT_02_PART_1}{month.strftime('%m.%Y')}',
             reply_markup=poll_menu_keyboard,
         )
 
@@ -200,7 +202,7 @@ async def poll_suggest_day(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(poll_suggest_month=f"{month.year}-{month.month:02d}")
     await callback.answer()
     if callback.message is not None:
-        await callback.message.answer(f"Введи число дня для {_month_name_ru_upper(month)}:")
+        await callback.message.answer(f'{InlineText.POLL_SUGGEST_DAY_TEXT_01_PART_1}{_month_name_ru_upper(month)}{InlineText.POLL_SUGGEST_DAY_TEXT_01_PART_2}')
 
 
 async def poll_suggest_day_input(message: Message, state: FSMContext) -> None:
@@ -221,7 +223,7 @@ async def poll_suggest_day_input(message: Message, state: FSMContext) -> None:
     chosen = _parse_custom_day_input(message.text or "", month=month)
     if chosen is None:
         await message.answer(
-            f"Некорректный день. Введи число от 1 до 31 для {_month_name_ru_upper(month)}."
+            f'{InlineText.POLL_SUGGEST_DAY_INPUT_TEXT_01_PART_1}{_month_name_ru_upper(month)}{InlineText.POLL_SUGGEST_DAY_INPUT_TEXT_01_PART_2}'
         )
         return
 
@@ -230,7 +232,7 @@ async def poll_suggest_day_input(message: Message, state: FSMContext) -> None:
         repo = PollVoteRepository(session)
         existing_days = await _poll_all_days_for_month(session=session, month=month)
         if chosen in existing_days:
-            await message.answer("Этот день уже есть в голосовании.")
+            await message.answer(InlineText.POLL_SUGGEST_DAY_INPUT_TEXT_02)
             return
         await repo.add_month_extra_date(poll_date=chosen)
         selected = await repo.get_user_month_votes(

@@ -1,26 +1,28 @@
 from enum import Enum
 
+from app.bot.shared.texts.inline.shared import buttons_inline as InlineText
+
 
 class RegistrationInlineBtns(Enum):
-  YES = "Да"
-  NO = "Нет"
-  NOT_IN_LIST = "Меня нет в списке"
-  OPTIONAL_BANK = "🏦 Банк"
-  OPTIONAL_PHONE = "☎️ Телефон"
-  OPTIONAL_SKIP = "🥷 Не хочу указывать"
-  PLATFORM_TG = "👦 Телеграм"
-  PLATFORM_VK = "👴 ВК"
+  YES = InlineText.REGISTRATIONINLINEBTNS_TEXT_01
+  NO = InlineText.REGISTRATIONINLINEBTNS_TEXT_02
+  NOT_IN_LIST = InlineText.REGISTRATIONINLINEBTNS_TEXT_03
+  OPTIONAL_BANK = InlineText.REGISTRATIONINLINEBTNS_TEXT_04
+  OPTIONAL_PHONE = InlineText.REGISTRATIONINLINEBTNS_TEXT_05
+  OPTIONAL_SKIP = InlineText.REGISTRATIONINLINEBTNS_TEXT_06
+  PLATFORM_TG = InlineText.REGISTRATIONINLINEBTNS_TEXT_07
+  PLATFORM_VK = InlineText.REGISTRATIONINLINEBTNS_TEXT_08
 
 
 class AdminInlineBtns(Enum):
-  APPROVE = "✅ Принять"
-  CORRECT = "✏️ Изменить имя"
-  REJECT = "❌ Отклонить"
-  LINK = "🔗 Привязать"
+  APPROVE = InlineText.ADMININLINEBTNS_TEXT_01
+  CORRECT = InlineText.ADMININLINEBTNS_TEXT_02
+  REJECT = InlineText.ADMININLINEBTNS_TEXT_03
+  LINK = InlineText.ADMININLINEBTNS_TEXT_04
 
 
 class BettingInlineBtns(Enum):
-  REGULAR_TOUR = "💰 Регулярный турнир"
-  YEAR_TOUR = "🎄 Годовой турнир"
-  CONFIRM_YES = "✅ Подтвердить"
-  CONFIRM_NO = "❌ Отмена"
+  REGULAR_TOUR = InlineText.BETTINGINLINEBTNS_TEXT_01
+  YEAR_TOUR = InlineText.BETTINGINLINEBTNS_TEXT_02
+  CONFIRM_YES = InlineText.BETTINGINLINEBTNS_TEXT_03
+  CONFIRM_NO = InlineText.BETTINGINLINEBTNS_TEXT_04

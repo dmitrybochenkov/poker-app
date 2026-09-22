@@ -1,6 +1,8 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.bot.shared.texts.inline.telegram.user import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     admin_room_keyboard,
@@ -109,7 +111,7 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
             for admin in admins:
                 await message.bot.send_message(
                     chat_id=int(admin.telegram_id),
-                    text=f"Новый вход в рум: {user.name}\nРазрешить?",
+                    text=f'{InlineText.JOIN_POKER_ROOM_TEXT_01_PART_1}{user.name}{InlineText.JOIN_POKER_ROOM_TEXT_01_PART_2}',
                     reply_markup=poker_room_approve_keyboard(player_id=int(user.row_id)),
                 )
             vk_admins = [
@@ -123,10 +125,10 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
             for admin in vk_admins:
                 await send_vk_message(
                     user_id=int(admin.vk_id),
-                    message=f"Новый вход в рум: {user.name}\nРазрешить?",
+                    message=f'{InlineText.JOIN_POKER_ROOM_TEXT_02_PART_1}{user.name}{InlineText.JOIN_POKER_ROOM_TEXT_02_PART_2}',
                     keyboard=vk_poker_room_approve_keyboard(player_id=int(user.row_id)),
                 )
-            await message.answer("Запрос на вход отправлен админам. Ожидай подтверждение.")
+            await message.answer(InlineText.JOIN_POKER_ROOM_TEXT_03)
             return
 
     await message.answer(

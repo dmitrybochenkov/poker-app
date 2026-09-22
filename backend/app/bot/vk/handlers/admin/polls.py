@@ -1,7 +1,10 @@
 from datetime import date
 
+from fastapi.responses import PlainTextResponse
+
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import polls as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import main_dynamic_keyboard as tg_main_dynamic_keyboard
 from app.bot.vk.api import (
@@ -18,7 +21,6 @@ from app.bot.vk.keyboards import (
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -55,7 +57,7 @@ async def _event_0_25(
         )
         await send_vk_message(
             user_id=admin_user_id,
-            message="Выбери месяц для опроса:",
+            message=InlineText.EVENT_0_25_TEXT_01,
             keyboard=poll_admin_other_keyboard(months=months),
         )
         return PlainTextResponse("ok")
@@ -89,7 +91,7 @@ async def _event_0_26(
             await PollConfigRepository(session).set_active_month(month=month)
             approved_users = await UserRepository(session).list_approved()
             await session.commit()
-        notify_text = "📊 Стартовал опрос на дату следующего покера.\n❗ Не забудь проголосовать."
+        notify_text = InlineText.EVENT_0_26_TEXT_01
         from app.bot.telegram.runtime import telegram_bot
 
         if telegram_bot is not None:
@@ -113,10 +115,10 @@ async def _event_0_26(
                     )
                 except Exception:
                     pass
-        await _delete_event_message_if_possible(
+        await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
-        await send_vk_message(user_id=admin_user_id, message=f"Опрос на {month:%m.%Y} создан.")
+        await send_vk_message(user_id=admin_user_id, message=f'{InlineText.EVENT_0_26_TEXT_02_PART_1}{month:%m.%Y}{InlineText.EVENT_0_26_TEXT_02_PART_2}')
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
 
@@ -136,12 +138,12 @@ async def _event_0_27(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Отменено",
+            text=InlineText.EVENT_0_27_TEXT_01,
         )
-        await _delete_event_message_if_possible(
+        await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
-        await send_vk_message(user_id=admin_user_id, message="Создание опроса отменено.")
+        await send_vk_message(user_id=admin_user_id, message=InlineText.EVENT_0_27_TEXT_02)
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
 
@@ -156,7 +158,7 @@ async def _text_1_13(*, user_id, text):
         next_month = _shift_month(current_month, 1)
         await send_vk_message(
             user_id=user_id,
-            message="Выбери месяц для опроса:",
+            message=InlineText.TEXT_1_13_TEXT_01,
             keyboard=poll_admin_choose_keyboard(current_month=current_month, next_month=next_month),
         )
         return PlainTextResponse("ok")

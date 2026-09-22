@@ -1,6 +1,9 @@
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.calculate_bet_scores import CalculateBetScoresUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import chips as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import main_keyboard as tg_main_keyboard
 from app.bot.vk.api import (
@@ -19,7 +22,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.google_backup import backup_tables_to_google
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -73,14 +75,14 @@ async def _event_0_28(
                     event_id=event_id,
                     user_id=admin_user_id,
                     peer_id=peer_id,
-                    text=f"Фишки не сходятся. Разница: {diff}",
+                    text=f'{InlineText.EVENT_0_28_TEXT_01_PART_1}{diff}',
                 )
                 return PlainTextResponse("ok")
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Запускаю расчет...",
+            text=InlineText.EVENT_0_28_TEXT_02,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -115,8 +117,7 @@ async def _text_1_11(*, user_id, text):
             diff = chips_entered - chips_in_game
             if diff != 0:
                 mismatch_text = (
-                    "Количество введенных фишек не совпадает с количеством закупленных\n"
-                    f"Разница: {diff}"
+                    f'{InlineText.TEXT_1_11_TEXT_01_PART_1}{diff}'
                 )
                 await send_vk_message(user_id=user_id, message=mismatch_text)
                 return PlainTextResponse("ok")
@@ -167,12 +168,12 @@ async def _text_1_11(*, user_id, text):
             winner_line = ", ".join(
                 f"{_winner_mark(is_streak=(name in prev_winners))} {name}" for name in winners
             )
-            loser_line = ", ".join(f"❌ {name}" for name in loosers)
+            loser_line = ", ".join(f'{InlineText._TEXT_1_11_MARKER_01_PART_1}{name}' for name in loosers)
 
             approved_users = await user_repository.list_approved()
             transfer_lines: list[str] = []
             for line in transfers:
-                recipient_name = line.split(" ➡️ ")[1].split(" ")[0:2]
+                recipient_name = line.split(InlineText._TEXT_1_11_MARKER_02)[1].split(" ")[0:2]
                 recipient_name_joined = " ".join(recipient_name).strip()
                 recipient_user = next(
                     (u for u in approved_users if u.name.startswith(recipient_name_joined)), None
@@ -211,12 +212,12 @@ async def _text_1_11(*, user_id, text):
                 f"{winner_line}",
                 f"{loser_line}",
                 "",
-                "💲 Переводы:",
+                InlineText.TEXT_1_11_TEXT_02,
             ]
-            result_lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
+            result_lines.extend(transfer_lines if transfer_lines else [InlineText.TEXT_1_11_TEXT_03])
             result_lines.append("")
-            result_lines.append("🍀 Ставки:")
-            result_lines.extend(bet_lines if bet_lines else ["Успешных ставок не было"])
+            result_lines.append(InlineText.TEXT_1_11_TEXT_04)
+            result_lines.extend(bet_lines if bet_lines else [InlineText.TEXT_1_11_TEXT_05])
             result_text = "\n".join(result_lines)
             chart_png = await _build_poker_buyins_session_chart(
                 session=session, poker_date=poker.date
@@ -247,7 +248,7 @@ async def _text_1_11(*, user_id, text):
                         await telegram_bot.send_photo(
                             chat_id=user.telegram_id,
                             photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                            caption="📈 Закупы за игру",
+                            caption=InlineText.TEXT_1_11_TEXT_06,
                             reply_markup=tg_main_keyboard,
                         )
                     sent_tg_ids.add(int(user.telegram_id))
@@ -281,7 +282,7 @@ async def _text_1_11(*, user_id, text):
                         await telegram_bot.send_photo(
                             chat_id=initiator.telegram_id,
                             photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                            caption="📈 Закупы за игру",
+                            caption=InlineText.TEXT_1_11_TEXT_07,
                             reply_markup=tg_main_keyboard,
                         )
                 elif (

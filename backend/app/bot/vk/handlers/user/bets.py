@@ -1,5 +1,9 @@
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.bet import BetUseCases
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.texts.inline.shared import receipt_ocr as ReceiptText
+from app.bot.shared.texts.inline.vk.user import bets as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     bet_receipt_manual_keyboard as tg_bet_receipt_manual_keyboard,
@@ -38,7 +42,6 @@ from app.services.receipt_ocr import (
     ocr_text_from_image_bytes,
     phone_tail_matches,
 )
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -187,7 +190,7 @@ async def _event_0_20(
         )
         await send_vk_message(
             user_id=user_id,
-            message=f"💍 Последние победители:\n{winners_text}\n\n{Text.user.BETTING_WINNER_CHOOSE.value}",
+            message=f'{InlineText.EVENT_0_20_TEXT_01_PART_1}{winners_text}{InlineText.EVENT_0_20_TEXT_01_PART_2}{Text.user.BETTING_WINNER_CHOOSE.value}',
             keyboard=betting_player_keyboard(
                 action="winner", players=players, player_marks=marks_map
             ),
@@ -250,7 +253,7 @@ async def _event_0_21(
         )
         await send_vk_message(
             user_id=user_id,
-            message=f"❌ Последние проигравшие:\n{losers_text}\n\n{Text.user.BETTING_LOSER_CHOOSE.value}",
+            message=f'{InlineText.EVENT_0_21_TEXT_01_PART_1}{losers_text}{InlineText.EVENT_0_21_TEXT_01_PART_2}{Text.user.BETTING_LOSER_CHOOSE.value}',
             keyboard=betting_player_keyboard(
                 action="loser", players=losers, player_marks=loser_marks
             ),
@@ -585,10 +588,7 @@ async def _text_1_29(*, user_id, text, raw_message):
                 )
                 if existing_by_file is not None:
                     admin_text = (
-                        "⚠️ Дубликат квитанции по ставкам\n"
-                        "reason: duplicate_file\n"
-                        f"Игрок: {user.name}\n"
-                        f"external_file_id: {external_file_id}"
+                        f'{InlineText.TEXT_1_29_TEXT_01_PART_1}{user.name}{InlineText.TEXT_1_29_TEXT_01_PART_2}{external_file_id}'
                     )
                     from app.bot.telegram.runtime import telegram_bot
 
@@ -606,7 +606,7 @@ async def _text_1_29(*, user_id, text, raw_message):
                     vk_user_states.pop(user_id, None)
                     await send_vk_message(
                         user_id=user_id,
-                        message="Эта квитанция уже была обработана.",
+                        message=InlineText.TEXT_1_29_TEXT_02,
                         keyboard=await _betting_vk_keyboard(),
                     )
                     return PlainTextResponse("ok")
@@ -618,10 +618,7 @@ async def _text_1_29(*, user_id, text, raw_message):
                 )
                 if existing_by_op is not None:
                     admin_text = (
-                        "⚠️ Дубликат операции по ставкам\n"
-                        "reason: duplicate_operation\n"
-                        f"Игрок: {user.name}\n"
-                        f"operation_id: {operation_id}"
+                        f'{InlineText.TEXT_1_29_TEXT_03_PART_1}{user.name}{InlineText.TEXT_1_29_TEXT_03_PART_2}{operation_id}'
                     )
                     from app.bot.telegram.runtime import telegram_bot
 
@@ -639,7 +636,7 @@ async def _text_1_29(*, user_id, text, raw_message):
                     vk_user_states.pop(user_id, None)
                     await send_vk_message(
                         user_id=user_id,
-                        message="Эта операция уже была обработана.",
+                        message=InlineText.TEXT_1_29_TEXT_04,
                         keyboard=await _betting_vk_keyboard(),
                     )
                     return PlainTextResponse("ok")
@@ -691,16 +688,7 @@ async def _text_1_29(*, user_id, text, raw_message):
                 missing_fields.append("operation_id")
             ocr_preview = " ".join((ocr_text or "").split())[:500]
             admin_text = (
-                "⚠️ Нужна ручная проверка оплаты ставки\n"
-                "reason: manual_mismatch\n"
-                f"Игрок: {user.name}\n"
-                f"Сумма OCR: {entered_rub if entered_rub is not None else 'не определена'} ₽\n"
-                f"Долг всего: {_format_rub_from_kopecks(total_unpaid)} ₽\n"
-                f"OCR получатель: {'совпадает' if ocr_phone_match else 'не совпадает' if ocr_phone_match is False else 'не определен'}\n"
-                f"OCR хвост получателя: {recipient_tail4 if recipient_tail4 is not None else 'не определен'}\n"
-                f"OCR номер операции: {operation_id if operation_id is not None else 'не определен'}\n"
-                f"Проблемные поля: {', '.join(missing_fields) if missing_fields else 'нет'}\n"
-                f"OCR preview: {ocr_preview if ocr_preview else 'пусто'}"
+                f'{InlineText.TEXT_1_29_TEXT_05_PART_1}{user.name}{InlineText.TEXT_1_29_TEXT_05_PART_2}{(entered_rub if entered_rub is not None else ReceiptText.AMOUNT_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_3}{_format_rub_from_kopecks(total_unpaid)}{InlineText.TEXT_1_29_TEXT_05_PART_4}{(ReceiptText.PHONE_MATCHES if ocr_phone_match else ReceiptText.PHONE_DOES_NOT_MATCH if ocr_phone_match is False else ReceiptText.VALUE_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_5}{(recipient_tail4 if recipient_tail4 is not None else ReceiptText.VALUE_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_6}{(operation_id if operation_id is not None else ReceiptText.VALUE_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_7}{(', '.join(missing_fields) if missing_fields else ReceiptText.NO_MISSING_FIELDS)}{InlineText.TEXT_1_29_TEXT_05_PART_8}{(ocr_preview if ocr_preview else ReceiptText.EMPTY_PREVIEW)}'
             )
             manual_receipt = await receipt_repository.create(
                 user_row_id=int(user.row_id),

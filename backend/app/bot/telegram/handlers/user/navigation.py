@@ -1,5 +1,7 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+
+from app.bot.shared.texts.inline.telegram.user import navigation as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     admin_main_keyboard,
@@ -41,7 +43,7 @@ async def open_poker_menu(message: Message) -> None:
 async def open_info_menu(message: Message) -> None:
     if not await _ensure_approved_telegram_user(message):
         return
-    await message.answer("Раздел информации.", reply_markup=main_info_keyboard)
+    await message.answer(InlineText.OPEN_INFO_MENU_TEXT_01, reply_markup=main_info_keyboard)
 
 
 async def open_next_poker_date_menu(message: Message) -> None:
@@ -66,7 +68,7 @@ async def open_next_poker_date_menu(message: Message) -> None:
             Text.user.POLL_NOT_ACTIVE.value, reply_markup=await _approved_tg_keyboard(user)
         )
         return
-    await message.answer("О следующем покере.", reply_markup=poll_menu_keyboard)
+    await message.answer(InlineText.OPEN_NEXT_POKER_DATE_MENU_TEXT_01, reply_markup=poll_menu_keyboard)
 
 
 async def open_admin_panel(message: Message) -> None:

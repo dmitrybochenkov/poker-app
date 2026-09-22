@@ -2,6 +2,7 @@ from html import escape
 
 from aiogram.types import InlineKeyboardMarkup
 
+from app.bot.shared.texts.inline.telegram import notifications as InlineText
 from app.bot.shared.texts.texts import Text
 from app.db.models.user import User
 
@@ -27,10 +28,7 @@ async def notify_admins_about_registration(
     else Text.admin.NEW_REGISTRATION_KIND_NEW.value
   )
   text = (
-    f"{Text.admin.NEW_REGISTRATION.value}\n\n"
-    f"{kind_line}\n"
-    f"Имя: {escape(name)}\n"
-    f"Платформа: {requester_platform.upper()}"
+    f'{Text.admin.NEW_REGISTRATION.value}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_1}{kind_line}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_2}{escape(name)}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_3}{requester_platform.upper()}'
   )
   if telegram_id is not None:
     profile_link = f'<a href="tg://user?id={telegram_id}">{Text.admin.PROFILE_LINK_LABEL.value}</a>'
@@ -38,7 +36,7 @@ async def notify_admins_about_registration(
   elif vk_id is not None:
     text = f"{text}\n{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}"
   if linked_to_user is not None:
-    text = f"{text}\nСуществующая запись: {escape(linked_to_user.name)}"
+    text = f'{text}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_02_PART_1}{escape(linked_to_user.name)}'
   for chat_id in admin_chat_ids:
     await telegram_bot.send_message(
       chat_id=chat_id,
@@ -49,8 +47,8 @@ async def notify_admins_about_registration(
 
 
 async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> None:
-  from app.bot.telegram.runtime import telegram_bot
   from app.bot.telegram.keyboards import main_keyboard
+  from app.bot.telegram.runtime import telegram_bot
 
   if telegram_bot is None:
     return

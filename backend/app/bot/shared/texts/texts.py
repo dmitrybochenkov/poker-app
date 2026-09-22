@@ -3,5 +3,5 @@ from app.bot.shared.texts.texts_user import UserText
 
 
 class Text:
-  user = UserText
-  admin = AdminText
+    user = UserText
+    admin = AdminText

@@ -1,7 +1,10 @@
 from datetime import datetime
 
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.texts.inline.vk.user import betting_stats as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -25,7 +28,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -286,7 +288,7 @@ async def _event_0_37(
                     indicators=selected, mode=mode, years=selected_years, sort_pic=selected[0].pic
                 )
                 await send_vk_message_event_answer(
-                    event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово"
+                    event_id=event_id, user_id=user_id, peer_id=peer_id, text=InlineText.EVENT_0_37_TEXT_01
                 )
                 await _delete_event_message_if_possible(
                     peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -298,11 +300,11 @@ async def _event_0_37(
                     filename="betting_stat.png",
                     message=_format_stat_caption(
                         report_type=(
-                            "Регулярный турнир"
+                            InlineText.EVENT_0_37_TEXT_02
                             if mode == "regular"
-                            else "Годовой турнир"
+                            else InlineText.EVENT_0_37_TEXT_03
                             if mode == "year"
-                            else "Статистика ставок"
+                            else InlineText.EVENT_0_37_TEXT_04
                         ),
                         indicators=selected,
                         years=selected_years,
@@ -456,7 +458,7 @@ async def _event_0_40(
                 indicators=selected, mode=mode, years=selected_years, sort_pic=sort_pic
             )
         await send_vk_message_event_answer(
-            event_id=event_id, user_id=user_id, peer_id=peer_id, text="Готово"
+            event_id=event_id, user_id=user_id, peer_id=peer_id, text=InlineText.EVENT_0_40_TEXT_01
         )
         await _delete_event_message_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -468,11 +470,11 @@ async def _event_0_40(
             filename="betting_stat.png",
             message=_format_stat_caption(
                 report_type=(
-                    "Регулярный турнир"
+                    InlineText.EVENT_0_40_TEXT_02
                     if mode == "regular"
-                    else "Годовой турнир"
+                    else InlineText.EVENT_0_40_TEXT_03
                     if mode == "year"
-                    else "Статистика ставок"
+                    else InlineText.EVENT_0_40_TEXT_04
                 ),
                 indicators=selected,
                 years=selected_years,
@@ -555,7 +557,7 @@ async def _text_1_23(*, user_id, text, raw_message):
             {int(item.date.year) for item in bets if item.date is not None}, reverse=True
         )
         if not years:
-            await send_vk_message(user_id=user_id, message="Нет данных по ставкам.")
+            await send_vk_message(user_id=user_id, message=InlineText.TEXT_1_23_TEXT_01)
             return PlainTextResponse("ok")
         await send_vk_message(
             user_id=user_id,

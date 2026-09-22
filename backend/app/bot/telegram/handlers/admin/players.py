@@ -2,9 +2,11 @@ import random
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_tg_admin
+from app.bot.shared.texts.inline.telegram.admin import players as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     poker_add_player_candidates_keyboard,
@@ -55,7 +57,7 @@ async def poker_room_manage_callback(callback: CallbackQuery) -> None:
             )
         except Exception:
             await callback.message.answer(
-                "Управление игроком:",
+                InlineText.POKER_ROOM_MANAGE_CALLBACK_TEXT_01,
                 reply_markup=poker_room_manage_player_keyboard(player_id=int(player_id_s)),
             )
     await callback.answer()
@@ -93,15 +95,15 @@ async def poker_room_approve_callback(callback: CallbackQuery) -> None:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
     await _clear_inline_keyboard(callback)
-    await callback.answer("Вход разрешен")
+    await callback.answer(InlineText.POKER_ROOM_APPROVE_CALLBACK_TEXT_01)
     if callback.message is not None:
-        await callback.message.answer(f"{candidate.name}: вход разрешен")
+        await callback.message.answer(f'{candidate.name}{InlineText.POKER_ROOM_APPROVE_CALLBACK_TEXT_02_PART_1}')
     if candidate.telegram_id is not None and callback.message is not None:
         await callback.message.bot.send_message(
-            chat_id=int(candidate.telegram_id), text="Вход в покер рум разрешен."
+            chat_id=int(candidate.telegram_id), text=InlineText.POKER_ROOM_APPROVE_CALLBACK_TEXT_03
         )
     elif candidate.vk_id is not None:
-        await send_vk_message(user_id=int(candidate.vk_id), message="Вход в покер рум разрешен.")
+        await send_vk_message(user_id=int(candidate.vk_id), message=InlineText.POKER_ROOM_APPROVE_CALLBACK_TEXT_04)
 
 
 async def poker_room_reject_callback(callback: CallbackQuery) -> None:
@@ -124,15 +126,15 @@ async def poker_room_reject_callback(callback: CallbackQuery) -> None:
             return
         await PokerRoomDeniedRepository(session).add(user_row_id=int(candidate.row_id))
     await _clear_inline_keyboard(callback)
-    await callback.answer("Вход запрещен")
+    await callback.answer(InlineText.POKER_ROOM_REJECT_CALLBACK_TEXT_01)
     if callback.message is not None:
-        await callback.message.answer(f"{candidate.name}: вход запрещен")
+        await callback.message.answer(f'{candidate.name}{InlineText.POKER_ROOM_REJECT_CALLBACK_TEXT_02_PART_1}')
     if candidate.telegram_id is not None and callback.message is not None:
         await callback.message.bot.send_message(
-            chat_id=int(candidate.telegram_id), text="Вход в покер рум запрещен."
+            chat_id=int(candidate.telegram_id), text=InlineText.POKER_ROOM_REJECT_CALLBACK_TEXT_03
         )
     elif candidate.vk_id is not None:
-        await send_vk_message(user_id=int(candidate.vk_id), message="Вход в покер рум запрещен.")
+        await send_vk_message(user_id=int(candidate.vk_id), message=InlineText.POKER_ROOM_REJECT_CALLBACK_TEXT_04)
 
 
 async def add_player_menu(message: Message) -> None:
@@ -161,7 +163,7 @@ async def add_player_menu(message: Message) -> None:
         ]
         text = Text.admin.POKER_ADD_PLAYER_CHOOSE.value
         if not candidates:
-            text = f"{Text.admin.POKER_ADD_PLAYER_EMPTY.value}\n\nМожно добавить нового игрока вручную."
+            text = f'{Text.admin.POKER_ADD_PLAYER_EMPTY.value}{InlineText.ADD_PLAYER_MENU_TEXT_01_PART_1}'
     await message.answer(
         text,
         reply_markup=poker_add_player_candidates_keyboard(users=candidates),
@@ -207,7 +209,7 @@ async def add_player_callback(callback: CallbackQuery) -> None:
         )
     if callback.message is not None:
         await callback.message.answer(
-            f"🎲 В покер добавлен новый игрок\nИмя: {user.name}: {int(self_player.buyins) if self_player is not None else 0}"
+            f'{InlineText.ADD_PLAYER_CALLBACK_TEXT_01_PART_1}{user.name}{InlineText.ADD_PLAYER_CALLBACK_TEXT_01_PART_2}{(int(self_player.buyins) if self_player is not None else 0)}'
         )
         TG_BUYIN_NOTIFY_CASHIER_ONLY.add((int(callback.from_user.id), int(user.row_id)))
         await callback.message.answer(
@@ -226,7 +228,7 @@ async def add_player_callback(callback: CallbackQuery) -> None:
                 current_super_buyin_count=current_super_buyin_count,
             ),
         )
-    await callback.answer("Игрок добавлен")
+    await callback.answer(InlineText.ADD_PLAYER_CALLBACK_TEXT_02)
 
 
 async def add_player_new_callback(callback: CallbackQuery, state: FSMContext) -> None:
@@ -241,7 +243,7 @@ async def add_player_new_callback(callback: CallbackQuery, state: FSMContext) ->
     await _clear_inline_keyboard(callback)
     await state.set_state(AdminPokerState.waiting_for_new_player_name)
     if callback.message is not None:
-        await callback.message.answer("Введи имя нового игрока:")
+        await callback.message.answer(InlineText.ADD_PLAYER_NEW_CALLBACK_TEXT_01)
     await callback.answer()
 
 
@@ -256,7 +258,7 @@ async def add_new_player_name_input(message: Message, state: FSMContext) -> None
         return
     name = " ".join((message.text or "").split())
     if not name:
-        await message.answer("Имя не может быть пустым. Введи имя нового игрока:")
+        await message.answer(InlineText.ADD_NEW_PLAYER_NAME_INPUT_TEXT_01)
         return
     async with SessionFactory() as session:
         if not await _ensure_tg_admin_message(
@@ -307,7 +309,7 @@ async def add_new_player_name_input(message: Message, state: FSMContext) -> None
         )
     await state.clear()
     await message.answer(
-        f"🎲 В покер добавлен новый игрок\nИмя: {created_user.name}: {int(self_player.buyins) if self_player is not None else 0}"
+        f'{InlineText.ADD_NEW_PLAYER_NAME_INPUT_TEXT_02_PART_1}{created_user.name}{InlineText.ADD_NEW_PLAYER_NAME_INPUT_TEXT_02_PART_2}{(int(self_player.buyins) if self_player is not None else 0)}'
     )
     TG_BUYIN_NOTIFY_CASHIER_ONLY.add((int(message.from_user.id), int(created_user.row_id)))
     await message.answer(

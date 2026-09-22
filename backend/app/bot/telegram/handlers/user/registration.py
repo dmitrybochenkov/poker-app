@@ -1,6 +1,8 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.bot.shared.texts.inline.telegram.user import registration as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     new_user_keyboard,
@@ -139,7 +141,7 @@ async def show_user_status(message: Message) -> None:
             await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
             return
 
-        lines: list[str] = ["🏦 Закупы"]
+        lines: list[str] = [InlineText.SHOW_USER_STATUS_TEXT_01]
         if user.is_admin:
             active = await PokerRepository(session).get_started()
             bet_row_ids: set[int] = set()
@@ -163,7 +165,7 @@ async def show_user_status(message: Message) -> None:
             player_ids = {int(p.player_id) for p in players}
             for p in players:
                 if int(p.player_id) in bet_row_ids:
-                    lines.append(f"{p.player_name}: 🍀 {p.buyins}")
+                    lines.append(f'{p.player_name}{InlineText.SHOW_USER_STATUS_MARKER_01_PART_2}{p.buyins}')
                 else:
                     lines.append(f"{p.player_name}: {p.buyins}")
             outsider_ids = [
@@ -174,7 +176,7 @@ async def show_user_status(message: Message) -> None:
             outsider_ids.sort()
             for better_id in outsider_ids:
                 better_name = bet_name_by_id.get(better_id, f"ID {better_id}")
-                lines.append(f"{better_name}: 🍀")
+                lines.append(f'{better_name}{InlineText.SHOW_USER_STATUS_MARKER_02_PART_2}')
         else:
             for p in players:
                 lines.append(f"{p.player_name}: {p.buyins}")

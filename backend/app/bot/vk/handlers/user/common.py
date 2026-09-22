@@ -18,6 +18,8 @@ from app.bot.shared.chips_runtime import (
     TG_ADMIN_ROOM_STATUS_MSG_IDS,
     VK_ADMIN_ROOM_STATUS_MSG_IDS,
 )
+from app.bot.shared.texts.inline.shared import formatting as FormattingText
+from app.bot.shared.texts.inline.vk.user import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     poker_room_admin_status_keyboard as tg_poker_room_admin_status_keyboard,
@@ -69,7 +71,7 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
 
-STAT_SNACKBAR = "Обновлено"
+STAT_SNACKBAR = InlineText.MODULE_TEXT_01
 PAYMENT_OWNER_ROW_ID = 1
 logger = logging.getLogger(__name__)
 
@@ -93,21 +95,21 @@ def _clear_vk_bet_draft_state(user_id: int) -> None:
 
 def _format_payment_requisites(owner: User | None) -> str:
     if owner is None:
-        return "реквизиты не указаны"
+        return InlineText.FORMAT_PAYMENT_REQUISITES_TEXT_01
     phone = (owner.tel_number or "").strip()
     bank = (owner.bank_name or "").strip()
     if phone and bank:
         return f"{phone} ({bank})"
     if phone:
         return phone
-    return "реквизиты не указаны"
+    return InlineText.FORMAT_PAYMENT_REQUISITES_TEXT_02
 
 
 def _format_unpaid_bets_lines(bets: list) -> str:
     if not bets:
         return "-"
     return "\n".join(
-        f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+        f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText._FORMAT_UNPAID_BETS_LINES_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText._FORMAT_UNPAID_BETS_LINES_MARKER_01_PART_4}'
         for bet in bets
     )
 
@@ -227,24 +229,24 @@ def _parse_iso_dates(values: str | None) -> list[date]:
 
 def _month_name_ru_upper(month: date) -> str:
     names = [
-        "ЯНВАРЬ",
-        "ФЕВРАЛЬ",
-        "МАРТ",
-        "АПРЕЛЬ",
-        "МАЙ",
-        "ИЮНЬ",
-        "ИЮЛЬ",
-        "АВГУСТ",
-        "СЕНТЯБРЬ",
-        "ОКТЯБРЬ",
-        "НОЯБРЬ",
-        "ДЕКАБРЬ",
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_01,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_02,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_03,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_04,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_05,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_06,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_07,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_08,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_09,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_10,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_11,
+        InlineText.MONTH_NAME_RU_UPPER_TEXT_12,
     ]
     return names[month.month - 1]
 
 
 def _poll_choose_text(month: date) -> str:
-    return f"Выбери даты на {_month_name_ru_upper(month)} и нажми '🚀 Готово'."
+    return f'{InlineText.POLL_CHOOSE_TEXT_TEXT_01_PART_1}{_month_name_ru_upper(month)}{InlineText.POLL_CHOOSE_TEXT_TEXT_01_PART_2}'
 
 
 def _poll_days_for_month(month: date) -> list[date]:
@@ -274,12 +276,12 @@ def _format_poll_summary(
 ) -> str:
     lines = [f"{Text.user.POLL_SAVED.value} ({month:%m.%Y})"]
     if selected_dates:
-        lines.append("Твои даты: " + ", ".join(str(item.day) for item in selected_dates))
+        lines.append(InlineText.FORMAT_POLL_SUMMARY_TEXT_01 + ", ".join(str(item.day) for item in selected_dates))
     else:
-        lines.append("Твои даты: не выбраны")
+        lines.append(InlineText.FORMAT_POLL_SUMMARY_TEXT_02)
     if month_counts:
         lines.append("")
-        lines.append("Общий итог:")
+        lines.append(InlineText.FORMAT_POLL_SUMMARY_TEXT_03)
         for day, count in month_counts:
             lines.append(f"{day.day:02d}.{day.month:02d}: {count}")
     return "\n".join(lines)
@@ -297,13 +299,13 @@ def _render_poll_results_chart(
     days = days or _poll_days_for_month(month)
     days = [item for item in days if int(day_counts.get(item, 0)) > 0]
     weekday_short = {
-        0: "пн",
-        1: "вт",
-        2: "ср",
-        3: "чт",
-        4: "пт",
-        5: "сб",
-        6: "вс",
+        0: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_01,
+        1: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_02,
+        2: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_03,
+        3: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_04,
+        4: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_05,
+        5: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_06,
+        6: InlineText.RENDER_POLL_RESULTS_CHART_TEXT_07,
     }
     x_labels = [f"{item.strftime('%d.%m')}\n{weekday_short[item.weekday()]}" for item in days]
     if month_votes and user_names:
@@ -321,12 +323,12 @@ def _render_poll_results_chart(
                 series[name] = points
         if not series:
             series = {
-                "Голоса": [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]
+                InlineText.RENDER_POLL_RESULTS_CHART_TEXT_08: [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]
             }
     else:
-        series = {"Голоса": [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]}
+        series = {InlineText.RENDER_POLL_RESULTS_CHART_TEXT_09: [(idx, int(day_counts.get(day, 0))) for idx, day in enumerate(days)]}
     return render_buyins_session_chart_png(
-        title=f"Голоса за даты покера ({month.strftime('%m.%Y')})",
+        title=f'{InlineText.RENDER_POLL_RESULTS_CHART_TEXT_10_PART_1}{month.strftime('%m.%Y')}{InlineText.RENDER_POLL_RESULTS_CHART_TEXT_10_PART_2}',
         series=series,
         x_labels=x_labels,
         chart_type="barh",
@@ -348,7 +350,7 @@ def _filter_betting_indicators_by_mode(*, indicators, mode: str):
 
 
 def _default_betting_indicator(*, indicators, mode: str):
-    preferred = "Денег выиграно" if mode == "all" else "Баллы"
+    preferred = InlineText.DEFAULT_BETTING_INDICATOR_TEXT_01 if mode == "all" else InlineText.DEFAULT_BETTING_INDICATOR_TEXT_02
     item = next((ind for ind in indicators if str(ind.description).strip() == preferred), None)
     if item is None and indicators:
         item = indicators[0]
@@ -366,14 +368,14 @@ def _format_stat_caption(
     if include_period:
         year_values = sorted({int(y) for y in (years or [])})
         period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
-        lines.append(f"Период: {period}.")
+        lines.append(f'{InlineText.FORMAT_STAT_CAPTION_TEXT_01_PART_1}{period}{InlineText.FORMAT_STAT_CAPTION_TEXT_01_PART_2}')
     pics = [
         str(getattr(item, "pic", "")).strip()
         for item in indicators
         if str(getattr(item, "pic", "")).strip()
     ]
     if pics:
-        lines.append(f"Показатели: {', '.join(pics)}.")
+        lines.append(f'{InlineText.FORMAT_STAT_CAPTION_TEXT_02_PART_1}{', '.join(pics)}{InlineText.FORMAT_STAT_CAPTION_TEXT_02_PART_2}')
     return "\n".join(lines)
 
 
@@ -382,8 +384,8 @@ def _strip_html_tags(text: str) -> str:
 
 
 def _normalize_vk_button_text(text: str) -> str:
-    normalized = " ".join((text or "").replace("\ufe0f", "").split()).strip().lower()
-    normalized = re.sub(r"^[^\w\dа-яё]+", "", normalized, flags=re.IGNORECASE)
+    normalized = " ".join((text or "").replace(InlineText._NORMALIZE_VK_BUTTON_TEXT_MARKER_02, "").split()).strip().lower()
+    normalized = re.sub(InlineText.NORMALIZE_VK_BUTTON_TEXT_TEXT_01, "", normalized, flags=re.IGNORECASE)
     return normalized
 
 
@@ -410,8 +412,8 @@ def _format_rub_from_kopecks(value_kopecks: int) -> str:
 
 
 def _chips_reaction(money_kopecks: int) -> str:
-    winner = ["🍾", "👍", "🔥", "🏆", "👏", "🤩", "🎉"]
-    loser = ["👎", "🥴", "😢", "💩", "🤮", "😭", "🤷‍♀"]
+    winner = [InlineText._CHIPS_REACTION_MARKER_03, InlineText._CHIPS_REACTION_MARKER_04, InlineText._CHIPS_REACTION_MARKER_05, InlineText._CHIPS_REACTION_MARKER_06, InlineText._CHIPS_REACTION_MARKER_07, InlineText._CHIPS_REACTION_MARKER_08, InlineText._CHIPS_REACTION_MARKER_09]
+    loser = [InlineText._CHIPS_REACTION_MARKER_10, InlineText._CHIPS_REACTION_MARKER_11, InlineText._CHIPS_REACTION_MARKER_12, InlineText._CHIPS_REACTION_MARKER_13, InlineText._CHIPS_REACTION_MARKER_14, InlineText._CHIPS_REACTION_MARKER_15, InlineText._CHIPS_REACTION_MARKER_16]
     return random.choice(winner if int(money_kopecks) >= 0 else loser)
 
 
@@ -426,7 +428,7 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
         ) // int(buyin_size_chips)
 
     def reaction(money_kopecks: int) -> str:
-        return "😎" if int(money_kopecks) >= 0 else "🤮"
+        return InlineText.REACTION_MARKER_17 if int(money_kopecks) >= 0 else InlineText._CHIPS_REACTION_MARKER_14
 
     buyin_size_chips = 200
     buyin_size_kopecks = 20000
@@ -437,14 +439,14 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
 
     remainder = int(chips_in_game) - int(chips_entered)
     lines = [
-        "🎰 Ввод фишек.",
+        InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_01,
         "",
-        f"Закуплено: {chips_in_game}. Введено: {chips_entered}. Остаток: {remainder}",
+        f'{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_02_PART_1}{chips_in_game}{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_02_PART_2}{chips_entered}{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_02_PART_3}{remainder}',
         "",
     ]
     for p in players:
         if p.chips is None:
-            lines.append(f"{p.player_name}: еще не ввел фишки")
+            lines.append(f'{p.player_name}{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_03_PART_1}')
         else:
             money_kopecks = money_from_chips(
                 chips=int(p.chips),
@@ -453,7 +455,7 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
                 buyin_size_kopecks=buyin_size_kopecks,
             )
             lines.append(
-                f"{p.player_name}: {int(p.chips)} → {_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction(int(money_kopecks))}"
+                f'{p.player_name}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_1}{int(p.chips)}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_4}{_format_rub_from_kopecks(int(money_kopecks))}{InlineText._BUILD_CHIPS_STATUS_TEXT_MARKER_19_PART_6}{reaction(int(money_kopecks))}'
             )
     return "\n".join(lines)
 
@@ -461,15 +463,13 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
 def _build_user_chips_text(
     *, chips: int | None, money_kopecks: int | None, reaction: str | None
 ) -> str:
-    chips_text = str(chips) if chips is not None else "ты еще не ввел фишки"
+    chips_text = str(chips) if chips is not None else InlineText.BUILD_USER_CHIPS_TEXT_TEXT_01
     if money_kopecks is None or reaction is None:
-        result_text = "ты еще не ввел фишки"
+        result_text = InlineText.BUILD_USER_CHIPS_TEXT_TEXT_02
     else:
-        result_text = f"{_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction}"
+        result_text = f'{_format_rub_from_kopecks(int(money_kopecks))}{InlineText._BUILD_CHIPS_STATUS_TEXT_MARKER_19_PART_6}{reaction}'
     return (
-        "Покер завершен. Посчитай свои фишки и отправь число мне.\n"
-        f"Введено: {chips_text}\n"
-        f"Итог: {result_text}"
+        f'{InlineText.BUILD_USER_CHIPS_TEXT_TEXT_03_PART_1}{chips_text}{InlineText.BUILD_USER_CHIPS_TEXT_TEXT_03_PART_2}{result_text}'
     )
 
 
@@ -492,7 +492,7 @@ def _calculate_transfers_history(money_rows: list[dict[str, int | str]]) -> list
             break
         loser["money"] = int(loser["money"]) + transfer
         winner["money"] = int(winner["money"]) - transfer
-        lines.append(f"{loser['name']} → {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
+        lines.append(f'{loser['name']}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_4}{winner['name']}{InlineText.FORMAT_ACHIEVEMENT_INFO_REPORT_TEXT_02_PART_2}{_format_rub_from_kopecks(transfer)}{InlineText._FORMAT_UNPAID_BETS_LINES_MARKER_01_PART_4}')
     return lines
 
 
@@ -502,13 +502,13 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
         (item for item in poker_rows if item.date == target_date and not bool(item.is_going)), None
     )
     if poker is None:
-        return "Игра не найдена."
+        return InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_01
     params = await PokerParamRepository(session).get_by_row_id(row_id=int(poker.params_id))
     buyin_size_chips = int(params.buyin_size_chips) if params is not None else 200
     buyin_size_kopecks = int(params.buyin_size_kopecks) if params is not None else 20000
     players = await PokerDataRepository(session).list_players(date=target_date)
     if not players:
-        return "Нет данных по игре."
+        return InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_02
 
     player_rows: list[dict[str, int | str]] = []
     money_rows: list[dict[str, int | str]] = []
@@ -536,8 +536,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
     player_rows.sort(key=lambda item: int(item["money"]), reverse=True)
     player_lines = [
         (
-            f"{str(item['name'])}: {int(item['buyins'])} закупов, {int(item['chips'])} фишек, "
-            f"{_format_rub_from_kopecks(int(item['money']))} рублей"
+            f'{str(item['name'])}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_03_PART_1}{int(item['buyins'])}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_03_PART_2}{int(item['chips'])}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_03_PART_3}{_format_rub_from_kopecks(int(item['money']))}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_03_PART_4}'
         )
         for item in player_rows
     ]
@@ -545,24 +544,24 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
 
     winners = [name.strip() for name in str(poker.winners or "").split(",") if name.strip()]
     losers = [name.strip() for name in str(poker.loosers or "").split(",") if name.strip()]
-    winner_line = ", ".join(f"💍 {name}" for name in winners) if winners else "💍 -"
-    loser_line = ", ".join(f"❌ {name}" for name in losers) if losers else "❌ -"
+    winner_line = ", ".join(f'{InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_22_PART_1}{name}' for name in winners) if winners else InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_23
+    loser_line = ", ".join(f'{InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_24_PART_1}{name}' for name in losers) if losers else InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_25
     transfer_lines = _calculate_transfers_history(money_rows)
     bets = await BetRepository(session).list_for_poker(date=target_date)
 
     lines = [
         target_date.strftime("%d.%m.%Y"),
-        "♣️ Покер",
+        InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_04,
         *player_lines,
         "",
         winner_line,
         loser_line,
         "",
-        "💲 Переводы:",
+        InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_05,
     ]
-    lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
+    lines.extend(transfer_lines if transfer_lines else [InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_06])
     if bets:
-        lines.extend(["", "🍀 Ставки"])
+        lines.extend(["", InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_07])
         for bet in sorted(
             bets,
             key=lambda item: (
@@ -571,13 +570,13 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
                 int(item.row_id),
             ),
         ):
-            size_mark = "🐔" if int(bet.amount_kopecks or 0) >= 40000 else "🐤"
+            size_mark = InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_26 if int(bet.amount_kopecks or 0) >= 40000 else InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_27
             score_value = int(bet.score or 0)
             score_text = f"+{score_value}" if score_value > 0 else str(score_value)
             winner_name = str(bet.winner_name or "-")
             loser_name = str(bet.loser_name or "-")
             lines.append(
-                f"{bet.better_name}: {size_mark}, W: {winner_name}, L: {loser_name} → {score_text} баллов"
+                f'{bet.better_name}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_1}{size_mark}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_2}{winner_name}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_3}{loser_name}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_4}{score_text}{InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_08_PART_5}'
             )
     return "\n".join(lines)
 
@@ -616,7 +615,7 @@ async def _build_poker_history_buyins_chart(*, session, target_date: date) -> by
         return None
 
     return render_buyins_session_chart_png(
-        title=f"Закупы за игру {target_date.strftime('%d.%m.%Y')}",
+        title=f'{InlineText.BUILD_POKER_HISTORY_BUYINS_CHART_TEXT_01_PART_1}{target_date.strftime('%d.%m.%Y')}',
         series=points,
         x_labels=x_labels,
         legend_value_mode="max",
@@ -652,11 +651,11 @@ async def _build_bet_last_five_hints(
         marks: list[str] = []
         for d in player_dates:
             if player_name in winners_by_date.get(d, set()):
-                marks.append(" 🟢")
+                marks.append(InlineText.PLAYER_MARKS_MARKER_28)
             elif player_name in losers_by_date.get(d, set()):
-                marks.append(" 🔴")
+                marks.append(InlineText.PLAYER_MARKS_MARKER_29)
             else:
-                marks.append(" ⚪")
+                marks.append(InlineText.PLAYER_MARKS_MARKER_30)
         return "".join(marks)
 
     marks_map = {name: player_marks(name) for name in players}
@@ -697,14 +696,11 @@ async def _notify_admins_about_room_join(
     )
     if active is None or active[0].cashier_id is None:
         status_text = (
-            "🎲 Ниже список игроков в руме.\n"
-            "❌ Лишних можно удалить.\n"
-            "❗ После входа большинства игроков выбери кассира."
+            InlineText.NOTIFY_ADMINS_ABOUT_ROOM_JOIN_TEXT_01
         )
     else:
         status_text = (
-            "🍀 Когда все игроки будут в руме - запусти ставки.\n"
-            "❗ Ставки можно делать только на активных игроков."
+            InlineText.NOTIFY_ADMINS_ABOUT_ROOM_JOIN_TEXT_02
         )
     for admin_id in admin_tg_ids:
         if joined_user.telegram_id is not None and int(admin_id) == int(joined_user.telegram_id):
@@ -811,12 +807,12 @@ async def _delete_event_message_if_possible(
 
 
 def _format_tournament_name(tournament_type: str) -> str:
-    return "Турнир"
+    return InlineText.FORMAT_TOURNAMENT_NAME_TEXT_01
 
 
 def _format_stat_info_report(indicators) -> str:
     if not indicators:
-        return "Справка пока пустая."
+        return InlineText.FORMAT_STAT_INFO_REPORT_TEXT_01
     lines: list[str] = []
     for item in indicators:
         pic = StatUseCases._prettify_header(str(item.pic or ""))
@@ -837,7 +833,7 @@ def _format_achievement_info_report(
     achievements, indicators_by_id: dict[int, tuple[str, str]]
 ) -> str:
     if not achievements:
-        return "Справка пока пустая."
+        return InlineText.FORMAT_ACHIEVEMENT_INFO_REPORT_TEXT_01
     lines: list[str] = []
     for item in achievements:
         title, detail = _format_achievement_description(item.description)
@@ -849,7 +845,7 @@ def _format_achievement_info_report(
         if indicator_info:
             indicator_pic, indicator_name = indicator_info
             indicator_pic = StatUseCases._prettify_header(str(indicator_pic or ""))
-            lines.append(f"Показатель: {indicator_pic} {indicator_name}".strip())
+            lines.append(f'{InlineText.FORMAT_ACHIEVEMENT_INFO_REPORT_TEXT_02_PART_1}{indicator_pic}{InlineText.FORMAT_ACHIEVEMENT_INFO_REPORT_TEXT_02_PART_2}{indicator_name}'.strip())
         lines.append("")
     return "\n".join(lines).strip()
 

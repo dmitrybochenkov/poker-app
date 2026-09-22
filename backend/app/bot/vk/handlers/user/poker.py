@@ -1,9 +1,12 @@
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.chips_runtime import (
     VK_ADMIN_CHIPS_STATUS_MSG_IDS,
     VK_USER_CHIPS_RESULT_MSG_IDS,
 )
+from app.bot.shared.texts.inline.vk.user import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     poker_room_approve_keyboard as tg_poker_room_approve_keyboard,
@@ -31,7 +34,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -255,7 +257,7 @@ async def _text_1_30(*, user_id, text, raw_message):
                 for admin in admins:
                     await send_vk_message(
                         user_id=int(admin.vk_id),
-                        message=f"Новый вход в рум: {user.name}\nРазрешить?",
+                        message=f'{InlineText.TEXT_1_30_TEXT_01_PART_1}{user.name}{InlineText.TEXT_1_30_TEXT_01_PART_2}',
                         keyboard=poker_room_approve_keyboard(player_id=int(user.row_id)),
                     )
                 from app.bot.telegram.runtime import telegram_bot
@@ -272,12 +274,12 @@ async def _text_1_30(*, user_id, text, raw_message):
                     for admin in tg_admins:
                         await telegram_bot.send_message(
                             chat_id=int(admin.telegram_id),
-                            text=f"Новый вход в рум: {user.name}\nРазрешить?",
+                            text=f'{InlineText.TEXT_1_30_TEXT_02_PART_1}{user.name}{InlineText.TEXT_1_30_TEXT_02_PART_2}',
                             reply_markup=tg_poker_room_approve_keyboard(player_id=int(user.row_id)),
                         )
                 await send_vk_message(
                     user_id=user_id,
-                    message="Запрос на вход отправлен админам. Ожидай подтверждение.",
+                    message=InlineText.TEXT_1_30_TEXT_03,
                 )
                 return PlainTextResponse("ok")
 
@@ -355,7 +357,7 @@ async def _text_1_34(*, user_id, text, raw_message):
                 )
                 return PlainTextResponse("ok")
 
-            lines: list[str] = ["🏦 Закупы"]
+            lines: list[str] = [InlineText.TEXT_1_34_TEXT_01]
             if user.is_admin:
                 active = await PokerRepository(session).get_started()
                 bet_row_ids: set[int] = set()
@@ -379,7 +381,7 @@ async def _text_1_34(*, user_id, text, raw_message):
                 player_ids = {int(p.player_id) for p in players}
                 for p in players:
                     if int(p.player_id) in bet_row_ids:
-                        lines.append(f"{p.player_name}: 🍀 {p.buyins}")
+                        lines.append(f'{p.player_name}{InlineText._TEXT_1_34_MARKER_01_PART_2}{p.buyins}')
                     else:
                         lines.append(f"{p.player_name}: {p.buyins}")
                 outsider_ids = [
@@ -390,7 +392,7 @@ async def _text_1_34(*, user_id, text, raw_message):
                 outsider_ids.sort()
                 for better_id in outsider_ids:
                     better_name = bet_name_by_id.get(better_id, f"ID {better_id}")
-                    lines.append(f"{better_name}: 🍀")
+                    lines.append(f'{better_name}{InlineText._TEXT_1_34_MARKER_02_PART_2}')
             else:
                 for p in players:
                     lines.append(f"{p.player_name}: {p.buyins}")

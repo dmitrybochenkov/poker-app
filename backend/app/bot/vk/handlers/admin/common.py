@@ -19,6 +19,7 @@ from app.bot.shared.chips_runtime import (
     VK_ADMIN_ROOM_STATUS_MSG_IDS,
 )
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import main_dynamic_keyboard as tg_main_dynamic_keyboard
 from app.bot.telegram.keyboards import main_keyboard as tg_main_keyboard
@@ -40,6 +41,7 @@ from app.bot.vk.keyboards import (
 from app.bot.vk.keyboards import (
     main_keyboard,
     poker_calc_keyboard,
+    poker_room_admin_status_keyboard,
 )
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -77,8 +79,8 @@ def _format_rub_from_kopecks(value_kopecks: int) -> str:
 
 
 def _get_reaction(mode: str) -> str:
-    winner = ["🍾", "👍", "🔥", "🏆", "👏", "🤩", "🎉"]
-    loser = ["👎", "🥴", "😢", "💩", "🤮", "😭", "🤷‍♀"]
+    winner = [InlineText._GET_REACTION_MARKER_01, InlineText._GET_REACTION_MARKER_02, InlineText._GET_REACTION_MARKER_03, InlineText._GET_REACTION_MARKER_04, InlineText._GET_REACTION_MARKER_05, InlineText._GET_REACTION_MARKER_06, InlineText._GET_REACTION_MARKER_07]
+    loser = [InlineText._GET_REACTION_MARKER_08, InlineText._GET_REACTION_MARKER_09, InlineText._GET_REACTION_MARKER_10, InlineText._GET_REACTION_MARKER_11, InlineText._GET_REACTION_MARKER_12, InlineText._GET_REACTION_MARKER_13, InlineText._GET_REACTION_MARKER_14]
     return random.choice(winner if mode == "winner" else loser)
 
 
@@ -95,7 +97,7 @@ def _calculate_transfers(money_rows: list[dict[str, int | str]]) -> list[str]:
             break
         loser["money"] = int(loser["money"]) + transfer
         winner["money"] = int(winner["money"]) - transfer
-        lines.append(f"{loser['name']} ➡️ {winner['name']} {_format_rub_from_kopecks(transfer)} ₽")
+        lines.append(f'{loser['name']}{InlineText._CALCULATE_TRANSFERS_MARKER_15_PART_2}{winner['name']}{InlineText._CALCULATE_TRANSFERS_MARKER_15_PART_4}{_format_rub_from_kopecks(transfer)}{InlineText._CALCULATE_TRANSFERS_MARKER_15_PART_6}')
     return lines
 
 
@@ -106,15 +108,15 @@ def _split_names_csv(value: str | None) -> set[str]:
 
 
 def _winner_mark(*, is_streak: bool) -> str:
-    return "🛡️💍" if is_streak else "💍"
+    return InlineText._WINNER_MARK_MARKER_16 if is_streak else InlineText._WINNER_MARK_MARKER_17
 
 
 def _bet_mark(*, amount_kopecks: int, guessed_winner: bool, guessed_loser: bool) -> str:
-    size_mark = "🐔" if int(amount_kopecks) >= 40000 else "🐤"
+    size_mark = InlineText._BET_MARK_MARKER_18 if int(amount_kopecks) >= 40000 else InlineText._BET_MARK_MARKER_19
     if guessed_winner and guessed_loser:
-        return f"{size_mark}🔮"
+        return f'{size_mark}{InlineText._BET_MARK_MARKER_20_PART_2}'
     if guessed_winner or guessed_loser:
-        return f"{size_mark}🍀"
+        return f'{size_mark}{InlineText._BET_MARK_MARKER_21_PART_2}'
     return size_mark
 
 
@@ -129,7 +131,7 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
         ) // int(buyin_size_chips)
 
     def reaction(money_kopecks: int) -> str:
-        return "😎" if int(money_kopecks) >= 0 else "🤮"
+        return InlineText.REACTION_MARKER_22 if int(money_kopecks) >= 0 else InlineText._GET_REACTION_MARKER_12
 
     buyin_size_chips = 200
     buyin_size_kopecks = 20000
@@ -140,14 +142,14 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
 
     remainder = int(chips_in_game) - int(chips_entered)
     lines = [
-        "🎰 Ввод фишек.",
+        InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_01,
         "",
-        f"Закуплено: {chips_in_game}. Введено: {chips_entered}. Остаток: {remainder}",
+        f'{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_02_PART_1}{chips_in_game}{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_02_PART_2}{chips_entered}{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_02_PART_3}{remainder}',
         "",
     ]
     for p in players:
         if p.chips is None:
-            lines.append(f"{p.player_name}: еще не ввел фишки")
+            lines.append(f'{p.player_name}{InlineText.BUILD_CHIPS_STATUS_TEXT_TEXT_03_PART_1}')
         else:
             money_kopecks = money_from_chips(
                 chips=int(p.chips),
@@ -156,7 +158,7 @@ def _build_chips_status_text(*, players: list, chips_in_game: int, chips_entered
                 buyin_size_kopecks=buyin_size_kopecks,
             )
             lines.append(
-                f"{p.player_name}: {int(p.chips)} → {_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction(int(money_kopecks))}"
+                f'{p.player_name}{InlineText.NOTIFY_ADMINS_ABOUT_REMOVED_PLAYER_TEXT_01_PART_2}{int(p.chips)}{InlineText._BUILD_CHIPS_STATUS_TEXT_MARKER_24_PART_4}{_format_rub_from_kopecks(int(money_kopecks))}{InlineText._BUILD_CHIPS_STATUS_TEXT_MARKER_24_PART_6}{reaction(int(money_kopecks))}'
             )
     return "\n".join(lines)
 
@@ -195,7 +197,7 @@ async def _build_poker_buyins_session_chart(*, session, poker_date: date) -> byt
         return None
 
     return render_buyins_session_chart_png(
-        title=f"Закупы за игру {poker_date.strftime('%d.%m.%Y')}",
+        title=f'{InlineText.BUILD_POKER_BUYINS_SESSION_CHART_TEXT_01_PART_1}{poker_date.strftime('%d.%m.%Y')}',
         series=points,
         x_labels=x_labels,
         legend_value_mode="max",
@@ -205,15 +207,13 @@ async def _build_poker_buyins_session_chart(*, session, poker_date: date) -> byt
 def _build_user_chips_text(
     *, chips: int | None, money_kopecks: int | None, reaction: str | None
 ) -> str:
-    chips_text = str(chips) if chips is not None else "ты еще не ввел фишки"
+    chips_text = str(chips) if chips is not None else InlineText.BUILD_USER_CHIPS_TEXT_TEXT_01
     if money_kopecks is None or reaction is None:
-        result_text = "ты еще не ввел фишки"
+        result_text = InlineText.BUILD_USER_CHIPS_TEXT_TEXT_02
     else:
-        result_text = f"{_format_rub_from_kopecks(int(money_kopecks))} ₽ {reaction}"
+        result_text = f'{_format_rub_from_kopecks(int(money_kopecks))}{InlineText._BUILD_CHIPS_STATUS_TEXT_MARKER_24_PART_6}{reaction}'
     return (
-        "Покер завершен. Посчитай свои фишки и отправь число мне.\n"
-        f"Введено: {chips_text}\n"
-        f"Итог: {result_text}"
+        f'{InlineText.BUILD_USER_CHIPS_TEXT_TEXT_03_PART_1}{chips_text}{InlineText.BUILD_USER_CHIPS_TEXT_TEXT_03_PART_2}{result_text}'
     )
 
 
@@ -235,14 +235,11 @@ async def _refresh_admin_room_status(*, session) -> None:
     )
     if poker.cashier_id is None:
         status_text = (
-            "🎲 Ниже список игроков в руме.\n"
-            "❌ Лишних можно удалить.\n"
-            "❗ После входа большинства игроков выбери кассира."
+            InlineText.REFRESH_ADMIN_ROOM_STATUS_TEXT_01
         )
     else:
         status_text = (
-            "🍀 Когда все игроки будут в руме - запусти ставки.\n"
-            "❗ Ставки можно делать только на активных игроков."
+            InlineText.REFRESH_ADMIN_ROOM_STATUS_TEXT_02
         )
     player_row_ids = {int(p.player_id) for p in players}
     admins = [
@@ -401,8 +398,7 @@ async def _notify_about_buyin(
         cashier = await user_repository.get_by_row_id(int(poker.cashier_id))
 
     text = (
-        f"🏦 Новый закуп для {updated_player.player_name}: +{buyins_count}. "
-        f"Всего: {updated_player.buyins}."
+        f'{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_1}{updated_player.player_name}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_2}{buyins_count}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_3}{updated_player.buyins}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_4}'
     )
     if cashier is not None:
         if (
@@ -435,7 +431,7 @@ async def _notify_about_buyin(
 
     player_user = await user_repository.get_by_row_id(int(updated_player.player_id))
     if player_user is not None and player_user.notification_platform is not None:
-        player_text = f"🏦 Новый закуп: +{buyins_count}. Всего: {updated_player.buyins}."
+        player_text = f'{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_02_PART_1}{buyins_count}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_02_PART_2}{updated_player.buyins}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_02_PART_3}'
         if (
             player_user.notification_platform == "tg"
             and player_user.telegram_id is not None
@@ -459,7 +455,7 @@ async def _notify_admins_about_removed_player(
         for u in await user_repository.list_approved()
         if u.is_admin and int(u.row_id) in player_row_ids
     ]
-    text = f"❌ Игрок удален из покера\n{player_name}: {int(buyins)}"
+    text = f'{InlineText.NOTIFY_ADMINS_ABOUT_REMOVED_PLAYER_TEXT_01_PART_1}{player_name}{InlineText.NOTIFY_ADMINS_ABOUT_REMOVED_PLAYER_TEXT_01_PART_2}{int(buyins)}'
     for user in admins:
         if (
             user.notification_platform == "tg"
@@ -543,11 +539,7 @@ async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
         await notify_user_about_approval(telegram_id=approved_user.telegram_id, approved=True)
 
     return (
-        f"{Text.admin.APPROVE_ACTION.value}\n\n"
-        f"Row ID: {approved_user.row_id}\n"
-        f"Имя: {approved_user.name}\n"
-        f"Telegram ID: {approved_user.telegram_id}\n"
-        f"VK ID: {approved_user.vk_id}"
+        f'{Text.admin.APPROVE_ACTION.value}{InlineText.PROCESS_VK_APPROVE_TEXT_01_PART_1}{approved_user.row_id}{InlineText.PROCESS_VK_APPROVE_TEXT_01_PART_2}{approved_user.name}{InlineText.PROCESS_VK_APPROVE_TEXT_01_PART_3}{approved_user.telegram_id}{InlineText.PROCESS_VK_APPROVE_TEXT_01_PART_4}{approved_user.vk_id}'
     )
 
 
@@ -617,11 +609,7 @@ async def _process_vk_correct(
         await notify_user_about_approval(telegram_id=corrected_user.telegram_id, approved=True)
 
     return (
-        f"{Text.admin.CORRECT_ACTION.value}\n\n"
-        f"Row ID: {corrected_user.row_id}\n"
-        f"Имя: {corrected_user.name}\n"
-        f"Telegram ID: {corrected_user.telegram_id}\n"
-        f"VK ID: {corrected_user.vk_id}"
+        f'{Text.admin.CORRECT_ACTION.value}{InlineText.PROCESS_VK_CORRECT_TEXT_01_PART_1}{corrected_user.row_id}{InlineText.PROCESS_VK_CORRECT_TEXT_01_PART_2}{corrected_user.name}{InlineText.PROCESS_VK_CORRECT_TEXT_01_PART_3}{corrected_user.telegram_id}{InlineText.PROCESS_VK_CORRECT_TEXT_01_PART_4}{corrected_user.vk_id}'
     )
 
 
@@ -657,9 +645,5 @@ async def _process_vk_link(
         await notify_user_about_approval(telegram_id=linked_user.telegram_id, approved=True)
 
     return (
-        f"{Text.admin.LINK_SUCCESS.value}\n\n"
-        f"Row ID: {linked_user.row_id}\n"
-        f"Имя: {linked_user.name}\n"
-        f"Telegram ID: {linked_user.telegram_id}\n"
-        f"VK ID: {linked_user.vk_id}"
+        f'{Text.admin.LINK_SUCCESS.value}{InlineText.PROCESS_VK_LINK_TEXT_01_PART_1}{linked_user.row_id}{InlineText.PROCESS_VK_LINK_TEXT_01_PART_2}{linked_user.name}{InlineText.PROCESS_VK_LINK_TEXT_01_PART_3}{linked_user.telegram_id}{InlineText.PROCESS_VK_LINK_TEXT_01_PART_4}{linked_user.vk_id}'
     )

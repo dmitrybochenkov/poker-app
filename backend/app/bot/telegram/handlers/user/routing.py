@@ -1,6 +1,8 @@
 from aiogram import F
 from aiogram.filters import CommandStart
+
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.texts.inline.telegram.user import routing as InlineText
 from app.bot.telegram.states import PollState, RegistrationState
 
 from . import bets, betting_stats, navigation, poker, poker_stats, polls, registration
@@ -33,10 +35,10 @@ router.message(F.text == Buttons.betting.TO_MAIN.value)(navigation.back_to_main_
 router.message(F.text == Buttons.poker.TO_MAIN.value)(navigation.back_to_main_from_poker)
 router.message(F.text == Buttons.room.TO_MAIN.value)(navigation.back_to_main_from_room)
 router.message(F.text == Buttons.poll_menu.TO_MAIN.value)(navigation.back_to_main_from_poll_menu)
-router.message(F.text.in_({Buttons.main_info.POKER_INFO.value, "ℹ️ Информация про покер"}))(
+router.message(F.text.in_({Buttons.main_info.POKER_INFO.value, InlineText.MODULE_TEXT_01}))(
     navigation.show_poker_info
 )
-router.message(F.text.in_({Buttons.main_info.BETTING_INFO.value, "ℹ️ Информация про ставки"}))(
+router.message(F.text.in_({Buttons.main_info.BETTING_INFO.value, InlineText.MODULE_TEXT_02}))(
     navigation.show_betting_info
 )
 router.message(F.text == Buttons.main_info.TO_MAIN.value)(navigation.back_to_main_from_info)

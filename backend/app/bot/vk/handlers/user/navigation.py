@@ -1,4 +1,7 @@
+from fastapi.responses import PlainTextResponse
+
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.texts.inline.vk.user import navigation as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -18,7 +21,6 @@ from app.bot.vk.state import (
 )
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -136,7 +138,7 @@ async def _text_1_04(*, user_id, text, raw_message):
 async def _text_1_05(*, user_id, text, raw_message):
     if text == Buttons.main.INFO.value:
         await send_vk_message(
-            user_id=user_id, message="Раздел информации.", keyboard=main_info_keyboard
+            user_id=user_id, message=InlineText.TEXT_1_05_TEXT_01, keyboard=main_info_keyboard
         )
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
@@ -167,7 +169,7 @@ async def _text_1_06(*, user_id, text, raw_message):
             )
             return PlainTextResponse("ok")
         await send_vk_message(
-            user_id=user_id, message="О следующем покере.", keyboard=poll_menu_keyboard
+            user_id=user_id, message=InlineText.TEXT_1_06_TEXT_01, keyboard=poll_menu_keyboard
         )
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
@@ -272,7 +274,7 @@ async def _text_1_11(*, user_id, text, raw_message):
 
 
 async def _text_1_12(*, user_id, text, raw_message):
-    if text in {Buttons.main_info.POKER_INFO.value, "ℹ️ Информация про покер"}:
+    if text in {Buttons.main_info.POKER_INFO.value, InlineText.TEXT_1_12_TEXT_01}:
         await send_vk_message(
             user_id=user_id, message=Text.user.POKER_INFO.value, keyboard=poker_info_keyboard
         )
@@ -281,7 +283,7 @@ async def _text_1_12(*, user_id, text, raw_message):
 
 
 async def _text_1_13(*, user_id, text, raw_message):
-    if text in {Buttons.main_info.BETTING_INFO.value, "ℹ️ Информация про ставки"}:
+    if text in {Buttons.main_info.BETTING_INFO.value, InlineText.TEXT_1_13_TEXT_01}:
         await send_vk_message(
             user_id=user_id, message=Text.user.BETTING_MENU.value, keyboard=betting_info_keyboard
         )

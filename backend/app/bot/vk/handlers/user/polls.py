@@ -1,6 +1,9 @@
 from datetime import date
 
+from fastapi.responses import PlainTextResponse
+
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.texts.inline.vk.user import polls as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -21,7 +24,6 @@ from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -157,7 +159,7 @@ async def _event_0_04(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
         await send_vk_message(
-            user_id=user_id, message=f"Введи число дня для {_month_name_ru_upper(month)}:"
+            user_id=user_id, message=f'{InlineText.EVENT_0_04_TEXT_01_PART_1}{_month_name_ru_upper(month)}{InlineText.EVENT_0_04_TEXT_01_PART_2}'
         )
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
@@ -335,11 +337,11 @@ async def _text_1_33(*, user_id, text, raw_message):
             )
         except Exception:
             await send_vk_message(
-                user_id=user_id, message="Не удалось отправить график как фото. Попробуй еще раз."
+                user_id=user_id, message=InlineText.TEXT_1_33_TEXT_01
             )
         await send_vk_message(
             user_id=user_id,
-            message=f"📊 Результаты опроса за {month.strftime('%m.%Y')}",
+            message=f'{InlineText.TEXT_1_33_TEXT_02_PART_1}{month.strftime('%m.%Y')}',
             keyboard=poll_menu_keyboard,
         )
         return PlainTextResponse("ok")
@@ -364,7 +366,7 @@ async def _text_1_37(*, user_id, text, raw_message):
         if chosen is None:
             await send_vk_message(
                 user_id=user_id,
-                message=f"Некорректный день. Введи число для {_month_name_ru_upper(month)}.",
+                message=f'{InlineText.TEXT_1_37_TEXT_01_PART_1}{_month_name_ru_upper(month)}{InlineText.TEXT_1_37_TEXT_01_PART_2}',
             )
             return PlainTextResponse("ok")
         month_start, month_end = _month_bounds(month)
@@ -372,7 +374,7 @@ async def _text_1_37(*, user_id, text, raw_message):
             repo = PollVoteRepository(session)
             existing_days = await _poll_all_days_for_month(session=session, month=month)
             if chosen in existing_days:
-                await send_vk_message(user_id=user_id, message="Этот день уже есть в голосовании.")
+                await send_vk_message(user_id=user_id, message=InlineText.TEXT_1_37_TEXT_02)
                 return PlainTextResponse("ok")
             await repo.add_month_extra_date(poll_date=chosen)
             selected = await repo.get_user_month_votes(

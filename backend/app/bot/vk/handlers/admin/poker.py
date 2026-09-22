@@ -1,7 +1,10 @@
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import main_dynamic_keyboard as tg_main_dynamic_keyboard
 from app.bot.vk.api import (
@@ -23,7 +26,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -129,7 +131,7 @@ async def _event_0_29(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Запускаю...",
+            text=InlineText.EVENT_0_29_TEXT_01,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
@@ -166,10 +168,7 @@ async def _text_1_09(*, user_id, text):
                     Text.admin.POKER_PARAMS_CHOOSE.value,
                     *[
                         (
-                            f"🎲 ID: {p.row_id}\n"
-                            f"Закуп: ⭕ {p.buyin_size_chips} / 💲 {int(p.buyin_size_kopecks) // 100}\n"
-                            f"ББ: {p.bb_size_chips} | 🔝 Макс закуп: {p.max_buyins}\n"
-                            f"Большой / Супер закуп: 💸 {p.big_buyin} / 🤑 {p.super_buyin}"
+                            f'{InlineText.TEXT_1_09_TEXT_01_PART_1}{p.row_id}{InlineText.TEXT_1_09_TEXT_01_PART_2}{p.buyin_size_chips}{InlineText.TEXT_1_09_TEXT_01_PART_3}{int(p.buyin_size_kopecks) // 100}{InlineText.TEXT_1_09_TEXT_01_PART_4}{p.bb_size_chips}{InlineText.TEXT_1_09_TEXT_01_PART_5}{p.max_buyins}{InlineText.TEXT_1_09_TEXT_01_PART_6}{p.big_buyin}{InlineText.TEXT_1_09_TEXT_01_PART_7}{p.super_buyin}'
                         )
                         for p in params
                     ],
@@ -216,7 +215,7 @@ async def _text_1_14(*, user_id, text):
                 await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
                 return PlainTextResponse("ok")
         await send_vk_message(
-            user_id=user_id, message="Корректировки покера:", keyboard=admin_room_correct_keyboard
+            user_id=user_id, message=InlineText.TEXT_1_14_TEXT_01, keyboard=admin_room_correct_keyboard
         )
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
@@ -244,7 +243,7 @@ async def _text_1_21(*, user_id, text):
                 return PlainTextResponse("ok")
         await send_vk_message(
             user_id=user_id,
-            message="Покер рум.",
+            message=InlineText.TEXT_1_21_TEXT_01,
             keyboard=room_admin_keyboard,
         )
         return PlainTextResponse("ok")

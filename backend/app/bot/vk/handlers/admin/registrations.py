@@ -1,8 +1,11 @@
+from fastapi.responses import PlainTextResponse
+
 from app.application.exceptions import (
     UserNotFoundError,
 )
 from app.application.use_cases.user.make_admin import MakeAdminUseCase
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import registrations as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -19,7 +22,6 @@ from app.bot.vk.state import (
 )
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -256,7 +258,7 @@ async def _event_0_07(
                 use_case = MakeAdminUseCase(repository)
                 try:
                     user = await use_case.execute(row_id=row_id)
-                    result_text = f"{Text.admin.MAKE_ADMIN_SUCCESS.value}\n\nИмя: {user.name}"
+                    result_text = f'{Text.admin.MAKE_ADMIN_SUCCESS.value}{InlineText.EVENT_0_07_TEXT_01_PART_1}{user.name}'
                 except UserNotFoundError:
                     result_text = Text.admin.USER_NOT_FOUND.value
         await send_vk_message_event_answer(

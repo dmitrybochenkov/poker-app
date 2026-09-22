@@ -2,7 +2,9 @@ from datetime import datetime
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
+
 from app.application.use_cases.poker.stat import StatUseCases
+from app.bot.shared.texts.inline.telegram.user import betting_stats as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     betting_current_keyboard,
@@ -141,7 +143,7 @@ async def betting_stat_year_done(callback: CallbackQuery, state: FSMContext) -> 
             {int(item.date.year) for item in bets if item.date is not None}, reverse=True
         )
         if not years:
-            await callback.message.edit_text("Нет данных по ставкам.")
+            await callback.message.edit_text(InlineText.BETTING_STAT_YEAR_DONE_TEXT_01)
             await callback.answer()
             return
         current_year = datetime.now().year
@@ -278,11 +280,11 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
                 photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
                 caption=_format_stat_caption(
                     report_type=(
-                        "Регулярный турнир"
+                        InlineText.BETTING_STAT_DONE_TEXT_01
                         if mode == "regular"
-                        else "Годовой турнир"
+                        else InlineText.BETTING_STAT_DONE_TEXT_02
                         if mode == "year"
-                        else "Статистика ставок"
+                        else InlineText.BETTING_STAT_DONE_TEXT_03
                     ),
                     indicators=selected,
                     years=selected_years,
@@ -436,11 +438,11 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
         photo=BufferedInputFile(image_bytes, filename="betting_stat.png"),
         caption=_format_stat_caption(
             report_type=(
-                "Регулярный турнир"
+                InlineText.BETTING_STAT_SORT_DONE_TEXT_01
                 if mode == "regular"
-                else "Годовой турнир"
+                else InlineText.BETTING_STAT_SORT_DONE_TEXT_02
                 if mode == "year"
-                else "Статистика ставок"
+                else InlineText.BETTING_STAT_SORT_DONE_TEXT_03
             ),
             indicators=selected,
             years=selected_years,

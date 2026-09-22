@@ -1,11 +1,14 @@
 from types import SimpleNamespace
 
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.chips_runtime import (
     VK_USER_CHIPS_RESULT_MSG_IDS,
 )
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import cashier as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     delete_vk_message_by_id,
@@ -26,7 +29,6 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -69,7 +71,7 @@ async def _event_0_17(
                     cashier_name = (
                         cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
                     )
-                    result_text = f"{cashier_name} выбран кассиром."
+                    result_text = f'{cashier_name}{InlineText.EVENT_0_17_TEXT_01_PART_1}'
                     await _refresh_admin_room_status(session=session)
         await send_vk_message_event_answer(
             event_id=event_id,
@@ -109,7 +111,7 @@ async def _event_0_18(
                 else:
                     poker, _ = active
                     if poker.cashier_id is not None:
-                        result_text = "Кассир уже назначен. Для переназначения используй 'Корректировать покер'."
+                        result_text = InlineText.EVENT_0_18_TEXT_01
                     else:
                         user_repository = UserRepository(session)
                         use_case = ManagePokerPlayersUseCase(
@@ -129,7 +131,7 @@ async def _event_0_18(
                                 if cashier_user is not None
                                 else f"ID {user_row_id}"
                             )
-                            result_text = f"{cashier_name} выбран кассиром."
+                            result_text = f'{cashier_name}{InlineText.EVENT_0_18_TEXT_02_PART_1}'
                             await _refresh_admin_room_status(session=session)
         await send_vk_message_event_answer(
             event_id=event_id,
@@ -227,7 +229,7 @@ async def _event_0_24(
                                     VK_USER_CHIPS_RESULT_MSG_IDS[int(target_user.vk_id)] = int(
                                         sent_user_mid
                                     )
-                            result_text = "Сохранено"
+                            result_text = InlineText.EVENT_0_24_TEXT_01
                     else:
                         vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CASHOUT_AMOUNT
                         vk_user_contexts[admin_user_id] = {"cashout_player_id": str(player_id)}

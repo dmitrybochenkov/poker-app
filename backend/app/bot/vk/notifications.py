@@ -1,3 +1,4 @@
+from app.bot.shared.texts.inline.vk import notifications as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import send_vk_message
 from app.db.models.user import User
@@ -22,17 +23,14 @@ async def notify_admins_about_registration(
     else Text.admin.NEW_REGISTRATION_KIND_NEW.value
   )
   text = (
-    f"{Text.admin.NEW_REGISTRATION.value}\n\n"
-    f"{kind_line}\n"
-    f"Имя: {name}\n"
-    f"Платформа: {requester_platform.upper()}\n"
+    f'{Text.admin.NEW_REGISTRATION.value}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_1}{kind_line}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_2}{name}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_3}{requester_platform.upper()}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_01_PART_4}'
   )
   if vk_id is not None:
     text = f"{text}{Text.admin.PROFILE_LINK_LABEL.value}: https://vk.com/id{vk_id}\n"
   elif telegram_id is not None:
     text = f"{text}{Text.admin.PROFILE_LINK_LABEL.value}: tg://user?id={telegram_id}\n"
   if linked_to_user is not None:
-    text = f"{text}Существующая запись: {linked_to_user.name}\n"
+    text = f'{text}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_02_PART_1}{linked_to_user.name}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_02_PART_2}'
   for admin_id in admin_ids:
     await send_vk_message(
       user_id=admin_id,

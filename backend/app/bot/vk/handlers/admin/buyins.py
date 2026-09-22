@@ -1,6 +1,9 @@
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import buyins as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -21,7 +24,6 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -176,14 +178,14 @@ async def _event_0_20(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Введи новое значение",
+            text=InlineText.EVENT_0_20_TEXT_01,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
         await send_vk_message(
             user_id=admin_user_id,
-            message=f"Введи новое количество закупов для {player.player_name}.\nСейчас: {int(player.buyins)}",
+            message=f'{InlineText.EVENT_0_20_TEXT_02_PART_1}{player.player_name}{InlineText.EVENT_0_20_TEXT_02_PART_2}{int(player.buyins)}',
         )
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
@@ -477,7 +479,7 @@ async def _text_1_02(*, user_id, text):
         ctx = vk_user_contexts.get(user_id, {})
         player_id = int(ctx.get("buyin_correct_player_id", "0") or "0")
         old_buyins = int(ctx.get("buyin_correct_old_buyins", "0") or "0")
-        player_name = str(ctx.get("buyin_correct_player_name", "игрок"))
+        player_name = str(ctx.get("buyin_correct_player_name", InlineText.TEXT_1_02_TEXT_01))
         if player_id <= 0:
             vk_user_states.pop(user_id, None)
             vk_user_contexts.pop(user_id, None)
@@ -485,7 +487,7 @@ async def _text_1_02(*, user_id, text):
             return PlainTextResponse("ok")
         await send_vk_message(
             user_id=user_id,
-            message=f"Подтверди изменение для {player_name}: {old_buyins} → {new_buyins}",
+            message=f'{InlineText.TEXT_1_02_TEXT_02_PART_1}{player_name}{InlineText.TEXT_1_02_TEXT_02_PART_2}{old_buyins}{InlineText.TEXT_1_02_TEXT_02_PART_3}{new_buyins}',
             keyboard=poker_buyin_correct_confirm_keyboard(
                 player_id=player_id, new_buyins=new_buyins
             ),

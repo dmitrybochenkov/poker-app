@@ -1,8 +1,10 @@
 from aiogram.types import CallbackQuery, Message
+
 from app.application.exceptions import (
     UserNotFoundError,
 )
 from app.application.use_cases.user.make_admin import MakeAdminUseCase
+from app.bot.shared.texts.inline.telegram.admin import management as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     make_admin_candidates_keyboard,
@@ -68,7 +70,7 @@ async def make_admin_select_callback(callback: CallbackQuery) -> None:
     if callback.message is not None:
         await _safe_callback_edit_text(
             callback,
-            f"{Text.admin.MAKE_ADMIN_SUCCESS.value}\n\nИмя: {user.name}",
+            f'{Text.admin.MAKE_ADMIN_SUCCESS.value}{InlineText.MAKE_ADMIN_SELECT_CALLBACK_TEXT_01_PART_1}{user.name}',
         )
     await callback.answer(Text.admin.MAKE_ADMIN_SUCCESS.value)
 
@@ -83,4 +85,4 @@ async def back_to_room_admin_panel(message: Message) -> None:
             session=session, user_id=message.from_user.id, message=message
         ):
             return
-    await message.answer("Покер рум.", reply_markup=room_admin_keyboard)
+    await message.answer(InlineText.BACK_TO_ROOM_ADMIN_PANEL_TEXT_01, reply_markup=room_admin_keyboard)

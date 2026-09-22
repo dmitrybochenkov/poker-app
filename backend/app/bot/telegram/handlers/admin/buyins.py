@@ -1,8 +1,10 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_tg_admin
+from app.bot.shared.texts.inline.telegram.admin import buyins as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     poker_buyin_candidates_keyboard,
@@ -179,7 +181,7 @@ async def buyin_correct_select_callback(callback: CallbackQuery, state: FSMConte
         )
     if callback.message is not None:
         await callback.message.answer(
-            f"Введи новое количество закупов для {player.player_name}.\nСейчас: {int(player.buyins)}"
+            f'{InlineText.BUYIN_CORRECT_SELECT_CALLBACK_TEXT_01_PART_1}{player.player_name}{InlineText.BUYIN_CORRECT_SELECT_CALLBACK_TEXT_01_PART_2}{int(player.buyins)}'
         )
     await callback.answer()
 
@@ -194,13 +196,13 @@ async def buyin_correct_amount_input(message: Message, state: FSMContext) -> Non
     data = await state.get_data()
     player_id = int(data.get("buyin_correct_player_id", 0))
     old_buyins = int(data.get("buyin_correct_old_buyins", 0))
-    player_name = str(data.get("buyin_correct_player_name", "игрок"))
+    player_name = str(data.get("buyin_correct_player_name", InlineText.BUYIN_CORRECT_AMOUNT_INPUT_TEXT_01))
     if player_id <= 0:
         await state.clear()
         await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
         return
     await message.answer(
-        f"Подтверди изменение для {player_name}: {old_buyins} → {new_buyins}",
+        f'{InlineText.BUYIN_CORRECT_AMOUNT_INPUT_TEXT_02_PART_1}{player_name}{InlineText.BUYIN_CORRECT_AMOUNT_INPUT_TEXT_02_PART_2}{old_buyins}{InlineText.BUYIN_CORRECT_AMOUNT_INPUT_TEXT_02_PART_3}{new_buyins}',
         reply_markup=poker_buyin_correct_confirm_keyboard(
             player_id=player_id, new_buyins=new_buyins
         ),

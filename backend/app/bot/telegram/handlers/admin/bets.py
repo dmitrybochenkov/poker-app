@@ -1,4 +1,7 @@
 from aiogram.types import CallbackQuery, Message
+
+from app.bot.shared.texts.inline.shared import formatting as FormattingText
+from app.bot.shared.texts.inline.telegram.admin import bets as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     bet_receipt_manual_keyboard,
@@ -61,13 +64,13 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
         return
     parts = callback.data.split(":")
     if len(parts) < 3:
-        await callback.answer("Некорректные данные.", show_alert=True)
+        await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_01, show_alert=True)
         return
     action = parts[1]
     try:
         receipt_row_id = int(parts[2])
     except Exception:
-        await callback.answer("Некорректные данные.", show_alert=True)
+        await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_02, show_alert=True)
         return
     admin_id = int(callback.from_user.id)
     state_key = (admin_id, int(receipt_row_id))
@@ -82,14 +85,14 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
         user_repo = UserRepository(session)
         receipt = await receipt_repo.get_by_row_id(row_id=int(receipt_row_id))
         if receipt is None:
-            await callback.answer("Квитанция не найдена.", show_alert=True)
+            await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_03, show_alert=True)
             return
         unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
         selected = TG_MANUAL_RECEIPT_SELECTIONS.setdefault(state_key, set())
 
         if action == "toggle":
             if len(parts) < 5:
-                await callback.answer("Некорректные данные.", show_alert=True)
+                await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_04, show_alert=True)
                 return
             bet_row_id = int(parts[3])
             page = int(parts[4])
@@ -106,12 +109,12 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
                     page=page,
                 ),
             )
-            await callback.answer("Обновлено")
+            await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_05)
             return
 
         if action == "page":
             if len(parts) < 4:
-                await callback.answer("Некорректные данные.", show_alert=True)
+                await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_06, show_alert=True)
                 return
             page = int(parts[3])
             await _safe_callback_edit_reply_markup(
@@ -123,26 +126,26 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
                     page=page,
                 ),
             )
-            await callback.answer("Страница")
+            await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_07)
             return
 
         if action == "cancel":
             TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
             await _safe_callback_edit_text(
                 callback,
-                f"🧾 Квитанция #{receipt_row_id}\nОтменено. Без изменений.",
+                f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_08_PART_1}{receipt_row_id}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_08_PART_2}',
                 reply_markup=None,
             )
-            await callback.answer("Отменено")
+            await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_09)
             return
 
         if action != "done":
-            await callback.answer("Некорректное действие.", show_alert=True)
+            await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_10, show_alert=True)
             return
 
         chosen = [bet for bet in unpaid if int(bet.row_id) in selected]
         if not chosen:
-            await callback.answer("Выбери хотя бы одну ставку.", show_alert=True)
+            await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_11, show_alert=True)
             return
         await bet_repo.mark_paid(bets=chosen)
         receipt.status = "accepted_manual"
@@ -155,18 +158,18 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
         remaining = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
         remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
         closed_lines = "\n".join(
-            f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+            f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_5}'
             for bet in chosen
         )
         remaining_lines = "\n".join(
-            f"{(bet.date.strftime('%d.%m.%Y') if bet.date else '—')} - {int(bet.amount_kopecks) // 100} ₽"
+            f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_5}'
             for bet in remaining
         )
         owner = await user_repo.get_by_row_id(int(receipt.user_row_id))
-        user_message = f"Оплата принята. Закрыто ставок: {len(chosen)}. " + (
-            "Остаток долга: 0 ₽."
+        user_message = f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_12_PART_1}{len(chosen)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_12_PART_2}' + (
+            InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_13
             if remaining_kopecks == 0
-            else f"Остаток долга:\n{remaining_lines}"
+            else f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_14_PART_1}{remaining_lines}'
         )
         from app.bot.telegram.runtime import telegram_bot
 
@@ -187,12 +190,8 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
         await _safe_callback_edit_text(
             callback,
             (
-                f"🧾 Решение по квитанции #{receipt_row_id}\n"
-                f"Оплата принята.\n"
-                f"Закрытые ставки:\n{closed_lines}\n"
-                f"Закрыто ставок: {len(chosen)}\n"
-                f"Остаток долга: {_format_rub_from_kopecks(int(remaining_kopecks))} ₽"
+                f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_1}{receipt_row_id}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_2}{closed_lines}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_3}{len(chosen)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_4}{_format_rub_from_kopecks(int(remaining_kopecks))}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_5}'
             ),
             reply_markup=None,
         )
-    await callback.answer("Готово")
+    await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_16)

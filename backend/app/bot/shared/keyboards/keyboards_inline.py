@@ -6,7 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.keyboards.keyboards_reply import ReplyKbs
-from app.bot.shared.texts.texts import Text
+from app.bot.shared.texts.inline.shared import keyboards_inline as InlineText
 from app.db.models.user import User
 
 
@@ -19,13 +19,13 @@ class InlineKbs:
   @staticmethod
   def _weekday_ru(value: date) -> str:
     names = [
-      "понедельник",
-      "вторник",
-      "среда",
-      "четверг",
-      "пятница",
-      "суббота",
-      "воскресенье",
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_01,
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_02,
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_03,
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_04,
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_05,
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_06,
+      InlineText.INLINEKBS__WEEKDAY_RU_TEXT_07,
     ]
     return names[value.weekday()]
 
@@ -55,18 +55,18 @@ class InlineKbs:
   @staticmethod
   def _month_label_ru(month: date) -> str:
     names = [
-      "Январь",
-      "Февраль",
-      "Март",
-      "Апрель",
-      "Май",
-      "Июнь",
-      "Июль",
-      "Август",
-      "Сентябрь",
-      "Октябрь",
-      "Ноябрь",
-      "Декабрь",
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_01,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_02,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_03,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_04,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_05,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_06,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_07,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_08,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_09,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_10,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_11,
+      InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_12,
     ]
     return names[month.month - 1]
 
@@ -169,11 +169,11 @@ class InlineKbs:
   def betting_size_tg(*, small_size_kopecks: int, big_size_kopecks: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
-      text=f"🐤 {small_size_kopecks // 100} ₽",
+      text=f'{InlineText.BUTTON_LABEL_LINE_173}{small_size_kopecks // 100}{InlineText.BUTTON_LABEL_LINE_173_2}',
       callback_data=f"bet_size:{small_size_kopecks}",
     )
     keyboard.button(
-      text=f"🐔 {big_size_kopecks // 100} ₽",
+      text=f'{InlineText.BUTTON_LABEL_LINE_177}{big_size_kopecks // 100}{InlineText.BUTTON_LABEL_LINE_177_4}',
       callback_data=f"bet_size:{big_size_kopecks}",
     )
     keyboard.adjust(1)
@@ -364,17 +364,17 @@ class InlineKbs:
     page_users = users[start:end]
     for user in page_users:
       keyboard.button(
-        text=f"{user.row_id} — {user.name}",
+        text=f'{user.row_id}{InlineText.BUTTON_LABEL_LINE_368}{user.name}',
         callback_data=f"linkto:{pending_row_id}:{user.row_id}",
       )
     if page > 0:
       keyboard.button(
-        text="⬅️",
+        text=InlineText.PAGE_PREVIOUS,
         callback_data=f"linkto_page:{pending_row_id}:{page - 1}",
       )
     if end < len(users):
       keyboard.button(
-        text="➡️",
+        text=InlineText.PAGE_NEXT,
         callback_data=f"linkto_page:{pending_row_id}:{page + 1}",
       )
     sizes = [1] * len(page_users)
@@ -400,7 +400,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for p in params[:20]:
       keyboard.button(
-        text=f"ID {p.row_id}",
+        text=f'{InlineText.BUTTON_LABEL_LINE_404}{p.row_id}',
         callback_data=f"pokerstart:{p.row_id}",
       )
     keyboard.adjust(1)
@@ -415,7 +415,7 @@ class InlineKbs:
         callback_data=f"pokeradd:{user.row_id}",
       )
     keyboard.button(
-      text="🆕 Новый игрок",
+      text=InlineText.INLINEKBS_POKER_ADD_PLAYER_CANDIDATES_TG_TEXT_01,
       callback_data="pokeraddnew:0",
     )
     keyboard.button(
@@ -456,11 +456,11 @@ class InlineKbs:
   def poker_room_manage_player_tg(*, player_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
-      text="❌ Удалить",
+      text=InlineText.INLINEKBS_POKER_ROOM_MANAGE_PLAYER_TG_TEXT_01,
       callback_data=f"pokerremove:{int(player_id)}",
     )
     keyboard.button(
-      text="💼 Сделать кассиром",
+      text=InlineText.INLINEKBS_POKER_ROOM_MANAGE_PLAYER_TG_TEXT_02,
       callback_data=f"pokerroomcashier:{int(player_id)}",
     )
     keyboard.adjust(1)
@@ -470,11 +470,11 @@ class InlineKbs:
   def poker_room_approve_tg(*, player_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
-      text="✅ Разрешить вход",
+      text=InlineText.INLINEKBS_POKER_ROOM_APPROVE_TG_TEXT_01,
       callback_data=f"pokerroomapprove:{int(player_id)}",
     )
     keyboard.button(
-      text="⛔ Запретить",
+      text=InlineText.INLINEKBS_POKER_ROOM_APPROVE_TG_TEXT_02,
       callback_data=f"pokerroomreject:{int(player_id)}",
     )
     keyboard.adjust(1)
@@ -485,7 +485,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
       keyboard.button(
-        text=f"{player.player_name}: {int(player.buyins)}",
+        text=f'{player.player_name}{InlineText.BUTTON_LABEL_LINE_489}{int(player.buyins)}',
         callback_data=f"pokerremove:{player.player_id}",
       )
     keyboard.adjust(1)
@@ -551,11 +551,11 @@ class InlineKbs:
       allow_super = int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
       allow_king = include_king_buyin and int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
       if allow_big and big_buyin is not None and int(big_buyin) > safe_max:
-        special_values.append((int(big_buyin), str(big_buyin_pic or "🟠")))
+        special_values.append((int(big_buyin), str(big_buyin_pic or InlineText.POKER_BUYIN_COUNT_TG_MARKER_01)))
       if allow_super and super_buyin is not None and int(super_buyin) > safe_max:
-        special_values.append((int(super_buyin), str(super_buyin_pic or "⭐")))
+        special_values.append((int(super_buyin), str(super_buyin_pic or InlineText.POKER_BUYIN_COUNT_TG_MARKER_02)))
       if allow_king and king_buyin is not None and int(king_buyin) > safe_max:
-        special_values.append((int(king_buyin), str(king_buyin_pic or "👑")))
+        special_values.append((int(king_buyin), str(king_buyin_pic or InlineText.POKER_BUYIN_COUNT_TG_MARKER_03)))
       # Keep distinct values and stable visual order by amount.
       unique_special_values: list[tuple[int, str]] = []
       seen: set[int] = set()
@@ -618,12 +618,12 @@ class InlineKbs:
       )
     if page > 0:
       keyboard.button(
-        text="⬅️",
+        text=InlineText.PAGE_PREVIOUS,
         callback_data=f"registration_existing_page:{page - 1}",
       )
     if end < len(users):
       keyboard.button(
-        text="➡️",
+        text=InlineText.PAGE_NEXT,
         callback_data=f"registration_existing_page:{page + 1}",
       )
     keyboard.button(
@@ -670,7 +670,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "⬅️",
+            "label": InlineText.PAGE_PREVIOUS,
             "payload": {
               "action": "registration_existing_page",
               "page": page - 1,
@@ -684,7 +684,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "➡️",
+            "label": InlineText.PAGE_NEXT,
             "payload": {
               "action": "registration_existing_page",
               "page": page + 1,
@@ -814,7 +814,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "🆕 Новый игрок",
+            "label": InlineText.INLINEKBS_POKER_ADD_PLAYER_CANDIDATES_VK_TEXT_01,
             "payload": {
               "action": "poker_add_player_new",
             },
@@ -903,7 +903,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "❌ Удалить",
+            "label": InlineText.INLINEKBS_POKER_ROOM_MANAGE_PLAYER_VK_TEXT_01,
             "payload": {"action": "poker_remove_player_select", "player_id": int(player_id)},
           },
           "color": "negative",
@@ -913,7 +913,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "💼 Сделать кассиром",
+            "label": InlineText.INLINEKBS_POKER_ROOM_MANAGE_PLAYER_VK_TEXT_02,
             "payload": {"action": "poker_room_set_cashier_select", "player_id": int(player_id)},
           },
           "color": "primary",
@@ -929,7 +929,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "✅ Разрешить вход",
+            "label": InlineText.INLINEKBS_POKER_ROOM_APPROVE_VK_TEXT_01,
             "payload": {"action": "poker_room_approve_select", "player_id": int(player_id)},
           },
           "color": "positive",
@@ -937,7 +937,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "⛔ Запретить",
+            "label": InlineText.INLINEKBS_POKER_ROOM_APPROVE_VK_TEXT_02,
             "payload": {"action": "poker_room_reject_select", "player_id": int(player_id)},
           },
           "color": "negative",
@@ -1102,11 +1102,11 @@ class InlineKbs:
       allow_super = int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
       allow_king = include_king_buyin and int(current_big_buyin_count) == 0 and int(current_super_buyin_count) == 0
       if allow_big and big_buyin is not None and int(big_buyin) > safe_max:
-        special_values.append((int(big_buyin), str(big_buyin_pic or "🟠")))
+        special_values.append((int(big_buyin), str(big_buyin_pic or InlineText.POKER_BUYIN_COUNT_TG_MARKER_01)))
       if allow_super and super_buyin is not None and int(super_buyin) > safe_max:
-        special_values.append((int(super_buyin), str(super_buyin_pic or "⭐")))
+        special_values.append((int(super_buyin), str(super_buyin_pic or InlineText.POKER_BUYIN_COUNT_TG_MARKER_02)))
       if allow_king and king_buyin is not None and int(king_buyin) > safe_max:
-        special_values.append((int(king_buyin), str(king_buyin_pic or "👑")))
+        special_values.append((int(king_buyin), str(king_buyin_pic or InlineText.POKER_BUYIN_COUNT_TG_MARKER_03)))
       unique_special_values: list[tuple[int, str]] = []
       seen: set[int] = set()
       for amount, icon in sorted(special_values, key=lambda x: x[0]):
@@ -1228,11 +1228,11 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(
       [
         [{
-          "action": {"type": "callback", "label": f"🐤 {small_size_kopecks // 100} ₽", "payload": {"action": "bet_size", "amount_kopecks": small_size_kopecks}},
+          "action": {"type": "callback", "label": f'{InlineText.BUTTON_LABEL_LINE_173}{small_size_kopecks // 100}{InlineText.BUTTON_LABEL_LINE_177_4}', "payload": {"action": "bet_size", "amount_kopecks": small_size_kopecks}},
           "color": "primary",
         }],
         [{
-          "action": {"type": "callback", "label": f"🐔 {big_size_kopecks // 100} ₽", "payload": {"action": "bet_size", "amount_kopecks": big_size_kopecks}},
+          "action": {"type": "callback", "label": f'{InlineText.BUTTON_LABEL_LINE_177}{big_size_kopecks // 100}{InlineText.BUTTON_LABEL_LINE_177_4}', "payload": {"action": "bet_size", "amount_kopecks": big_size_kopecks}},
           "color": "primary",
         }],
       ]
@@ -1328,19 +1328,19 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = bets[start:end]
     for bet in batch:
-      mark = "✔ " if int(bet.row_id) in selected else ""
-      d = bet.date.strftime("%d.%m.%Y") if bet.date else "—"
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(bet.row_id) in selected else ""
+      d = bet.date.strftime("%d.%m.%Y") if bet.date else InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_12
       amount_rub = InlineKbs._format_rub_from_kopecks(int(bet.amount_kopecks))
       keyboard.button(
-        text=f"{mark}{d} - {amount_rub} ₽"[:64],
+        text=f'{mark}{d}{InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_13_PART_3}{amount_rub}{InlineText.BUTTON_LABEL_LINE_177_4}'[:64],
         callback_data=f"betreceipt:toggle:{int(receipt_row_id)}:{int(bet.row_id)}:{page}",
       )
     if page > 0:
-      keyboard.button(text="⬅️", callback_data=f"betreceipt:page:{int(receipt_row_id)}:{page - 1}")
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"betreceipt:page:{int(receipt_row_id)}:{page - 1}")
     if end < len(bets):
-      keyboard.button(text="➡️", callback_data=f"betreceipt:page:{int(receipt_row_id)}:{page + 1}")
-    keyboard.button(text="🚀 Готово", callback_data=f"betreceipt:done:{int(receipt_row_id)}")
-    keyboard.button(text="❌ Отмена", callback_data=f"betreceipt:cancel:{int(receipt_row_id)}")
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"betreceipt:page:{int(receipt_row_id)}:{page + 1}")
+    keyboard.button(text=InlineText.INLINEKBS_BET_RECEIPT_MANUAL_SELECT_TG_TEXT_01, callback_data=f"betreceipt:done:{int(receipt_row_id)}")
+    keyboard.button(text=InlineText.INLINEKBS_BET_RECEIPT_MANUAL_SELECT_TG_TEXT_02, callback_data=f"betreceipt:cancel:{int(receipt_row_id)}")
     sizes = [2, 2][: (len(batch) + 1) // 2]
     nav_count = int(page > 0) + int(end < len(bets))
     if nav_count:
@@ -1379,14 +1379,14 @@ class InlineKbs:
     batch = bets[start:end]
     pair_row: list[dict[str, str | dict[str, int | str]]] = []
     for bet in batch:
-      mark = "✔ " if int(bet.row_id) in selected else ""
-      d = bet.date.strftime("%d.%m.%Y") if bet.date else "—"
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(bet.row_id) in selected else ""
+      d = bet.date.strftime("%d.%m.%Y") if bet.date else InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_12
       amount_rub = InlineKbs._format_rub_from_kopecks(int(bet.amount_kopecks))
       pair_row.append(
         {
           "action": {
             "type": "callback",
-            "label": f"{mark}{d} - {amount_rub} ₽"[:40],
+            "label": f'{mark}{d}{InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_13_PART_3}{amount_rub}{InlineText.BUTTON_LABEL_LINE_177_4}'[:40],
             "payload": {
               "action": "bet_receipt_toggle",
               "receipt_row_id": int(receipt_row_id),
@@ -1408,7 +1408,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "⬅️",
+            "label": InlineText.PAGE_PREVIOUS,
             "payload": {"action": "bet_receipt_page", "receipt_row_id": int(receipt_row_id), "page": int(page - 1)},
           },
           "color": "secondary",
@@ -1419,7 +1419,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "➡️",
+            "label": InlineText.PAGE_NEXT,
             "payload": {"action": "bet_receipt_page", "receipt_row_id": int(receipt_row_id), "page": int(page + 1)},
           },
           "color": "secondary",
@@ -1432,7 +1432,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "🚀 Готово",
+            "label": InlineText.INLINEKBS_BET_RECEIPT_MANUAL_SELECT_VK_TEXT_01,
             "payload": {"action": "bet_receipt_done", "receipt_row_id": int(receipt_row_id)},
           },
           "color": "positive",
@@ -1440,7 +1440,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "❌ Отмена",
+            "label": InlineText.INLINEKBS_BET_RECEIPT_MANUAL_SELECT_VK_TEXT_02,
             "payload": {"action": "bet_receipt_cancel", "receipt_row_id": int(receipt_row_id)},
           },
           "color": "negative",
@@ -1459,14 +1459,14 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✔ " if int(indicator.row_id) in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(indicator.row_id) in selected else ""
       keyboard.button(text=f"{mark}{indicator.pic} {indicator.description}"[:64], callback_data=f"betstat_toggle:{indicator.row_id}:{page}")
     if page > 0:
-      keyboard.button(text="⬅️", callback_data=f"betstat_page:{page - 1}")
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"betstat_page:{page - 1}")
     if end < len(indicators):
-      keyboard.button(text="➡️", callback_data=f"betstat_page:{page + 1}")
-    keyboard.button(text="🚀 Готово", callback_data="betstat_done")
-    keyboard.button(text="❌ Отмена", callback_data="betstat_cancel")
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"betstat_page:{page + 1}")
+    keyboard.button(text=InlineText.INLINEKBS_BETTING_STAT_INDICATORS_TG_TEXT_01, callback_data="betstat_done")
+    keyboard.button(text=InlineText.INLINEKBS_BETTING_STAT_INDICATORS_TG_TEXT_02, callback_data="betstat_cancel")
     sizes = [1] * len(batch)
     nav_count = int(page > 0) + int(end < len(indicators))
     if nav_count:
@@ -1483,7 +1483,7 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✔ " if int(indicator.row_id) in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(indicator.row_id) in selected else ""
       rows.append([
         {
           "action": {
@@ -1497,23 +1497,23 @@ class InlineKbs:
     nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
       nav_row.append({
-        "action": {"type": "callback", "label": "⬅️", "payload": {"action": "betstat_page", "page": page - 1}},
+        "action": {"type": "callback", "label": InlineText.PAGE_PREVIOUS, "payload": {"action": "betstat_page", "page": page - 1}},
         "color": "secondary",
       })
     if end < len(indicators):
       nav_row.append({
-        "action": {"type": "callback", "label": "➡️", "payload": {"action": "betstat_page", "page": page + 1}},
+        "action": {"type": "callback", "label": InlineText.PAGE_NEXT, "payload": {"action": "betstat_page", "page": page + 1}},
         "color": "secondary",
       })
     if nav_row:
       rows.append(nav_row)
     rows.append([
       {
-        "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "betstat_done"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_BETTING_STAT_INDICATORS_VK_TEXT_01, "payload": {"action": "betstat_done"}},
         "color": "positive",
       },
       {
-        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "betstat_cancel"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_BETTING_STAT_INDICATORS_VK_TEXT_02, "payload": {"action": "betstat_cancel"}},
         "color": "negative",
       },
     ])
@@ -1522,9 +1522,9 @@ class InlineKbs:
   @staticmethod
   def betting_stat_mode_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="📚 Все ставки", callback_data="betstatmode:all")
-    keyboard.button(text="💰 Текущий regular", callback_data="betstatmode:regular")
-    keyboard.button(text="🎄 Текущий year", callback_data="betstatmode:year")
+    keyboard.button(text=InlineText.INLINEKBS_BETTING_STAT_MODE_TG_TEXT_01, callback_data="betstatmode:all")
+    keyboard.button(text=InlineText.INLINEKBS_BETTING_STAT_MODE_TG_TEXT_02, callback_data="betstatmode:regular")
+    keyboard.button(text=InlineText.INLINEKBS_BETTING_STAT_MODE_TG_TEXT_03, callback_data="betstatmode:year")
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -1533,15 +1533,15 @@ class InlineKbs:
     return ReplyKbs.make_vk_callback(
       [
         [{
-          "action": {"type": "callback", "label": "📚 Все ставки", "payload": {"action": "betstat_mode", "mode": "all"}},
+          "action": {"type": "callback", "label": InlineText.INLINEKBS_BETTING_STAT_MODE_VK_TEXT_01, "payload": {"action": "betstat_mode", "mode": "all"}},
           "color": "primary",
         }],
         [{
-          "action": {"type": "callback", "label": "💰 Текущий regular", "payload": {"action": "betstat_mode", "mode": "regular"}},
+          "action": {"type": "callback", "label": InlineText.INLINEKBS_BETTING_STAT_MODE_VK_TEXT_02, "payload": {"action": "betstat_mode", "mode": "regular"}},
           "color": "primary",
         }],
         [{
-          "action": {"type": "callback", "label": "🎄 Текущий year", "payload": {"action": "betstat_mode", "mode": "year"}},
+          "action": {"type": "callback", "label": InlineText.INLINEKBS_BETTING_STAT_MODE_VK_TEXT_03, "payload": {"action": "betstat_mode", "mode": "year"}},
           "color": "primary",
         }],
       ]
@@ -1555,14 +1555,14 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✔ " if int(indicator.row_id) in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(indicator.row_id) in selected else ""
       keyboard.button(text=f"{mark}{indicator.pic} {indicator.description}"[:64], callback_data=f"pokerstat_toggle:{indicator.row_id}:{page}")
     if page > 0:
-      keyboard.button(text="⬅️", callback_data=f"pokerstat_page:{page - 1}")
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"pokerstat_page:{page - 1}")
     if end < len(indicators):
-      keyboard.button(text="➡️", callback_data=f"pokerstat_page:{page + 1}")
-    keyboard.button(text="🚀 Готово", callback_data="pokerstat_done")
-    keyboard.button(text="❌ Отмена", callback_data="pokerstat_cancel")
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"pokerstat_page:{page + 1}")
+    keyboard.button(text=InlineText.INLINEKBS_POKER_STAT_INDICATORS_TG_TEXT_01, callback_data="pokerstat_done")
+    keyboard.button(text=InlineText.INLINEKBS_POKER_STAT_INDICATORS_TG_TEXT_02, callback_data="pokerstat_cancel")
     sizes = [1] * len(batch)
     nav_count = int(page > 0) + int(end < len(indicators))
     if nav_count:
@@ -1579,7 +1579,7 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = indicators[start:end]
     for indicator in batch:
-      mark = "✔ " if int(indicator.row_id) in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(indicator.row_id) in selected else ""
       rows.append([
         {
           "action": {
@@ -1593,23 +1593,23 @@ class InlineKbs:
     nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
       nav_row.append({
-        "action": {"type": "callback", "label": "⬅️", "payload": {"action": "pokerstat_page", "page": page - 1}},
+        "action": {"type": "callback", "label": InlineText.PAGE_PREVIOUS, "payload": {"action": "pokerstat_page", "page": page - 1}},
         "color": "secondary",
       })
     if end < len(indicators):
       nav_row.append({
-        "action": {"type": "callback", "label": "➡️", "payload": {"action": "pokerstat_page", "page": page + 1}},
+        "action": {"type": "callback", "label": InlineText.PAGE_NEXT, "payload": {"action": "pokerstat_page", "page": page + 1}},
         "color": "secondary",
       })
     if nav_row:
       rows.append(nav_row)
     rows.append([
       {
-        "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "pokerstat_done"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_POKER_STAT_INDICATORS_VK_TEXT_01, "payload": {"action": "pokerstat_done"}},
         "color": "positive",
       },
       {
-        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "pokerstat_cancel"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_POKER_STAT_INDICATORS_VK_TEXT_02, "payload": {"action": "pokerstat_cancel"}},
         "color": "negative",
       },
     ])
@@ -1629,14 +1629,14 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = years[start:end]
     for year in batch:
-      mark = "✔ " if int(year) in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(year) in selected else ""
       keyboard.button(text=f"{mark}{year}", callback_data=f"{prefix}_toggle:{year}:{page}")
     if page > 0:
-      keyboard.button(text="⬅️", callback_data=f"{prefix}_page:{page - 1}")
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"{prefix}_page:{page - 1}")
     if end < len(years):
-      keyboard.button(text="➡️", callback_data=f"{prefix}_page:{page + 1}")
-    keyboard.button(text="🚀 Готово", callback_data=f"{prefix}_done")
-    keyboard.button(text="❌ Отмена", callback_data=f"{prefix}_cancel")
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"{prefix}_page:{page + 1}")
+    keyboard.button(text=InlineText.INLINEKBS_STAT_YEAR_TG_TEXT_01, callback_data=f"{prefix}_done")
+    keyboard.button(text=InlineText.INLINEKBS_STAT_YEAR_TG_TEXT_02, callback_data=f"{prefix}_cancel")
     sizes = [1] * len(batch)
     nav_count = int(page > 0) + int(end < len(years))
     if nav_count:
@@ -1659,7 +1659,7 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = years[start:end]
     for year in batch:
-      mark = "✔ " if int(year) in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if int(year) in selected else ""
       rows.append([
         {
           "action": {"type": "callback", "label": f"{mark}{year}", "payload": {"action": f"{action}_toggle", "year": int(year), "page": page}},
@@ -1668,14 +1668,14 @@ class InlineKbs:
       ])
     nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
-      nav_row.append({"action": {"type": "callback", "label": "⬅️", "payload": {"action": f"{action}_page", "page": page - 1}}, "color": "secondary"})
+      nav_row.append({"action": {"type": "callback", "label": InlineText.PAGE_PREVIOUS, "payload": {"action": f"{action}_page", "page": page - 1}}, "color": "secondary"})
     if end < len(years):
-      nav_row.append({"action": {"type": "callback", "label": "➡️", "payload": {"action": f"{action}_page", "page": page + 1}}, "color": "secondary"})
+      nav_row.append({"action": {"type": "callback", "label": InlineText.PAGE_NEXT, "payload": {"action": f"{action}_page", "page": page + 1}}, "color": "secondary"})
     if nav_row:
       rows.append(nav_row)
     rows.append([
-      {"action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": f"{action}_done"}}, "color": "positive"},
-      {"action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": f"{action}_cancel"}}, "color": "negative"},
+      {"action": {"type": "callback", "label": InlineText.INLINEKBS_STAT_YEAR_VK_TEXT_01, "payload": {"action": f"{action}_done"}}, "color": "positive"},
+      {"action": {"type": "callback", "label": InlineText.INLINEKBS_STAT_YEAR_VK_TEXT_02, "payload": {"action": f"{action}_cancel"}}, "color": "negative"},
     ])
     return ReplyKbs.make_vk_callback(rows)
 
@@ -1695,17 +1695,17 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = filtered[start:end]
     for indicator in batch:
-      mark = "✔ " if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
       keyboard.button(
         text=f"{mark}{indicator.pic} {indicator.description}"[:64],
         callback_data=f"{prefix}_toggle:{int(indicator.row_id)}:{page}",
       )
     if page > 0:
-      keyboard.button(text="⬅️", callback_data=f"{prefix}_page:{page - 1}")
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"{prefix}_page:{page - 1}")
     if end < len(filtered):
-      keyboard.button(text="➡️", callback_data=f"{prefix}_page:{page + 1}")
-    keyboard.button(text="🚀 Готово", callback_data=f"{prefix}_done")
-    keyboard.button(text="❌ Отмена", callback_data=f"{prefix}_cancel")
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"{prefix}_page:{page + 1}")
+    keyboard.button(text=InlineText.INLINEKBS_STAT_SORT_TG_TEXT_01, callback_data=f"{prefix}_done")
+    keyboard.button(text=InlineText.INLINEKBS_STAT_SORT_TG_TEXT_02, callback_data=f"{prefix}_cancel")
     sizes = [1] * len(batch)
     nav_count = int(page > 0) + int(end < len(filtered))
     if nav_count:
@@ -1730,7 +1730,7 @@ class InlineKbs:
     end = start + InlineKbs.STAT_PAGE_SIZE
     batch = filtered[start:end]
     for indicator in batch:
-      mark = "✔ " if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if selected_sort_id is not None and int(indicator.row_id) == int(selected_sort_id) else ""
       rows.append([
         {
           "action": {
@@ -1744,23 +1744,23 @@ class InlineKbs:
     nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
       nav_row.append({
-        "action": {"type": "callback", "label": "⬅️", "payload": {"action": f"{action}_page", "page": page - 1}},
+        "action": {"type": "callback", "label": InlineText.PAGE_PREVIOUS, "payload": {"action": f"{action}_page", "page": page - 1}},
         "color": "secondary",
       })
     if end < len(filtered):
       nav_row.append({
-        "action": {"type": "callback", "label": "➡️", "payload": {"action": f"{action}_page", "page": page + 1}},
+        "action": {"type": "callback", "label": InlineText.PAGE_NEXT, "payload": {"action": f"{action}_page", "page": page + 1}},
         "color": "secondary",
       })
     if nav_row:
       rows.append(nav_row)
     rows.append([
       {
-        "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": f"{action}_done"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_STAT_SORT_VK_TEXT_01, "payload": {"action": f"{action}_done"}},
         "color": "positive",
       },
       {
-        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": f"{action}_cancel"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_STAT_SORT_VK_TEXT_02, "payload": {"action": f"{action}_cancel"}},
         "color": "negative",
       },
     ])
@@ -1771,7 +1771,7 @@ class InlineKbs:
     keyboard = InlineKeyboardBuilder()
     for year in years:
       keyboard.button(text=str(int(year)), callback_data=f"pokerhistyear:{int(year)}")
-    keyboard.button(text="❌ Отмена", callback_data="pokerhist_cancel")
+    keyboard.button(text=InlineText.INLINEKBS_POKER_HISTORY_YEAR_TG_TEXT_01, callback_data="pokerhist_cancel")
     keyboard.adjust(1, *(1 for _ in years[1:]), 1)
     return keyboard.as_markup()
 
@@ -1787,7 +1787,7 @@ class InlineKbs:
       ])
     rows.append([
       {
-        "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "pokerhist_cancel"}},
+        "action": {"type": "callback", "label": InlineText.INLINEKBS_POKER_HISTORY_YEAR_VK_TEXT_01, "payload": {"action": "pokerhist_cancel"}},
         "color": "negative",
       }
     ])
@@ -1803,9 +1803,9 @@ class InlineKbs:
     for item in batch:
       keyboard.button(text=item.strftime("%d.%m"), callback_data=f"pokerhistdate:{int(year)}:{int(page)}:{item.isoformat()}")
     if page > 0:
-      keyboard.button(text="⬅️", callback_data=f"pokerhistpage:{int(year)}:{int(page - 1)}")
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"pokerhistpage:{int(year)}:{int(page - 1)}")
     if end < len(dates):
-      keyboard.button(text="➡️", callback_data=f"pokerhistpage:{int(year)}:{int(page + 1)}")
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"pokerhistpage:{int(year)}:{int(page + 1)}")
     sizes = [3, 3]
     nav_count = int(page > 0) + int(end < len(dates))
     if nav_count:
@@ -1838,11 +1838,11 @@ class InlineKbs:
     nav_row: list[dict[str, str | dict[str, int | str]]] = []
     if page > 0:
       nav_row.append(
-        {"action": {"type": "callback", "label": "⬅️", "payload": {"action": "pokerhistpage", "year": int(year), "page": int(page - 1)}}, "color": "secondary"}
+        {"action": {"type": "callback", "label": InlineText.PAGE_PREVIOUS, "payload": {"action": "pokerhistpage", "year": int(year), "page": int(page - 1)}}, "color": "secondary"}
       )
     if end < len(dates):
       nav_row.append(
-        {"action": {"type": "callback", "label": "➡️", "payload": {"action": "pokerhistpage", "year": int(year), "page": int(page + 1)}}, "color": "secondary"}
+        {"action": {"type": "callback", "label": InlineText.PAGE_NEXT, "payload": {"action": "pokerhistpage", "year": int(year), "page": int(page + 1)}}, "color": "secondary"}
       )
     if nav_row:
       rows.append(nav_row)
@@ -1864,7 +1864,7 @@ class InlineKbs:
     batch = all_dates[start:end]
     date_buttons: list[tuple[str, str]] = []
     for item in batch:
-      mark = "✔ " if item.isoformat() in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if item.isoformat() in selected else ""
       date_buttons.append((f"{mark}{item.day}, {InlineKbs._weekday_ru(item)}", f"poll_day:{item.isoformat()}:{page}"))
 
     if len(date_buttons) <= 2:
@@ -1886,20 +1886,20 @@ class InlineKbs:
     left_data = f"poll_page:{month.year}-{month.month:02d}:{page - 1}" if start > 0 else "poll_noop"
     right_data = f"poll_page:{month.year}-{month.month:02d}:{page + 1}" if end < len(all_dates) else "poll_noop"
     keyboard.row(
-      InlineKeyboardButton(text="⬅️", callback_data=left_data),
-      InlineKeyboardButton(text="➡️", callback_data=right_data),
+      InlineKeyboardButton(text=InlineText.PAGE_PREVIOUS, callback_data=left_data),
+      InlineKeyboardButton(text=InlineText.PAGE_NEXT, callback_data=right_data),
       width=2,
     )
     keyboard.row(
       InlineKeyboardButton(
-        text="❓ Предложить другой день",
+        text=InlineText.INLINEKBS_POLL_MONTH_TG_TEXT_01,
         callback_data=f"poll_suggest:{month.year}-{month.month:02d}",
       ),
       width=1,
     )
     keyboard.row(
-      InlineKeyboardButton(text="🚀 Готово", callback_data="poll_done"),
-      InlineKeyboardButton(text="❌ Отмена", callback_data="poll_cancel"),
+      InlineKeyboardButton(text=InlineText.INLINEKBS_POLL_MONTH_TG_TEXT_02, callback_data="poll_done"),
+      InlineKeyboardButton(text=InlineText.INLINEKBS_POLL_MONTH_TG_TEXT_03, callback_data="poll_cancel"),
       width=2,
     )
     return keyboard.as_markup()
@@ -1920,7 +1920,7 @@ class InlineKbs:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     labels: list[dict[str, str | dict[str, int | str]]] = []
     for item in batch:
-      mark = "✔ " if item.isoformat() in selected else ""
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if item.isoformat() in selected else ""
       labels.append(
         {
           "action": {
@@ -1943,7 +1943,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "⬅️",
+            "label": InlineText.PAGE_PREVIOUS,
             "payload": (
               {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page - 1}
               if start > 0
@@ -1955,7 +1955,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "➡️",
+            "label": InlineText.PAGE_NEXT,
             "payload": (
               {"action": "poll_page", "month": f"{month.year}-{month.month:02d}", "page": page + 1}
               if end < len(all_dates)
@@ -1971,7 +1971,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "❓ Предложить другой день",
+            "label": InlineText.INLINEKBS_POLL_MONTH_VK_TEXT_01,
             "payload": {"action": "poll_suggest", "month": f"{month.year}-{month.month:02d}"},
           },
           "color": "secondary",
@@ -1981,11 +1981,11 @@ class InlineKbs:
     rows.append(
       [
         {
-          "action": {"type": "callback", "label": "🚀 Готово", "payload": {"action": "poll_done"}},
+          "action": {"type": "callback", "label": InlineText.INLINEKBS_POLL_MONTH_VK_TEXT_02, "payload": {"action": "poll_done"}},
           "color": "positive",
         },
         {
-          "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "poll_cancel"}},
+          "action": {"type": "callback", "label": InlineText.INLINEKBS_POLL_MONTH_VK_TEXT_03, "payload": {"action": "poll_cancel"}},
           "color": "negative",
         },
       ]
@@ -2003,7 +2003,7 @@ class InlineKbs:
       text=InlineKbs._month_label_ru(next_month),
       callback_data=f"polladmin_month:{next_month.year}-{next_month.month:02d}",
     )
-    keyboard.button(text="❌ Отмена", callback_data="polladmin_cancel")
+    keyboard.button(text=InlineText.INLINEKBS_POLL_ADMIN_CHOOSE_TG_TEXT_01, callback_data="polladmin_cancel")
     keyboard.adjust(1, 1, 1)
     return keyboard.as_markup()
 
@@ -2044,7 +2044,7 @@ class InlineKbs:
         ],
         [
           {
-            "action": {"type": "callback", "label": "❌ Отмена", "payload": {"action": "polladmin_cancel"}},
+            "action": {"type": "callback", "label": InlineText.INLINEKBS_POLL_ADMIN_CHOOSE_VK_TEXT_01, "payload": {"action": "polladmin_cancel"}},
             "color": "negative",
           },
         ],
@@ -2085,7 +2085,7 @@ class InlineKbs:
           {
             "action": {
               "type": "callback",
-              "label": f"{user.row_id} — {user.name[:32]}",
+              "label": f'{user.row_id}{InlineText.BUTTON_LABEL_LINE_368}{user.name[:32]}',
               "payload": {
                 "action": "link_to",
                 "pending_row_id": pending_row_id,
@@ -2102,7 +2102,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "⬅️",
+            "label": InlineText.PAGE_PREVIOUS,
             "payload": {
               "action": "link_page",
               "pending_row_id": pending_row_id,
@@ -2117,7 +2117,7 @@ class InlineKbs:
         {
           "action": {
             "type": "callback",
-            "label": "➡️",
+            "label": InlineText.PAGE_NEXT,
             "payload": {
               "action": "link_page",
               "pending_row_id": pending_row_id,

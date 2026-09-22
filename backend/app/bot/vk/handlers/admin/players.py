@@ -1,8 +1,11 @@
 import random
 
+from fastapi.responses import PlainTextResponse
+
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.texts.inline.vk.admin import players as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
     send_vk_message,
@@ -26,7 +29,6 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
-from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
@@ -90,7 +92,7 @@ async def _event_0_09(
                         )
                         VK_BUYIN_NOTIFY_CASHIER_ONLY.add((int(admin_user_id), int(user.row_id)))
                         result_text = Text.admin.POKER_BUYIN_PROMPT.value
-                        result_added_text = f"🎲 В покер добавлен новый игрок\nИмя: {user.name}: {int(self_player.buyins) if self_player is not None else 0}"
+                        result_added_text = f'{InlineText.EVENT_0_09_TEXT_01_PART_1}{user.name}{InlineText.EVENT_0_09_TEXT_01_PART_2}{(int(self_player.buyins) if self_player is not None else 0)}'
                         result_keyboard = poker_buyin_count_keyboard(
                             player_id=int(user.row_id),
                             max_buyins=int(params.max_buyins),
@@ -147,12 +149,12 @@ async def _event_0_10(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Введи имя нового игрока",
+            text=InlineText.EVENT_0_10_TEXT_01,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
-        await send_vk_message(user_id=admin_user_id, message="Введи имя нового игрока:")
+        await send_vk_message(user_id=admin_user_id, message=InlineText.EVENT_0_10_TEXT_02)
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
 
@@ -208,14 +210,14 @@ async def _event_0_12(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text="Выбери действие",
+            text=InlineText.EVENT_0_12_TEXT_01,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
         await send_vk_message(
             user_id=admin_user_id,
-            message="Управление игроком:",
+            message=InlineText.EVENT_0_12_TEXT_02,
             keyboard=poker_room_manage_player_keyboard(player_id=int(player_id)),
         )
         return PlainTextResponse("ok")
@@ -256,7 +258,7 @@ async def _event_0_13(
                     )
                     await use_case.remove_denied_for_active_poker(user_row_id=int(user.row_id))
                     result_text = (
-                        "Вход разрешен"
+                        InlineText.EVENT_0_13_TEXT_01
                         if created is not None
                         else Text.admin.POKER_ACTIVE_NOT_FOUND.value
                     )
@@ -266,11 +268,11 @@ async def _event_0_13(
 
                             if telegram_bot is not None:
                                 await telegram_bot.send_message(
-                                    chat_id=int(user.telegram_id), text="Вход в покер рум разрешен."
+                                    chat_id=int(user.telegram_id), text=InlineText.EVENT_0_13_TEXT_02
                                 )
                         elif user.vk_id is not None:
                             await send_vk_message(
-                                user_id=int(user.vk_id), message="Вход в покер рум разрешен."
+                                user_id=int(user.vk_id), message=InlineText.EVENT_0_13_TEXT_03
                             )
         await send_vk_message_event_answer(
             event_id=event_id,
@@ -309,17 +311,17 @@ async def _event_0_14(
                     result_text = Text.admin.USER_NOT_FOUND.value
                 else:
                     await PokerRoomDeniedRepository(session).add(user_row_id=int(user.row_id))
-                    result_text = "Вход запрещен"
+                    result_text = InlineText.EVENT_0_14_TEXT_01
                     if user.telegram_id is not None:
                         from app.bot.telegram.runtime import telegram_bot
 
                         if telegram_bot is not None:
                             await telegram_bot.send_message(
-                                chat_id=int(user.telegram_id), text="Вход в покер рум запрещен."
+                                chat_id=int(user.telegram_id), text=InlineText.EVENT_0_14_TEXT_02
                             )
                     elif user.vk_id is not None:
                         await send_vk_message(
-                            user_id=int(user.vk_id), message="Вход в покер рум запрещен."
+                            user_id=int(user.vk_id), message=InlineText.EVENT_0_14_TEXT_03
                         )
         await send_vk_message_event_answer(
             event_id=event_id,
@@ -462,7 +464,7 @@ async def _text_1_01(*, user_id, text):
         name = " ".join((text or "").split())
         if not name:
             await send_vk_message(
-                user_id=user_id, message="Имя не может быть пустым. Введи имя нового игрока:"
+                user_id=user_id, message=InlineText.TEXT_1_01_TEXT_01
             )
             return PlainTextResponse("ok")
         async with SessionFactory() as session:
@@ -522,7 +524,7 @@ async def _text_1_01(*, user_id, text):
         vk_user_contexts.pop(user_id, None)
         await send_vk_message(
             user_id=user_id,
-            message=f"🎲 В покер добавлен новый игрок\nИмя: {created_user.name}: {int(self_player.buyins) if self_player is not None else 0}",
+            message=f'{InlineText.TEXT_1_01_TEXT_02_PART_1}{created_user.name}{InlineText.TEXT_1_01_TEXT_02_PART_2}{(int(self_player.buyins) if self_player is not None else 0)}',
         )
         await send_vk_message(
             user_id=user_id,
@@ -569,7 +571,7 @@ async def _text_1_16(*, user_id, text):
             ]
             text_out = Text.admin.POKER_ADD_PLAYER_CHOOSE.value
             if not candidates:
-                text_out = f"{Text.admin.POKER_ADD_PLAYER_EMPTY.value}\n\nМожно добавить нового игрока вручную."
+                text_out = f'{Text.admin.POKER_ADD_PLAYER_EMPTY.value}{InlineText.TEXT_1_16_TEXT_01_PART_1}'
         await send_vk_message(
             user_id=user_id,
             message=text_out,

@@ -1,5 +1,6 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+
 from app.application.exceptions import (
     UserAlreadyApprovedError,
     UserLinkConflictError,
@@ -10,6 +11,7 @@ from app.application.use_cases.user.approve_user import ApproveUserUseCase
 from app.application.use_cases.user.correct_user import CorrectUserUseCase
 from app.application.use_cases.user.link_pending_user import LinkPendingUserUseCase
 from app.application.use_cases.user.reject_user import RejectUserUseCase
+from app.bot.shared.texts.inline.telegram.admin import registrations as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     link_candidates_keyboard,
@@ -57,7 +59,7 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
     if callback.message is not None:
         await _safe_callback_edit_text(
             callback,
-            f"Заявка #{row_id} одобрена.\nИмя: {user.name}\nTelegram ID: {user.telegram_id}",
+            f'{InlineText.APPROVE_REGISTRATION_CALLBACK_TEXT_01_PART_1}{row_id}{InlineText.APPROVE_REGISTRATION_CALLBACK_TEXT_01_PART_2}{user.name}{InlineText.APPROVE_REGISTRATION_CALLBACK_TEXT_01_PART_3}{user.telegram_id}',
         )
     await callback.answer(Text.admin.APPROVE_ACTION.value)
 
@@ -99,7 +101,7 @@ async def correct_registration_callback(callback: CallbackQuery, state: FSMConte
         return
 
     await callback.answer(Text.admin.CORRECT_FLOW_STARTED.value)
-    await callback.message.answer(f"{Text.admin.CORRECT_PROMPT.value}\n\nТекущее имя: {user.name}")
+    await callback.message.answer(f'{Text.admin.CORRECT_PROMPT.value}{InlineText.CORRECT_REGISTRATION_CALLBACK_TEXT_01_PART_1}{user.name}')
 
 
 async def finish_correct_user(message: Message, state: FSMContext) -> None:
@@ -159,21 +161,13 @@ async def finish_correct_user(message: Message, state: FSMContext) -> None:
                 chat_id=review_chat_id,
                 message_id=review_message_id,
                 text=(
-                    f"{Text.admin.CORRECT_ACTION.value}\n\n"
-                    f"Row ID: {user.row_id}\n"
-                    f"Имя: {user.name}\n"
-                    f"Telegram ID: {user.telegram_id}\n"
-                    f"VK ID: {user.vk_id}"
+                    f'{Text.admin.CORRECT_ACTION.value}{InlineText.FINISH_CORRECT_USER_TEXT_01_PART_1}{user.row_id}{InlineText.FINISH_CORRECT_USER_TEXT_01_PART_2}{user.name}{InlineText.FINISH_CORRECT_USER_TEXT_01_PART_3}{user.telegram_id}{InlineText.FINISH_CORRECT_USER_TEXT_01_PART_4}{user.vk_id}'
                 ),
             )
 
     await state.clear()
     await message.answer(
-        f"{Text.admin.CORRECT_ACTION.value}\n\n"
-        f"Row ID: {user.row_id}\n"
-        f"Имя: {user.name}\n"
-        f"Telegram ID: {user.telegram_id}\n"
-        f"VK ID: {user.vk_id}",
+        f'{Text.admin.CORRECT_ACTION.value}{InlineText.FINISH_CORRECT_USER_TEXT_02_PART_1}{user.row_id}{InlineText.FINISH_CORRECT_USER_TEXT_02_PART_2}{user.name}{InlineText.FINISH_CORRECT_USER_TEXT_02_PART_3}{user.telegram_id}{InlineText.FINISH_CORRECT_USER_TEXT_02_PART_4}{user.vk_id}',
     )
 
 
@@ -216,7 +210,7 @@ async def reject_registration_callback(callback: CallbackQuery) -> None:
     if callback.message is not None:
         await _safe_callback_edit_text(
             callback,
-            f"Заявка #{row_id} отклонена.\nИмя: {user_name}\nTelegram ID: {user_telegram_id}",
+            f'{InlineText.REJECT_REGISTRATION_CALLBACK_TEXT_01_PART_1}{row_id}{InlineText.REJECT_REGISTRATION_CALLBACK_TEXT_01_PART_2}{user_name}{InlineText.REJECT_REGISTRATION_CALLBACK_TEXT_01_PART_3}{user_telegram_id}',
         )
     await callback.answer(Text.admin.REJECT_ACTION.value)
 
@@ -283,12 +277,7 @@ async def choose_link_target_callback(callback: CallbackQuery) -> None:
     if callback.message is not None:
         await _safe_callback_edit_text(
             callback,
-            f"{Text.admin.LINK_SUCCESS.value}\n\n"
-            f"Pending row_id: {pending_row_id}\n"
-            f"Linked to row_id: {user.row_id}\n"
-            f"Имя: {user.name}\n"
-            f"Telegram ID: {user.telegram_id}\n"
-            f"VK ID: {user.vk_id}",
+            f'{Text.admin.LINK_SUCCESS.value}{InlineText.CHOOSE_LINK_TARGET_CALLBACK_TEXT_01_PART_1}{pending_row_id}{InlineText.CHOOSE_LINK_TARGET_CALLBACK_TEXT_01_PART_2}{user.row_id}{InlineText.CHOOSE_LINK_TARGET_CALLBACK_TEXT_01_PART_3}{user.name}{InlineText.CHOOSE_LINK_TARGET_CALLBACK_TEXT_01_PART_4}{user.telegram_id}{InlineText.CHOOSE_LINK_TARGET_CALLBACK_TEXT_01_PART_5}{user.vk_id}',
         )
     await callback.answer(Text.admin.LINK_SUCCESS.value)
 

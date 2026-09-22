@@ -19,12 +19,11 @@ router = APIRouter(prefix="/webhooks/vk", tags=["vk"])
 async def vk_webhook(payload: dict) -> PlainTextResponse:
   event_type = payload.get("type")
 
-  if payload.get("secret") and settings.vk_secret_key:
-    if payload["secret"] != settings.vk_secret_key:
-      raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Invalid VK secret",
-      )
+  if settings.vk_secret_key and payload.get("secret") != settings.vk_secret_key:
+    raise HTTPException(
+      status_code=status.HTTP_403_FORBIDDEN,
+      detail="Invalid VK secret",
+    )
 
   if event_type == "confirmation":
     return PlainTextResponse(settings.vk_confirmation_token)

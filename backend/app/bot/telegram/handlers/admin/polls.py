@@ -1,6 +1,8 @@
 from datetime import date
 
 from aiogram.types import CallbackQuery, Message
+
+from app.bot.shared.texts.inline.telegram.admin import polls as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     main_dynamic_keyboard as tg_main_dynamic_keyboard,
@@ -37,7 +39,7 @@ async def create_poll_menu(message: Message) -> None:
     current_month = date.today().replace(day=1)
     next_month = _shift_month(current_month, 1)
     await message.answer(
-        "Выбери месяц для опроса:",
+        InlineText.CREATE_POLL_MENU_TEXT_01,
         reply_markup=poll_admin_choose_keyboard(current_month=current_month, next_month=next_month),
     )
 
@@ -66,11 +68,11 @@ async def create_poll_cancel(callback: CallbackQuery) -> None:
             await callback.message.delete()
         except Exception:
             await _clear_inline_keyboard(callback)
-            await callback.message.answer("Создание опроса отменено.")
-            await callback.answer("Отменено")
+            await callback.message.answer(InlineText.CREATE_POLL_CANCEL_TEXT_01)
+            await callback.answer(InlineText.CREATE_POLL_CANCEL_TEXT_02)
             return
-        await callback.message.answer("Создание опроса отменено.")
-    await callback.answer("Отменено")
+        await callback.message.answer(InlineText.CREATE_POLL_CANCEL_TEXT_03)
+    await callback.answer(InlineText.CREATE_POLL_CANCEL_TEXT_04)
 
 
 async def create_poll_set_month(callback: CallbackQuery) -> None:
@@ -86,7 +88,7 @@ async def create_poll_set_month(callback: CallbackQuery) -> None:
         await PollConfigRepository(session).set_active_month(month=month)
         approved_users = await UserRepository(session).list_approved()
         await session.commit()
-    notify_text = "📊 Стартовал опрос на дату следующего покера.\n❗ Не забудь проголосовать."
+    notify_text = InlineText.CREATE_POLL_SET_MONTH_TEXT_01
     from app.bot.telegram.runtime import telegram_bot
 
     if telegram_bot is not None:
@@ -116,5 +118,5 @@ async def create_poll_set_month(callback: CallbackQuery) -> None:
         except Exception:
             await _clear_inline_keyboard(callback)
     if callback.message is not None:
-        await callback.message.answer(f"Опрос на {month:%m.%Y} создан.")
-    await callback.answer("Опрос создан")
+        await callback.message.answer(f'{InlineText.CREATE_POLL_SET_MONTH_TEXT_02_PART_1}{month:%m.%Y}{InlineText.CREATE_POLL_SET_MONTH_TEXT_02_PART_2}')
+    await callback.answer(InlineText.CREATE_POLL_SET_MONTH_TEXT_03)

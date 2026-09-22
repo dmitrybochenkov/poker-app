@@ -1,10 +1,12 @@
 from types import SimpleNamespace
 
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
+
 from app.application.use_cases.poker.calculate_bet_scores import CalculateBetScoresUseCase
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.bot.shared.guards import is_tg_admin
+from app.bot.shared.texts.inline.telegram.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     admin_room_correct_keyboard,
@@ -80,10 +82,7 @@ async def start_poker_menu(message: Message) -> None:
                 Text.admin.POKER_PARAMS_CHOOSE.value,
                 *[
                     (
-                        f"🎲 ID: {p.row_id}\n"
-                        f"Закуп: ⭕ {p.buyin_size_chips} / 💲 {int(p.buyin_size_kopecks) // 100}\n"
-                        f"ББ: {p.bb_size_chips} | 🔝 Макс закуп: {p.max_buyins}\n"
-                        f"Большой / Супер закуп: 💸 {p.big_buyin} / 🤑 {p.super_buyin}"
+                        f'{InlineText.START_POKER_MENU_TEXT_01_PART_1}{p.row_id}{InlineText.START_POKER_MENU_TEXT_01_PART_2}{p.buyin_size_chips}{InlineText.START_POKER_MENU_TEXT_01_PART_3}{int(p.buyin_size_kopecks) // 100}{InlineText.START_POKER_MENU_TEXT_01_PART_4}{p.bb_size_chips}{InlineText.START_POKER_MENU_TEXT_01_PART_5}{p.max_buyins}{InlineText.START_POKER_MENU_TEXT_01_PART_6}{p.big_buyin}{InlineText.START_POKER_MENU_TEXT_01_PART_7}{p.super_buyin}'
                     )
                     for p in params
                 ],
@@ -127,8 +126,7 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
                 player_name=starter.name,
             )
 
-        tg_user_ids = await user_repository.list_approved_tg_ids()
-        vk_user_ids = await user_repository.list_approved_vk_ids()
+        approved_users = await user_repository.list_approved()
 
     from app.bot.telegram.runtime import telegram_bot
 
@@ -221,8 +219,7 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         diff = chips_entered - chips_in_game
         if diff != 0:
             await message.answer(
-                "Количество введенных фишек не совпадает с количеством закупленных\n"
-                f"Разница: {diff}"
+                f'{InlineText.CALCULATE_POKER_TEXT_01_PART_1}{diff}'
             )
             return
 
@@ -284,12 +281,12 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         winner_line = ", ".join(
             f"{_winner_mark(is_streak=(name in prev_winners))} {name}" for name in winners
         )
-        loser_line = ", ".join(f"❌ {name}" for name in loosers)
+        loser_line = ", ".join(f'{InlineText.CALCULATE_POKER_MARKER_01_PART_1}{name}' for name in loosers)
 
         transfer_lines: list[str] = []
         for line in transfers:
             # add recipient bank/phone for convenience
-            recipient_name = line.split(" ➡️ ")[1].split(" ")[0:2]
+            recipient_name = line.split(InlineText.CALCULATE_POKER_MARKER_02)[1].split(" ")[0:2]
             recipient_name_joined = " ".join(recipient_name).strip()
             recipient_user = next(
                 (
@@ -324,12 +321,12 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
             f"{winner_line}",
             f"{loser_line}",
             "",
-            "💲 Переводы:",
+            InlineText.CALCULATE_POKER_TEXT_02,
         ]
-        lines.extend(transfer_lines if transfer_lines else ["Переводы не требуются"])
+        lines.extend(transfer_lines if transfer_lines else [InlineText.CALCULATE_POKER_TEXT_03])
         lines.append("")
-        lines.append("🍀 Ставки:")
-        lines.extend(bet_lines if bet_lines else ["Успешных ставок не было"])
+        lines.append(InlineText.CALCULATE_POKER_TEXT_04)
+        lines.extend(bet_lines if bet_lines else [InlineText.CALCULATE_POKER_TEXT_05])
         result_text = "\n".join(lines)
         chart_png = await _build_poker_buyins_session_chart(session=session, poker_date=poker.date)
 
@@ -354,7 +351,7 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
                     await telegram_bot.send_photo(
                         chat_id=user.telegram_id,
                         photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                        caption="📈 Закупы за игру",
+                        caption=InlineText.CALCULATE_POKER_TEXT_06,
                         reply_markup=main_keyboard,
                     )
                 sent_tg_ids.add(int(user.telegram_id))
@@ -386,7 +383,7 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
                     await telegram_bot.send_photo(
                         chat_id=initiator_user.telegram_id,
                         photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                        caption="📈 Закупы за игру",
+                        caption=InlineText.CALCULATE_POKER_TEXT_07,
                         reply_markup=main_keyboard,
                     )
             elif (
@@ -428,8 +425,7 @@ async def calculate_poker_inline(callback: CallbackQuery) -> None:
             diff = chips_entered - chips_in_game
             if diff != 0:
                 await callback.answer(
-                    "Количество введенных фишек не совпадает с количеством закупленных\n"
-                    f"Разница: {diff}",
+                    f'{InlineText.CALCULATE_POKER_INLINE_TEXT_01_PART_1}{diff}',
                     show_alert=True,
                 )
                 return
@@ -482,7 +478,7 @@ async def open_correct_poker_menu(message: Message) -> None:
             session=session, user_id=message.from_user.id, message=message
         ):
             return
-    await message.answer("Корректировки покера:", reply_markup=admin_room_correct_keyboard)
+    await message.answer(InlineText.OPEN_CORRECT_POKER_MENU_TEXT_01, reply_markup=admin_room_correct_keyboard)
 
 
 async def back_from_correct_poker_menu(message: Message) -> None:
@@ -520,7 +516,7 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
             return
         cashier_user = await user_repository.get_by_row_id(user_row_id)
         cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
-        cashier_text = f"{cashier_name} выбран кассиром."
+        cashier_text = f'{cashier_name}{InlineText.SET_CASHIER_CALLBACK_TEXT_01_PART_1}'
         await _refresh_admin_room_status(session=session)
     await callback.answer(cashier_text)
 
@@ -544,7 +540,7 @@ async def set_cashier_from_room_callback(callback: CallbackQuery) -> None:
         poker, _ = active
         if poker.cashier_id is not None:
             await callback.answer(
-                "Кассир уже назначен. Для переназначения используй 'Корректировать покер'.",
+                InlineText.SET_CASHIER_FROM_ROOM_CALLBACK_TEXT_01,
                 show_alert=True,
             )
             return
@@ -561,4 +557,4 @@ async def set_cashier_from_room_callback(callback: CallbackQuery) -> None:
         cashier_user = await user_repository.get_by_row_id(user_row_id)
         cashier_name = cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
         await _refresh_admin_room_status(session=session)
-    await callback.answer(f"{cashier_name} выбран кассиром.")
+    await callback.answer(f'{cashier_name}{InlineText.SET_CASHIER_FROM_ROOM_CALLBACK_TEXT_02_PART_1}')

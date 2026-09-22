@@ -2,7 +2,9 @@ from datetime import date, datetime
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
+
 from app.application.use_cases.poker.stat import StatUseCases
+from app.bot.shared.texts.inline.telegram.user import poker_stats as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     poker_history_dates_keyboard,
@@ -48,17 +50,17 @@ async def show_poker_history_years(message: Message) -> None:
         reverse=True,
     )
     if not years:
-        await message.answer("Нет завершенных игр.", reply_markup=poker_info_keyboard)
+        await message.answer(InlineText.SHOW_POKER_HISTORY_YEARS_TEXT_01, reply_markup=poker_info_keyboard)
         return
     await message.answer(
-        "Выбери год:",
+        InlineText.SHOW_POKER_HISTORY_YEARS_TEXT_02,
         reply_markup=poker_history_year_keyboard(years=years),
     )
 
 
 async def poker_history_cancel(callback: CallbackQuery) -> None:
     await _clear_inline_keyboard(callback)
-    await callback.answer("Отменено")
+    await callback.answer(InlineText.POKER_HISTORY_CANCEL_TEXT_01)
 
 
 async def poker_history_year_pick(callback: CallbackQuery) -> None:
@@ -80,10 +82,10 @@ async def poker_history_year_pick(callback: CallbackQuery) -> None:
         },
     )
     if not dates:
-        await callback.answer("Нет игр за выбранный год", show_alert=True)
+        await callback.answer(InlineText.POKER_HISTORY_YEAR_PICK_TEXT_01, show_alert=True)
         return
     await callback.message.edit_text(
-        f"Выбери дату игры ({year}):",
+        f'{InlineText.POKER_HISTORY_YEAR_PICK_TEXT_02_PART_1}{year}{InlineText.POKER_HISTORY_YEAR_PICK_TEXT_02_PART_2}',
         reply_markup=poker_history_dates_keyboard(year=year, dates=list(dates), page=0),
     )
     await callback.answer()
@@ -110,7 +112,7 @@ async def poker_history_page(callback: CallbackQuery) -> None:
         },
     )
     await callback.message.edit_text(
-        f"Выбери дату игры ({year}):",
+        f'{InlineText.POKER_HISTORY_PAGE_TEXT_01_PART_1}{year}{InlineText.POKER_HISTORY_PAGE_TEXT_01_PART_2}',
         reply_markup=poker_history_dates_keyboard(year=year, dates=list(dates), page=page),
     )
     await callback.answer()
@@ -124,7 +126,7 @@ async def poker_history_date_pick(callback: CallbackQuery) -> None:
         return
     parts = str(callback.data).split(":")
     if len(parts) != 4:
-        await callback.answer("Некорректная дата", show_alert=True)
+        await callback.answer(InlineText.POKER_HISTORY_DATE_PICK_TEXT_01, show_alert=True)
         return
     try:
         await callback.message.delete()
@@ -140,7 +142,7 @@ async def poker_history_date_pick(callback: CallbackQuery) -> None:
     if chart_png is not None:
         await callback.message.answer_photo(
             photo=BufferedInputFile(chart_png, filename="poker_buyins_history.png"),
-            caption="📈 История закупов",
+            caption=InlineText.POKER_HISTORY_DATE_PICK_TEXT_02,
             reply_markup=poker_keyboard,
         )
     await callback.answer()
@@ -159,7 +161,7 @@ async def show_poker_stat_indicators(message: Message, state: FSMContext) -> Non
     years = sorted({int(item.date.year) for item in rows if item.date is not None}, reverse=True)
     if not years:
         await message.answer(
-            Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру.")
+            Text.user.POKER_STAT_REPORT.value.format(report=InlineText.SHOW_POKER_STAT_INDICATORS_TEXT_01)
         )
         return
     await message.answer(
@@ -246,7 +248,7 @@ async def poker_stat_year_done(callback: CallbackQuery, state: FSMContext) -> No
         )
         if not years:
             await callback.message.edit_text(
-                Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру.")
+                Text.user.POKER_STAT_REPORT.value.format(report=InlineText.POKER_STAT_YEAR_DONE_TEXT_01)
             )
             await callback.answer()
             return
@@ -257,7 +259,7 @@ async def poker_stat_year_done(callback: CallbackQuery, state: FSMContext) -> No
         indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
     if not indicators:
         await callback.message.edit_text(
-            Text.user.POKER_STAT_REPORT.value.format(report="Нет данных по покеру.")
+            Text.user.POKER_STAT_REPORT.value.format(report=InlineText.POKER_STAT_YEAR_DONE_TEXT_02)
         )
         await callback.answer()
         return
@@ -327,7 +329,7 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
         indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="poker")
         if not selected_ids:
             default_indicator = next(
-                (item for item in indicators if str(item.description).strip() == "Денег всего"),
+                (item for item in indicators if str(item.description).strip() == InlineText.POKER_STAT_DONE_TEXT_01),
                 None,
             )
             if default_indicator is None and indicators:
@@ -353,7 +355,7 @@ async def poker_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
             await callback.message.answer_photo(
                 photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
                 caption=_format_stat_caption(
-                    report_type="Статистика покера",
+                    report_type=InlineText.POKER_STAT_DONE_TEXT_02,
                     indicators=selected,
                     years=selected_years,
                     include_period=True,
@@ -496,7 +498,7 @@ async def poker_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> No
     await callback.message.answer_photo(
         photo=BufferedInputFile(image_bytes, filename="poker_stat.png"),
         caption=_format_stat_caption(
-            report_type="Статистика покера",
+            report_type=InlineText.POKER_STAT_SORT_DONE_TEXT_01,
             indicators=selected,
             years=selected_years,
             include_period=True,
