@@ -1,4 +1,3 @@
-import io
 import logging
 import random
 from datetime import date, timezone
@@ -23,7 +22,6 @@ from app.bot.shared.chips_runtime import (
     TG_USER_CHIPS_RESULT_MSG_IDS,
     VK_ADMIN_ROOM_STATUS_MSG_IDS,
 )
-from app.bot.shared.texts.inline.shared import formatting as FormattingText
 from app.bot.shared.texts.inline.telegram.user import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -62,11 +60,56 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
-from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
+
+from .poll_helpers import (
+    _format_poll_summary as _format_poll_summary,
+)
+from .poll_helpers import (
+    _month_bounds as _month_bounds,
+)
+from .poll_helpers import (
+    _month_name_ru_upper as _month_name_ru_upper,
+)
+from .poll_helpers import (
+    _parse_custom_day_input as _parse_custom_day_input,
+)
+from .poll_helpers import (
+    _parse_iso_dates as _parse_iso_dates,
+)
+from .poll_helpers import (
+    _parse_month_key as _parse_month_key,
+)
+from .poll_helpers import (
+    _poll_all_days_for_month as _poll_all_days_for_month,
+)
+from .poll_helpers import (
+    _poll_choose_text as _poll_choose_text,
+)
+from .poll_helpers import (
+    _poll_days_for_month as _poll_days_for_month,
+)
+from .poll_helpers import (
+    _render_poll_results_chart as _render_poll_results_chart,
+)
+from .receipts_helpers import (
+    _download_telegram_receipt_bytes as _download_telegram_receipt_bytes,
+)
+from .receipts_helpers import (
+    _format_payment_requisites as _format_payment_requisites,
+)
+from .receipts_helpers import (
+    _format_unpaid_bets_lines as _format_unpaid_bets_lines,
+)
+from .receipts_helpers import (
+    _pick_fifo_bets_to_close as _pick_fifo_bets_to_close,
+)
+from .receipts_helpers import (
+    _telegram_external_file_id as _telegram_external_file_id,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -880,24 +923,3 @@ REGISTRATION_USER_STATES = {
     RegistrationState.waiting_for_bank_name.state,
     RegistrationState.waiting_for_phone.state,
 }
-
-from .poll_helpers import (
-    _month_bounds as _month_bounds,
-    _parse_month_key as _parse_month_key,
-    _parse_iso_dates as _parse_iso_dates,
-    _month_name_ru_upper as _month_name_ru_upper,
-    _poll_choose_text as _poll_choose_text,
-    _poll_days_for_month as _poll_days_for_month,
-    _parse_custom_day_input as _parse_custom_day_input,
-    _format_poll_summary as _format_poll_summary,
-    _render_poll_results_chart as _render_poll_results_chart,
-    _poll_all_days_for_month as _poll_all_days_for_month,
-)
-
-from .receipts_helpers import (
-    _format_payment_requisites as _format_payment_requisites,
-    _format_unpaid_bets_lines as _format_unpaid_bets_lines,
-    _pick_fifo_bets_to_close as _pick_fifo_bets_to_close,
-    _download_telegram_receipt_bytes as _download_telegram_receipt_bytes,
-    _telegram_external_file_id as _telegram_external_file_id,
-)

@@ -1,8 +1,6 @@
-import asyncio
 import logging
 import random
 import re
-import urllib.request
 from datetime import date, timezone
 from zoneinfo import ZoneInfo
 
@@ -18,7 +16,6 @@ from app.bot.shared.chips_runtime import (
     TG_ADMIN_ROOM_STATUS_MSG_IDS,
     VK_ADMIN_ROOM_STATUS_MSG_IDS,
 )
-from app.bot.shared.texts.inline.shared import formatting as FormattingText
 from app.bot.shared.texts.inline.vk.user import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -66,10 +63,61 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
-from app.db.repositories.poll_vote_repository import PollVoteRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.buyins_chart import render_buyins_session_chart_png
+
+from .poll_helpers import (
+    _format_poll_summary as _format_poll_summary,
+)
+from .poll_helpers import (
+    _month_bounds as _month_bounds,
+)
+from .poll_helpers import (
+    _month_name_ru_upper as _month_name_ru_upper,
+)
+from .poll_helpers import (
+    _parse_custom_day_input as _parse_custom_day_input,
+)
+from .poll_helpers import (
+    _parse_iso_dates as _parse_iso_dates,
+)
+from .poll_helpers import (
+    _parse_month_key as _parse_month_key,
+)
+from .poll_helpers import (
+    _poll_all_days_for_month as _poll_all_days_for_month,
+)
+from .poll_helpers import (
+    _poll_choose_text as _poll_choose_text,
+)
+from .poll_helpers import (
+    _poll_days_for_month as _poll_days_for_month,
+)
+from .poll_helpers import (
+    _render_poll_results_chart as _render_poll_results_chart,
+)
+from .poll_helpers import (
+    _shift_month as _shift_month,
+)
+from .receipts_helpers import (
+    _download_vk_receipt_bytes as _download_vk_receipt_bytes,
+)
+from .receipts_helpers import (
+    _extract_vk_attachment_url as _extract_vk_attachment_url,
+)
+from .receipts_helpers import (
+    _extract_vk_external_file_id as _extract_vk_external_file_id,
+)
+from .receipts_helpers import (
+    _format_payment_requisites as _format_payment_requisites,
+)
+from .receipts_helpers import (
+    _format_unpaid_bets_lines as _format_unpaid_bets_lines,
+)
+from .receipts_helpers import (
+    _pick_fifo_bets_to_close as _pick_fifo_bets_to_close,
+)
 
 STAT_SNACKBAR = InlineText.MODULE_TEXT_01
 PAYMENT_OWNER_ROW_ID = 1
@@ -730,26 +778,3 @@ def _normalize_phone(value: str) -> str | None:
     if digits.startswith("7") and len(digits) == 11:
         return f"+{digits}"
     return None
-
-from .poll_helpers import (
-    _month_bounds as _month_bounds,
-    _shift_month as _shift_month,
-    _parse_month_key as _parse_month_key,
-    _parse_iso_dates as _parse_iso_dates,
-    _month_name_ru_upper as _month_name_ru_upper,
-    _poll_choose_text as _poll_choose_text,
-    _poll_days_for_month as _poll_days_for_month,
-    _parse_custom_day_input as _parse_custom_day_input,
-    _format_poll_summary as _format_poll_summary,
-    _render_poll_results_chart as _render_poll_results_chart,
-    _poll_all_days_for_month as _poll_all_days_for_month,
-)
-
-from .receipts_helpers import (
-    _format_payment_requisites as _format_payment_requisites,
-    _format_unpaid_bets_lines as _format_unpaid_bets_lines,
-    _pick_fifo_bets_to_close as _pick_fifo_bets_to_close,
-    _extract_vk_attachment_url as _extract_vk_attachment_url,
-    _extract_vk_external_file_id as _extract_vk_external_file_id,
-    _download_vk_receipt_bytes as _download_vk_receipt_bytes,
-)
