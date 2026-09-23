@@ -5,7 +5,10 @@ import pytest
 
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
+from app.bot.telegram import runtime as tg_runtime
+from app.bot.telegram.handlers.admin import common as tg_common
 from app.bot.telegram.handlers.admin import poker as tg_poker
+from app.bot.vk.handlers.admin import common as vk_common
 from app.bot.vk.handlers.admin import poker as vk_poker
 
 
@@ -146,3 +149,36 @@ async def test_vk_finish_poker_legacy_transition_and_side_effect_order(monkeypat
         f"answer:{Text.admin.POKER_FINISH_SUCCESS.value}",
         "chips_status",
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("notification_module", [tg_common, vk_common])
+async def test_finish_poker_notification_builds_keyboard_without_runtime_error(
+    monkeypatch,
+    notification_module,
+):
+    sent = AsyncMock()
+    monkeypatch.setattr(tg_runtime, "telegram_bot", SimpleNamespace(send_message=sent))
+    monkeypatch.setattr(notification_module, "SessionFactory", _Session)
+
+    class UserRepo:
+        def __init__(self, session):
+            pass
+
+        async def get_by_row_id(self, row_id):
+            assert row_id == 10
+            return SimpleNamespace(
+                row_id=10,
+                is_admin=False,
+                notification_platform="tg",
+                telegram_id=100,
+                vk_id=None,
+            )
+
+    monkeypatch.setattr(notification_module, "UserRepository", UserRepo)
+
+    await notification_module._notify_players_about_finish(
+        players=[SimpleNamespace(player_id=10)]
+    )
+
+    sent.assert_awaited_once()

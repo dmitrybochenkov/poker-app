@@ -424,13 +424,21 @@ async def _notify_players_about_finish(*, players: list) -> None:
                 await telegram_bot.send_message(
                     chat_id=user.telegram_id,
                     text=text,
-                    reply_markup=await tg_main_dynamic_keyboard(user),
+                    reply_markup=tg_main_dynamic_keyboard(
+                        is_admin=False,
+                        has_active_poker=False,
+                        has_active_poll=False,
+                    ),
                 )
             elif user.notification_platform == "vk" and user.vk_id is not None:
                 await send_vk_message(
                     user_id=user.vk_id,
                     message=text,
-                    keyboard=await vk_main_dynamic_keyboard(user),
+                    keyboard=vk_main_dynamic_keyboard(
+                        is_admin=False,
+                        has_active_poker=False,
+                        has_active_poll=False,
+                    ),
                 )
 
 
