@@ -7,7 +7,7 @@ from app.application.use_cases.poker.start_betting import (
     StartBettingNotAuthorizedError,
 )
 from app.bot.shared.texts.texts import Text
-from app.db.repositories.user_repository import UserRepository
+from app.bot.shared.identity import resolve_telegram_user_id
 from app.db.session import SessionFactory
 from app.services.start_betting_flow import execute_start_betting
 
@@ -16,11 +16,13 @@ from .common import _clear_inline_keyboard
 
 async def _execute_for_telegram_id(telegram_id: int) -> str:
     async with SessionFactory() as session:
-        actor = await UserRepository(session).get_by_telegram_id(telegram_id)
-        actor_user_id = int(actor.row_id) if actor is not None else -1
+        actor_user_id = await resolve_telegram_user_id(
+            session=session,
+            telegram_id=telegram_id,
+        )
 
     try:
-        await execute_start_betting(actor_user_id=actor_user_id)
+        await execute_start_betting(actor_user_id=actor_user_id or -1)
     except StartBettingNotAuthorizedError:
         return Text.admin.NO_RIGHTS.value
     except ActivePokerNotFoundError:

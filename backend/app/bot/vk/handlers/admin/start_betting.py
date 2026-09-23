@@ -7,9 +7,9 @@ from app.application.use_cases.poker.start_betting import (
     StartBettingNotAuthorizedError,
 )
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.identity import resolve_vk_user_id
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import send_vk_message
-from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.start_betting_flow import execute_start_betting
 
@@ -21,11 +21,10 @@ async def handle_admin_room_start_betting_text(*, user_id, text):
         return HANDLER_UNMATCHED
 
     async with SessionFactory() as session:
-        actor = await UserRepository(session).get_by_vk_id(int(user_id))
-        actor_user_id = int(actor.row_id) if actor is not None else -1
+        actor_user_id = await resolve_vk_user_id(session=session, vk_id=int(user_id))
 
     try:
-        await execute_start_betting(actor_user_id=actor_user_id)
+        await execute_start_betting(actor_user_id=actor_user_id or -1)
     except StartBettingNotAuthorizedError:
         response_text = Text.admin.NO_RIGHTS.value
     except ActivePokerNotFoundError:

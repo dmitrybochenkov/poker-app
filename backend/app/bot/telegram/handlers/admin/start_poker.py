@@ -8,8 +8,8 @@ from app.application.use_cases.poker.start_poker import (
 )
 from app.bot.shared.texts.inline.telegram.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
+from app.bot.shared.identity import resolve_telegram_user_id
 from app.bot.telegram.keyboards import poker_params_keyboard
-from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.start_poker_flow import execute_start_poker
 
@@ -70,13 +70,16 @@ async def start_poker_with_param(callback: CallbackQuery) -> None:
     await _clear_inline_keyboard(callback)
 
     async with SessionFactory() as session:
-        actor = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
-    if actor is None:
+        actor_user_id = await resolve_telegram_user_id(
+            session=session,
+            telegram_id=callback.from_user.id,
+        )
+    if actor_user_id is None:
         await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
         return
 
     try:
-        await execute_start_poker(actor_user_id=int(actor.row_id), params_id=params_id)
+        await execute_start_poker(actor_user_id=actor_user_id, params_id=params_id)
     except (PokerAlreadyStartedError, PokerParamsNotFoundError):
         await callback.answer(Text.admin.POKER_STARTED.value, show_alert=True)
         return

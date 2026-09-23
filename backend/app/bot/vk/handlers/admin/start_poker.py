@@ -8,11 +8,11 @@ from app.application.use_cases.poker.start_poker import (
 )
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.identity import resolve_vk_user_id
 from app.bot.shared.texts.inline.vk.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import send_vk_message, send_vk_message_event_answer
 from app.bot.vk.keyboards import poker_params_keyboard
-from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.start_poker_flow import execute_start_poker
 
@@ -37,13 +37,16 @@ async def handle_poker_start_param_event(
         return PlainTextResponse("ok")
 
     async with SessionFactory() as session:
-        actor = await UserRepository(session).get_by_vk_id(admin_user_id)
+        actor_user_id = await resolve_vk_user_id(
+            session=session,
+            vk_id=admin_user_id,
+        )
 
-    if actor is None:
+    if actor_user_id is None:
         result_text = Text.admin.NO_RIGHTS.value
     else:
         try:
-            await execute_start_poker(actor_user_id=int(actor.row_id), params_id=params_id)
+            await execute_start_poker(actor_user_id=actor_user_id, params_id=params_id)
             result_text = Text.admin.POKER_START_SUCCESS.value
         except (PokerAlreadyStartedError, PokerParamsNotFoundError):
             result_text = Text.admin.POKER_STARTED.value

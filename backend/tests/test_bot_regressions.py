@@ -32,16 +32,11 @@ async def test_telegram_start_betting_calls_shared_application_flow(monkeypatch)
     execute = AsyncMock()
     monkeypatch.setattr(tg_start_betting, "SessionFactory", _Session)
     monkeypatch.setattr(tg_start_betting, "execute_start_betting", execute)
-
-    class UserRepo:
-        def __init__(self, session):
-            pass
-
-        async def get_by_telegram_id(self, telegram_id):
-            assert telegram_id == 77
-            return SimpleNamespace(row_id=9)
-
-    monkeypatch.setattr(tg_start_betting, "UserRepository", UserRepo)
+    monkeypatch.setattr(
+        tg_start_betting,
+        "resolve_telegram_user_id",
+        AsyncMock(return_value=9),
+    )
     message = SimpleNamespace(from_user=SimpleNamespace(id=77), answer=AsyncMock())
 
     await tg_start_betting.start_betting(message)
@@ -63,14 +58,11 @@ async def test_telegram_start_betting_maps_application_errors(monkeypatch, error
     monkeypatch.setattr(tg_start_betting, "SessionFactory", _Session)
     monkeypatch.setattr(tg_start_betting, "execute_start_betting", AsyncMock(side_effect=error))
 
-    class UserRepo:
-        def __init__(self, session):
-            pass
-
-        async def get_by_telegram_id(self, telegram_id):
-            return SimpleNamespace(row_id=9)
-
-    monkeypatch.setattr(tg_start_betting, "UserRepository", UserRepo)
+    monkeypatch.setattr(
+        tg_start_betting,
+        "resolve_telegram_user_id",
+        AsyncMock(return_value=9),
+    )
     assert await tg_start_betting._execute_for_telegram_id(77) == expected
 
 
@@ -80,16 +72,11 @@ async def test_telegram_start_poker_resolves_canonical_actor_and_calls_shared_fl
     monkeypatch.setattr(tg_start_poker, "SessionFactory", _Session)
     monkeypatch.setattr(tg_start_poker, "execute_start_poker", execute)
     monkeypatch.setattr(tg_start_poker, "_clear_inline_keyboard", AsyncMock())
-
-    class UserRepo:
-        def __init__(self, session):
-            pass
-
-        async def get_by_telegram_id(self, user_id):
-            assert user_id == 1
-            return SimpleNamespace(row_id=9)
-
-    monkeypatch.setattr(tg_start_poker, "UserRepository", UserRepo)
+    monkeypatch.setattr(
+        tg_start_poker,
+        "resolve_telegram_user_id",
+        AsyncMock(return_value=9),
+    )
     callback = SimpleNamespace(
         from_user=SimpleNamespace(id=1),
         data="pokerstart:7",
@@ -116,16 +103,11 @@ async def test_vk_start_poker_post_save_path_returns_success_without_approved_us
     monkeypatch.setattr(vk_start_poker, "send_vk_message", send_vk)
     monkeypatch.setattr(vk_start_poker, "send_vk_message_event_answer", event_answer)
     monkeypatch.setattr(vk_start_poker, "_clear_event_inline_keyboard_if_possible", cleanup)
-
-    class UserRepo:
-        def __init__(self, session):
-            pass
-
-        async def get_by_vk_id(self, user_id):
-            assert user_id == 99
-            return SimpleNamespace(row_id=9)
-
-    monkeypatch.setattr(vk_start_poker, "UserRepository", UserRepo)
+    monkeypatch.setattr(
+        vk_start_poker,
+        "resolve_vk_user_id",
+        AsyncMock(return_value=9),
+    )
 
     result = await vk_start_poker.handle_poker_start_param_event(
         admin_user_id=99,
@@ -180,16 +162,11 @@ async def test_vk_start_betting_calls_shared_application_flow(monkeypatch):
     monkeypatch.setattr(vk_start_betting, "SessionFactory", _Session)
     monkeypatch.setattr(vk_start_betting, "execute_start_betting", execute)
     monkeypatch.setattr(vk_start_betting, "send_vk_message", send_vk)
-
-    class UserRepo:
-        def __init__(self, session):
-            pass
-
-        async def get_by_vk_id(self, vk_id):
-            assert vk_id == 99
-            return SimpleNamespace(row_id=9)
-
-    monkeypatch.setattr(vk_start_betting, "UserRepository", UserRepo)
+    monkeypatch.setattr(
+        vk_start_betting,
+        "resolve_vk_user_id",
+        AsyncMock(return_value=9),
+    )
 
     result = await vk_start_betting.handle_admin_room_start_betting_text(
         user_id=99, text=Buttons.admin_room.START_BETTING.value
