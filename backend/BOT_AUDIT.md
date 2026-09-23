@@ -15,6 +15,12 @@
 - Start Poker handlers вынесены в отдельные transport modules и больше не содержат mutation, recipient query или cross-platform delivery. Ошибка delivery логируется best effort и не меняет успешный результат committed операции.
 - Общий для двух реальных flows контракт уведомителя вынесен в `CanonicalRecipientNotifier`; `StartBettingFlow` сохраняет совместимый alias. Универсальный notification framework, event bus и общий base flow не вводились.
 - Отложено: строгая межпроцессная гарантия единственной активной игры для будущей MVCC СУБД потребует schema constraint или locking strategy; transactional outbox и повторная доставка также не вводились.
+- **Finish Poker migrated (23.09.2026).** Telegram `finish_poker` и VK `handle_admin_room_finish_poker_text` подтверждены как эквивалентные entry points одного state transition.
+- `FinishPokerUseCase` повторно проверяет approved admin, атомарно переводит Poker в chip-entry state (`is_going=False`, `is_bettable=False`, `is_ready_for_chips_entering=True`) и очищает deny-list одним commit. PokerData/chips/results не изменяются.
+- Use case возвращает canonical IDs фактических игроков. `CanonicalRecipientNotifier` сохраняет legacy recipient semantics: admins и пользователи без `notification_platform` исключаются, остальные получают сообщение только в выбранной платформе.
+- Player delivery выполняется после commit и закрытия session. Success ответ инициатору и platform-specific chips-status refresh сохраняют прежний порядок; сбой notifier или status refresh не откатывает и не меняет committed business result.
+- Третье повторение platform ID → `User.row_id` вынесено в малые `resolve_telegram_user_id` / `resolve_vk_user_id`. Resolver не проверяет approval/admin; authorization остаётся во всех трёх application operations.
+- Repeated/concurrent finish защищён conditional update в текущей SQLite persistence model. Для будущей MVCC СУБД отдельно потребуется проверить locking semantics.
 
 ## Срочно
 
@@ -24,16 +30,17 @@
 | P0 | Telegram-старт ставок завершался `NameError`: после получения `approved_users` код обращался к несуществующим `tg_user_ids` и `vk_user_ids`. Изменение `is_bettable` уже было сохранено до ошибки, поэтому повторный старт отвечал «ставки уже открыты» без рассылки. | Исправлено получение адресатов по платформам; добавлен тест. Для уже открытых игр нужна отдельная операция повторной рассылки или журнал доставки. |
 | P0 | Старт покера Telegram обращался к несуществующему `approved_users` после сохранения игры. | Исправлено; post-save TG/VK paths и canonical-recipient adapter покрыты regression tests. |
 | P1 | Ошибка отправки одному получателю прерывала всю рассылку старта ставок после сохранения состояния игры. | Обе рассылки теперь продолжаются после ошибки конкретного адресата и пишут ошибку в лог. Для гарантированной доставки нужен outbox с повторными попытками. |
+| P1 | Finish Poker notifier в TG и VK вызывал синхронную keyword-only keyboard factory через `await` и positional argument. После commit первый обычный игрок вызывал `TypeError`, поэтому admin success мог не отправиться. | Сначала воспроизведено двумя regression cases, затем исправлено отдельным commit. Мигрированный adapter использует явные post-finish keyboard flags. |
 | P1 | У VK-администратора создание/отмена опроса вызывали несуществующую функцию удаления сообщения; статус комнаты использовал неимпортированную клавиатуру. | Исправлено. Отмена опроса покрыта тестом. |
 | P1 | Проверка `vk_secret_key` пропускала запросы, в которых поле `secret` отсутствовало. | Исправлено; добавлен тест отказа с `403`. |
 
 ## Границы слоёв
 
 1. `application/use_cases` напрямую импортирует SQLAlchemy-модели и конкретные `db.repositories` как минимум в 13 файлах. Это привязывает сценарии к хранению данных. Сначала стоит выделить интерфейсы для ключевых сценариев покера, ставок и регистрации; массовую замену в одном проходе делать не следует.
-2. Многие обработчики ботов напрямую импортируют `db` и совмещают распознавание события, бизнес-решение, транзакцию, построение текста и сетевую отправку. Start Betting и Start Poker уже мигрированы; среди ближайших рискованных legacy-сценариев остаются завершение покера и платежи.
+2. Многие обработчики ботов напрямую импортируют `db` и совмещают распознавание события, бизнес-решение, транзакцию, построение текста и сетевую отправку. Start Betting, Start Poker и Finish Poker уже мигрированы; среди ближайших рискованных legacy-сценариев остаются платежи и ввод/расчёт результатов.
 3. `api/http/vk_webhook.py` содержит логику `/start`, управление состоянием пользователя, доступ к репозиторию и выбор клавиатуры. HTTP-слой должен передавать событие в VK-адаптер, а ответ формироваться там.
-4. В немигрированных handlers ещё есть Telegram → VK и VK → Telegram presentation imports. Start Betting и Start Poker устранили их внутри своих transport modules через post-commit adapters.
-5. Legacy repository methods продолжают вызывать `commit()` внутри методов; ещё часть транзакций завершается в обработчиках. Для Start Betting и Start Poker добавлены точечные non-committing mutations, а use cases владеют commit. Остальные границы переносятся только вместе с соответствующим vertical flow.
+4. В немигрированных handlers ещё есть Telegram → VK и VK → Telegram presentation imports. Три мигрированных flows устранили их внутри своих transport modules через post-commit adapters.
+5. Legacy repository methods продолжают вызывать `commit()` внутри методов; ещё часть транзакций завершается в обработчиках. Для Start Betting, Start Poker и Finish Poker добавлены точечные non-committing mutations, а use cases владеют commit. Остальные границы переносятся только вместе с соответствующим vertical flow.
 6. Словари состояния VK и ID сообщений находятся в памяти процесса. Перезапуск или несколько воркеров теряют/разделяют состояние непредсказуемо. Для регистрации, черновиков ставок и уведомлений нужен общий persistent storage.
 
 ## Нейминг и сопровождение
@@ -50,7 +57,8 @@
 - `test_vk_dispatch_order` фиксирует порядок вызовов в четырех VK маршрутах: admin `message_event`, admin text, user `message_event`, user `message_new`. Он проверяет AST исходного routing и обнаруживает перестановку вызовов без тяжелых mocks каждого обработчика.
 - Локальные тесты также проверяют публичные импорты VK, обе рассылки старта ставок, старт покера, отмену VK-опроса и проверку VK-секрета.
 - Start Poker regression suite проверяет authorization, invalid params без mutation, один commit для игры и инициатора, canonical approved recipients, повторный и concurrent start, post-commit ordering, best-effort dual-platform delivery, сохранение committed state при сбое notifier и отсутствие cross-presentation imports. Отдельный VK regression test защищает прежний post-save `approved_users` failure path.
+- Finish Poker regression suite проверяет authorization, точные state flags, неизменность PokerData, атомарную очистку deny-list, rollback при cleanup failure, repeated/concurrent transition, player recipient filters, post-commit ordering/failures, shared wording, transport boundaries и прежний TG/VK side-effect order.
 - Во время review найден `NameError` в `services/buyins_chart.py`: генератор графика истории обращался к отсутствующему `chart_type` при непустых данных. Сначала добавлен падающий регрессионный тест, затем исправление отдельным коммитом.
-- Финальный прогон после миграции Start Poker: 44 теста проходят, `compileall` проходит, `from app.main import app` отвечает `OK`, полный `ruff F821` проходит. Полный Ruff всё ещё сообщает 486 оставшихся замечаний: 425 `E501`, 54 `I001`, 5 `F841`, 2 `F401`. Их массовое исправление в эту задачу не входило.
+- Финальный прогон после миграции Finish Poker: 62 теста проходят, `compileall` проходит, `from app.main import app` отвечает `OK`, полный `ruff F821` проходит. Полный Ruff всё ещё сообщает 485 оставшихся замечаний: 425 `E501`, 56 `I001`, 2 `F841`, 2 `F401`. Их массовое исправление в эту задачу не входило.
 - Токен VK отвечает на read-only запрос API. Адреса callback-сервера, секрет и статус событий проверены без вывода секретов. Текущий адрес приложения принял POST подтверждения. Отправка пользователям и изменение настройки VK в ходе аудита не выполнялись.
 - Полной проверки реальной доставки не было: она требует исправления внешнего callback URL и тестового события из VK.
