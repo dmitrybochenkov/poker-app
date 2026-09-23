@@ -120,8 +120,12 @@ async def test_betting_started_adapter_preserves_platform_delivery_and_cleanup(m
 
     assert [call.kwargs["chat_id"] for call in sent_tg.await_args_list] == [11, 12]
     assert [call.kwargs["user_id"] for call in sent_vk.await_args_list] == [21]
-    assert all(call.kwargs["text"] == Text.user.START_BETTING.value for call in sent_tg.await_args_list)
-    assert all(call.kwargs["message"] == Text.user.START_BETTING.value for call in sent_vk.await_args_list)
+    assert all(
+        call.kwargs["text"] == Text.user.START_BETTING.value for call in sent_tg.await_args_list
+    )
+    assert all(
+        call.kwargs["message"] == Text.user.START_BETTING.value for call in sent_vk.await_args_list
+    )
     assert all(
         call.kwargs["reply_markup"] is notification_module.tg_betting_keyboard
         for call in sent_tg.await_args_list
