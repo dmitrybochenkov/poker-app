@@ -88,6 +88,14 @@ class UserRepository:
     )
     return list(result.scalars().all())
 
+  async def list_approved_user_ids(self) -> list[int]:
+    result = await self.session.execute(
+      select(User.row_id)
+      .where(User.is_approved.is_(True))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
   async def list_approved_without_telegram_id(self) -> list[User]:
     result = await self.session.execute(
       select(User)

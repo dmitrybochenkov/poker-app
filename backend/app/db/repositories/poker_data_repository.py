@@ -27,6 +27,24 @@ class PokerDataRepository:
     await self.session.refresh(item)
     return item
 
+  async def add_player_without_commit(
+    self,
+    *,
+    date,
+    player_id: int,
+    player_name: str,
+    is_prev_winner: bool = False,
+  ) -> PokerData:
+    item = PokerData(
+      date=date,
+      player_id=player_id,
+      player_name=player_name,
+      is_prev_winner=is_prev_winner,
+    )
+    self.session.add(item)
+    await self.session.flush()
+    return item
+
   async def get_player(self, *, date, player_id: int) -> PokerData | None:
     result = await self.session.execute(
       select(PokerData)

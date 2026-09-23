@@ -1,5 +1,4 @@
-from typing import Protocol
+from app.application.ports.notifications import CanonicalRecipientNotifier
 
 
-class BettingStartedNotifier(Protocol):
-    async def notify(self, *, recipient_user_ids: tuple[int, ...]) -> None: ...
+BettingStartedNotifier = CanonicalRecipientNotifier

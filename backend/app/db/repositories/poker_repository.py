@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.poker import Poker
@@ -15,6 +15,22 @@ class PokerRepository:
     await self.session.commit()
     await self.session.refresh(poker)
     return poker
+
+  async def create_if_none_started(self, *, params_id: int) -> Poker | None:
+    active_exists = select(Poker.row_id).where(Poker.is_going.is_(True)).exists()
+    statement = (
+      insert(Poker)
+      .from_select(
+        [Poker.params_id],
+        select(params_id).where(~active_exists),
+      )
+      .returning(Poker.row_id)
+    )
+    row_id = await self.session.scalar(statement)
+    if row_id is None:
+      return None
+    await self.session.flush()
+    return await self.session.get(Poker, int(row_id))
 
   async def get_started(self) -> tuple[Poker, PokerParam] | None:
     result = await self.session.execute(
