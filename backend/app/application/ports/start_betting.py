@@ -1,4 +1,3 @@
-from app.application.ports.notifications import CanonicalRecipientNotifier
-
-
-BettingStartedNotifier = CanonicalRecipientNotifier
+from app.application.ports.notifications import (
+    CanonicalRecipientNotifier as BettingStartedNotifier,
+)

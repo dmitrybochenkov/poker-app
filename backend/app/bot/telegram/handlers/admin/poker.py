@@ -4,7 +4,6 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from app.application.use_cases.poker.calculate_bet_scores import CalculateBetScoresUseCase
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
-from app.application.use_cases.poker.start_poker import StartPokerUseCase
 from app.bot.shared.guards import is_tg_admin
 from app.bot.shared.texts.inline.telegram.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
@@ -13,20 +12,14 @@ from app.bot.telegram.keyboards import (
     admin_room_keyboard,
     main_keyboard,
     poker_cashier_candidates_keyboard,
-    poker_params_keyboard,
-)
-from app.bot.telegram.keyboards import (
-    main_dynamic_keyboard as tg_main_dynamic_keyboard,
 )
 from app.bot.vk.api import send_vk_message
-from app.bot.vk.keyboards import main_dynamic_keyboard as vk_main_dynamic_keyboard
 from app.bot.vk.keyboards import main_keyboard as vk_main_keyboard
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
-from app.db.repositories.poker_param_repository import PokerParamRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.user_repository import UserRepository
@@ -43,122 +36,11 @@ from .common import (
     _ensure_tg_admin_message,
     _notify_players_about_finish,
     _refresh_admin_room_status,
-    _safe_callback_edit_text,
     _split_names_csv,
     _upsert_tg_admin_chips_status,
     _winner_mark,
     logger,
 )
-
-
-async def start_poker_menu(message: Message) -> None:
-    if message.from_user is None:
-        await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
-        return
-
-    async with SessionFactory() as session:
-        if not await _ensure_tg_admin_message(
-            session=session, user_id=message.from_user.id, message=message
-        ):
-            return
-        user_repository = UserRepository(session)
-
-        use_case = StartPokerUseCase(
-            poker_repository=PokerRepository(session),
-            poker_param_repository=PokerParamRepository(session),
-            poker_room_denied_repository=PokerRoomDeniedRepository(session),
-        )
-        can_start, params = await use_case.get_start_data()
-        if not can_start:
-            await message.answer(Text.admin.POKER_STARTED.value)
-            return
-        if not params:
-            await message.answer(Text.admin.POKER_PARAMS_EMPTY.value)
-            return
-
-    await message.answer(
-        "\n\n".join(
-            [
-                Text.admin.POKER_PARAMS_CHOOSE.value,
-                *[
-                    (
-                        f'{InlineText.START_POKER_MENU_TEXT_01_PART_1}{p.row_id}{InlineText.START_POKER_MENU_TEXT_01_PART_2}{p.buyin_size_chips}{InlineText.START_POKER_MENU_TEXT_01_PART_3}{int(p.buyin_size_kopecks) // 100}{InlineText.START_POKER_MENU_TEXT_01_PART_4}{p.bb_size_chips}{InlineText.START_POKER_MENU_TEXT_01_PART_5}{p.max_buyins}{InlineText.START_POKER_MENU_TEXT_01_PART_6}{p.big_buyin}{InlineText.START_POKER_MENU_TEXT_01_PART_7}{p.super_buyin}'
-                    )
-                    for p in params
-                ],
-            ]
-        ),
-        reply_markup=poker_params_keyboard(params=params),
-    )
-
-
-async def start_poker_with_param(callback: CallbackQuery) -> None:
-    if callback.from_user is None:
-        await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
-        return
-
-    params_id = int(callback.data.split(":", 1)[1])
-    await _clear_inline_keyboard(callback)
-
-    async with SessionFactory() as session:
-        if not await _ensure_tg_admin_callback(
-            session=session, user_id=callback.from_user.id, callback=callback
-        ):
-            return
-        user_repository = UserRepository(session)
-
-        use_case = StartPokerUseCase(
-            poker_repository=PokerRepository(session),
-            poker_param_repository=PokerParamRepository(session),
-            poker_room_denied_repository=PokerRoomDeniedRepository(session),
-        )
-        created = await use_case.execute(params_id=params_id)
-        if created is None:
-            await callback.answer(Text.admin.POKER_STARTED.value, show_alert=True)
-            return
-        starter = await user_repository.get_by_telegram_id(callback.from_user.id)
-        if starter is not None:
-            await ManagePokerPlayersUseCase(
-                poker_repository=PokerRepository(session),
-                poker_data_repository=PokerDataRepository(session),
-            ).add_player_to_active_poker(
-                player_id=int(starter.row_id),
-                player_name=starter.name,
-            )
-
-        approved_users = await user_repository.list_approved()
-
-    from app.bot.telegram.runtime import telegram_bot
-
-    if telegram_bot is not None:
-        for user in approved_users:
-            if user.telegram_id is None:
-                continue
-            await telegram_bot.send_message(
-                chat_id=int(user.telegram_id),
-                text=Text.user.START_POKER.value,
-                reply_markup=tg_main_dynamic_keyboard(
-                    is_admin=bool(user.is_admin),
-                    has_active_poker=True,
-                    has_active_poll=False,
-                ),
-            )
-    for user in approved_users:
-        if user.vk_id is None:
-            continue
-        await send_vk_message(
-            user_id=int(user.vk_id),
-            message=Text.user.START_POKER.value,
-            keyboard=vk_main_dynamic_keyboard(
-                is_admin=bool(user.is_admin),
-                has_active_poker=True,
-                has_active_poll=False,
-            ),
-        )
-
-    if callback.message is not None:
-        await _safe_callback_edit_text(callback, Text.admin.POKER_START_SUCCESS.value)
-    await callback.answer(Text.admin.POKER_START_SUCCESS.value)
 
 
 async def finish_poker(message: Message) -> None:

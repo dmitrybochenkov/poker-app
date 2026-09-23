@@ -3,11 +3,21 @@ from aiogram import F
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.telegram.states import AdminPokerState, RegistrationState
 
-from . import bets, buyins, management, players, poker, polls, registrations, start_betting
+from . import (
+    bets,
+    buyins,
+    management,
+    players,
+    poker,
+    polls,
+    registrations,
+    start_betting,
+    start_poker,
+)
 from .common import router
 
-router.message(F.text == Buttons.admin_main.START_POKER.value)(poker.start_poker_menu)
-router.callback_query(F.data.startswith("pokerstart:"))(poker.start_poker_with_param)
+router.message(F.text == Buttons.admin_main.START_POKER.value)(start_poker.start_poker_menu)
+router.callback_query(F.data.startswith("pokerstart:"))(start_poker.start_poker_with_param)
 router.message(F.text == Buttons.admin_room.FINISH_POKER.value)(poker.finish_poker)
 router.message(F.text == Buttons.admin_room.CALCULATE_POKER.value)(poker.calculate_poker)
 router.callback_query(F.data == "pokercalc:run")(poker.calculate_poker_inline)

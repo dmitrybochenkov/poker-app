@@ -11,6 +11,7 @@ from . import (
     polls,
     registrations,
     start_betting,
+    start_poker,
 )
 from .common import HANDLER_UNMATCHED
 
@@ -113,7 +114,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker.handle_poker_start_param_event(
+    result = await start_poker.handle_poker_start_param_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -386,7 +387,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     result = await management.handle_admin_main_make_admin_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker.handle_admin_main_start_poker_text(user_id=user_id, text=text)
+    result = await start_poker.handle_admin_main_start_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
     result = await poker.handle_admin_room_finish_poker_text(user_id=user_id, text=text)

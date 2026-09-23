@@ -16,7 +16,7 @@ EXPECTED_DISPATCH = {
         "registrations.handle_link_to_event",
         "registrations.handle_link_page_event",
         "registrations.handle_make_admin_select_event",
-        "poker.handle_poker_start_param_event",
+        "start_poker.handle_poker_start_param_event",
         "players.handle_poker_add_player_select_event",
         "players.handle_poker_add_player_new_event",
         "players.handle_poker_add_player_cancel_event",
@@ -49,7 +49,7 @@ EXPECTED_DISPATCH = {
         "registrations.handle_reject_command_text",
         "registrations.handle_link_command_text",
         "management.handle_admin_main_make_admin_text",
-        "poker.handle_admin_main_start_poker_text",
+        "start_poker.handle_admin_main_start_poker_text",
         "poker.handle_admin_room_finish_poker_text",
         "chips.handle_admin_room_calculate_poker_text",
         "start_betting.handle_admin_room_start_betting_text",
@@ -184,6 +184,7 @@ def _dispatch_calls(side: str, entrypoint: str) -> list[str]:
                 "polls",
                 "registration",
                 "start_betting",
+                "start_poker",
                 "registrations",
             }:
                 calls.append((node.lineno, f"{target.value.id}.{target.attr}"))
