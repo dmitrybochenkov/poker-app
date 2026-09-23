@@ -26,12 +26,28 @@ class _Session:
 async def test_telegram_start_betting_sends_both_platform_notifications(monkeypatch):
     sent_tg = AsyncMock(side_effect=[RuntimeError("blocked user"), None])
     sent_vk = AsyncMock()
+    unpin_tg = AsyncMock()
+    delete_tg = AsyncMock()
+    unpin_vk = AsyncMock()
+    delete_vk = AsyncMock()
     started = AsyncMock()
-    monkeypatch.setattr(tg_runtime, "telegram_bot", SimpleNamespace(send_message=sent_tg))
+    monkeypatch.setattr(
+        tg_runtime,
+        "telegram_bot",
+        SimpleNamespace(
+            send_message=sent_tg,
+            unpin_chat_message=unpin_tg,
+            delete_message=delete_tg,
+        ),
+    )
     monkeypatch.setattr(tg_admin_common, "SessionFactory", _Session)
-    monkeypatch.setattr(tg_admin_common, "TG_ADMIN_ROOM_STATUS_MSG_IDS", {})
-    monkeypatch.setattr(tg_admin_common, "VK_ADMIN_ROOM_STATUS_MSG_IDS", {})
+    tg_status = {31: 301}
+    vk_status = {41: 401}
+    monkeypatch.setattr(tg_admin_common, "TG_ADMIN_ROOM_STATUS_MSG_IDS", tg_status)
+    monkeypatch.setattr(tg_admin_common, "VK_ADMIN_ROOM_STATUS_MSG_IDS", vk_status)
     monkeypatch.setattr(tg_admin_common, "send_vk_message", sent_vk)
+    monkeypatch.setattr(tg_admin_common, "unpin_vk_message", unpin_vk)
+    monkeypatch.setattr(tg_admin_common, "delete_vk_message_by_id", delete_vk)
 
     class UserRepo:
         def __init__(self, session):
@@ -62,6 +78,56 @@ async def test_telegram_start_betting_sends_both_platform_notifications(monkeypa
     started.assert_awaited_once()
     assert [call.kwargs["chat_id"] for call in sent_tg.await_args_list] == [11, 12]
     assert [call.kwargs["user_id"] for call in sent_vk.await_args_list] == [21]
+    assert all(call.kwargs["text"] == Text.user.START_BETTING.value for call in sent_tg.await_args_list)
+    assert all(call.kwargs["message"] == Text.user.START_BETTING.value for call in sent_vk.await_args_list)
+    assert all(call.kwargs["reply_markup"] is tg_admin_common.betting_keyboard for call in sent_tg.await_args_list)
+    assert all(call.kwargs["keyboard"] is tg_admin_common.vk_betting_keyboard for call in sent_vk.await_args_list)
+    unpin_tg.assert_awaited_once_with(chat_id=31, message_id=301)
+    delete_tg.assert_awaited_once_with(chat_id=31, message_id=301)
+    unpin_vk.assert_awaited_once_with(peer_id=41)
+    delete_vk.assert_awaited_once_with(peer_id=41, message_id=401)
+    assert tg_status == {}
+    assert vk_status == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("active", "expected"),
+    [
+        (None, Text.admin.POKER_ACTIVE_NOT_FOUND.value),
+        (
+            (SimpleNamespace(is_ready_for_chips_entering=True, is_bettable=False), None),
+            Text.user.FINISH_CHIPS_NOT_READY.value,
+        ),
+        (
+            (SimpleNamespace(is_ready_for_chips_entering=False, is_bettable=True), None),
+            Text.admin.BETTING_ALREADY_OPEN.value,
+        ),
+    ],
+)
+async def test_telegram_start_betting_rejects_invalid_poker_state(monkeypatch, active, expected):
+    started = AsyncMock()
+    monkeypatch.setattr(tg_admin_common, "SessionFactory", _Session)
+
+    class UserRepo:
+        def __init__(self, session):
+            pass
+
+    class PokerRepo:
+        def __init__(self, session):
+            pass
+
+        async def get_started(self):
+            return active
+
+        async def start_betting(self, poker):
+            await started(poker)
+
+    monkeypatch.setattr(tg_admin_common, "UserRepository", UserRepo)
+    monkeypatch.setattr(tg_admin_common, "PokerRepository", PokerRepo)
+
+    assert await tg_admin_common._start_betting_flow(admin_tg_id=1) == expected
+    started.assert_not_awaited()
 
 
 @pytest.mark.asyncio
