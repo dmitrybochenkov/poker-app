@@ -1,4 +1,4 @@
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery
 
 from app.bot.shared.texts.inline.shared import formatting as FormattingText
 from app.bot.shared.texts.inline.telegram.admin import bets as InlineText
@@ -16,46 +16,12 @@ from app.services.google_backup import backup_tables_to_google
 
 from .common import (
     TG_MANUAL_RECEIPT_SELECTIONS,
-    _clear_inline_keyboard,
     _ensure_tg_admin_callback,
-    _ensure_tg_admin_message,
     _format_rub_from_kopecks,
     _safe_callback_edit_reply_markup,
     _safe_callback_edit_text,
-    _start_betting_flow,
     logger,
 )
-
-
-async def start_betting(message: Message) -> None:
-    if message.from_user is None:
-        await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
-        return
-    async with SessionFactory() as session:
-        if not await _ensure_tg_admin_message(
-            session=session, user_id=message.from_user.id, message=message
-        ):
-            return
-    await message.answer(await _start_betting_flow(admin_tg_id=message.from_user.id))
-
-
-async def start_betting_inline(callback: CallbackQuery) -> None:
-    if callback.from_user is None:
-        await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
-        return
-    async with SessionFactory() as session:
-        if not await _ensure_tg_admin_callback(
-            session=session, user_id=callback.from_user.id, callback=callback
-        ):
-            return
-    result_text = await _start_betting_flow(admin_tg_id=callback.from_user.id)
-    await callback.answer(result_text, show_alert=True)
-    await _clear_inline_keyboard(callback)
-    if callback.message is not None:
-        try:
-            await callback.message.delete()
-        except Exception:
-            pass
 
 
 async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:

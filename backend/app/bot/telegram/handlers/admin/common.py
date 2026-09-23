@@ -17,7 +17,6 @@ from app.bot.shared.guards import is_tg_admin
 from app.bot.shared.texts.inline.telegram.admin import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
-    betting_keyboard,
     main_admin_entry_keyboard,
     main_keyboard,
     poker_calc_keyboard,
@@ -31,9 +30,7 @@ from app.bot.vk.api import (
     pin_vk_message_by_id,
     send_vk_message,
     send_vk_message_with_id,
-    unpin_vk_message,
 )
-from app.bot.vk.keyboards import betting_keyboard as vk_betting_keyboard
 from app.bot.vk.keyboards import main_dynamic_keyboard as vk_main_dynamic_keyboard
 from app.bot.vk.keyboards import main_keyboard as vk_main_keyboard
 from app.bot.vk.keyboards import (
@@ -77,69 +74,6 @@ async def _safe_callback_edit_text(
     except TelegramBadRequest as exc:
         if "message is not modified" not in str(exc).lower():
             raise
-
-
-async def _start_betting_flow(*, admin_tg_id: int) -> str:
-    async with SessionFactory() as session:
-        user_repository = UserRepository(session)
-        poker_repository = PokerRepository(session)
-        active = await poker_repository.get_started()
-        if active is None:
-            return Text.admin.POKER_ACTIVE_NOT_FOUND.value
-        poker, _ = active
-        if poker.is_ready_for_chips_entering:
-            return Text.user.FINISH_CHIPS_NOT_READY.value
-        if poker.is_bettable:
-            return Text.admin.BETTING_ALREADY_OPEN.value
-        await poker_repository.start_betting(poker)
-        tg_user_ids = await user_repository.list_approved_tg_ids()
-        vk_user_ids = await user_repository.list_approved_vk_ids()
-
-    from app.bot.telegram.runtime import telegram_bot
-
-    if telegram_bot is not None:
-        for chat_id, message_id in list(TG_ADMIN_ROOM_STATUS_MSG_IDS.items()):
-            try:
-                await telegram_bot.unpin_chat_message(
-                    chat_id=int(chat_id), message_id=int(message_id)
-                )
-            except Exception:
-                pass
-            try:
-                await telegram_bot.delete_message(chat_id=int(chat_id), message_id=int(message_id))
-            except Exception:
-                pass
-    for peer_id, message_id in list(VK_ADMIN_ROOM_STATUS_MSG_IDS.items()):
-        try:
-            await unpin_vk_message(peer_id=int(peer_id))
-        except Exception:
-            pass
-        try:
-            await delete_vk_message_by_id(peer_id=int(peer_id), message_id=int(message_id))
-        except Exception:
-            pass
-    TG_ADMIN_ROOM_STATUS_MSG_IDS.clear()
-    VK_ADMIN_ROOM_STATUS_MSG_IDS.clear()
-    if telegram_bot is not None:
-        for user_id in tg_user_ids:
-            try:
-                await telegram_bot.send_message(
-                    chat_id=user_id,
-                    text=Text.user.START_BETTING.value,
-                    reply_markup=betting_keyboard,
-                )
-            except Exception:
-                logger.exception("Failed to announce betting start to Telegram user %s", user_id)
-    for user_id in vk_user_ids:
-        try:
-            await send_vk_message(
-                user_id=user_id,
-                message=Text.user.START_BETTING.value,
-                keyboard=vk_betting_keyboard,
-            )
-        except Exception:
-            logger.exception("Failed to announce betting start to VK user %s", user_id)
-    return Text.admin.BETTING_START_SUCCESS.value
 
 
 async def _refresh_admin_room_status(*, session) -> None:

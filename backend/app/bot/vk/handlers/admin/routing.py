@@ -1,6 +1,17 @@
 from fastapi.responses import PlainTextResponse
 
-from . import bets, buyins, cashier, chips, management, players, poker, polls, registrations
+from . import (
+    bets,
+    buyins,
+    cashier,
+    chips,
+    management,
+    players,
+    poker,
+    polls,
+    registrations,
+    start_betting,
+)
 from .common import HANDLER_UNMATCHED
 
 
@@ -384,7 +395,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     result = await chips.handle_admin_room_calculate_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await bets.handle_admin_room_start_betting_text(user_id=user_id, text=text)
+    result = await start_betting.handle_admin_room_start_betting_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
     result = await polls.handle_admin_main_create_poll_text(user_id=user_id, text=text)

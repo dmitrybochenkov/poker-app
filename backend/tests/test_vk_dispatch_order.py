@@ -52,7 +52,7 @@ EXPECTED_DISPATCH = {
         "poker.handle_admin_main_start_poker_text",
         "poker.handle_admin_room_finish_poker_text",
         "chips.handle_admin_room_calculate_poker_text",
-        "bets.handle_admin_room_start_betting_text",
+        "start_betting.handle_admin_room_start_betting_text",
         "polls.handle_admin_main_create_poll_text",
         "poker.handle_admin_room_correct_poker_text",
         "poker.handle_admin_room_correct_to_admin_room_text",
@@ -183,6 +183,7 @@ def _dispatch_calls(side: str, entrypoint: str) -> list[str]:
                 "poker_stats",
                 "polls",
                 "registration",
+                "start_betting",
                 "registrations",
             }:
                 calls.append((node.lineno, f"{target.value.id}.{target.attr}"))

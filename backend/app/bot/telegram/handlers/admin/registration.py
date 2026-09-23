@@ -1,8 +1,9 @@
 from aiogram import F
+
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.telegram.states import AdminPokerState, RegistrationState
 
-from . import bets, buyins, management, players, poker, polls, registrations
+from . import bets, buyins, management, players, poker, polls, registrations, start_betting
 from .common import router
 
 router.message(F.text == Buttons.admin_main.START_POKER.value)(poker.start_poker_menu)
@@ -10,8 +11,8 @@ router.callback_query(F.data.startswith("pokerstart:"))(poker.start_poker_with_p
 router.message(F.text == Buttons.admin_room.FINISH_POKER.value)(poker.finish_poker)
 router.message(F.text == Buttons.admin_room.CALCULATE_POKER.value)(poker.calculate_poker)
 router.callback_query(F.data == "pokercalc:run")(poker.calculate_poker_inline)
-router.message(F.text == Buttons.admin_room.START_BETTING.value)(bets.start_betting)
-router.callback_query(F.data == "pokerstartbetting:inline")(bets.start_betting_inline)
+router.message(F.text == Buttons.admin_room.START_BETTING.value)(start_betting.start_betting)
+router.callback_query(F.data == "pokerstartbetting:inline")(start_betting.start_betting_inline)
 router.message(F.text == Buttons.admin_main.CREATE_POLL.value)(polls.create_poll_menu)
 router.callback_query(F.data == "polladmin_other")(polls.create_poll_choose_other)
 router.callback_query(F.data == "polladmin_cancel")(polls.create_poll_cancel)

@@ -8,7 +8,6 @@ from app.application.use_cases.poker.start_betting import (
     StartBettingUseCase,
 )
 from app.db.session import SessionFactory
-from app.services.start_betting_notifications import BettingStartedNotificationAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +37,8 @@ class StartBettingFlow:
 
 
 async def execute_start_betting(*, actor_user_id: int) -> StartBettingResult:
+    from app.services.start_betting_notifications import BettingStartedNotificationAdapter
+
     return await StartBettingFlow(
         session_factory=SessionFactory,
         notifier=BettingStartedNotificationAdapter(),
