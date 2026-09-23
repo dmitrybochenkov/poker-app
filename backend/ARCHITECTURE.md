@@ -459,9 +459,9 @@ Unrelated failing test, lint debt, uncovered legacy code или архитект
 
 ---
 
-# First Vertical Migration Design: Start Betting
+# First Vertical Migration: Start Betting
 
-Этот раздел — проверяемый design. Он не разрешает реализацию без отдельного подтверждения.
+Раздел был создан как проверяемый design и реализован 23.09.2026. Он сохраняет исходную карту и принятые решения как reference implementation первой vertical migration.
 
 ## 11. Текущая карта Start Betting
 
@@ -702,6 +702,16 @@ No other handlers, repositories or WebApp flows are included.
 | WebApp reuse | WebApp has separate presentation and auth debt | A: migrate together; B: expose same use case later | **B** | First slice remains TG/VK only; future HTTP endpoint reuses operation |
 | Historical name identity | Some poker history depends on player names | A: fix during Start Betting; B: defer | **B** | No unrelated data/schema migration |
 
-## 15. Implementation gate
+## 15. Implementation status
 
-Этот design pass не создаёт `StartBettingUseCase`, ports, adapters или repository methods и не меняет production code. Перед реализацией требуется отдельное подтверждение объёма первой вертикальной миграции.
+Реализован только Start Betting vertical slice:
+
+- `StartBettingUseCase` принимает canonical `User.row_id`, повторно проверяет authorization и владеет commit;
+- conditional repository update предотвращает успешное повторное открытие при гонке без schema/locking framework;
+- use case возвращает platform-neutral canonical recipient IDs;
+- `StartBettingFlow` завершает DB session до вызова notifier;
+- composite notification adapter вне TG/VK presentation очищает room status и выполняет best-effort delivery;
+- Telegram и VK используют отдельные thin handlers без cross-platform presentation imports;
+- общий `Text.user.START_BETTING`, platform keyboards и существующий routing order сохранены.
+
+Outbox, persistence room-status IDs и миграция других poker/betting flows сознательно отложены. Завершение этого среза не разрешает автоматически начинать следующую migration.

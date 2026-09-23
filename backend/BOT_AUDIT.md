@@ -2,6 +2,14 @@
 
 Нормативные правила для нового backend-кода и план первой вертикальной миграции Start Betting описаны в [`ARCHITECTURE.md`](ARCHITECTURE.md). Они применяются инкрементально и не требуют массового исправления перечисленного ниже legacy-кода.
 
+## Vertical migration status
+
+- **Start Betting migrated (23.09.2026).** Telegram и VK разрешают external identity в `User.row_id` и вызывают общий `StartBettingUseCase`.
+- Use case повторно проверяет approved admin, валидирует poker state, выполняет атомарный conditional update и владеет commit. Legacy `PokerRepository.start_betting()` оставлен для немигрированных callers.
+- Очистка room-status сообщений и TG/VK delivery выполняются отдельной post-commit orchestration. Она получает canonical user IDs, сохраняет `notification_platform`, общий `Text.user.START_BETTING`, platform keyboards и best-effort delivery.
+- Из Start Betting handlers удалены business validation, mutation, commit, recipient queries, broadcast loops и cross-platform imports. Routing identifiers и порядок сохранены.
+- Отложено: гарантированная доставка/outbox и persistence in-memory room-status IDs. Concurrent open защищён conditional update без новой locking/schema architecture.
+
 ## Срочно
 
 | Приоритет | Наблюдение | Действие |
