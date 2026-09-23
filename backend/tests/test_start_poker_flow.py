@@ -36,8 +36,8 @@ async def test_start_poker_flow_notifies_after_use_case_session_closes(monkeypat
       return result
 
   class Notifier:
-    async def notify(self, *, recipient_user_ids):
-      assert recipient_user_ids == (1, 2)
+    async def notify(self, *, user_ids):
+      assert user_ids == (1, 2)
       events.append("notify")
 
   monkeypatch.setattr(flow_module, "StartPokerUseCase", UseCase)
@@ -83,7 +83,7 @@ async def test_poker_started_adapter_preserves_dual_platform_delivery(monkeypatc
   monkeypatch.setattr(notification_module, "UserRepository", Repository)
 
   await notification_module.PokerStartedNotificationAdapter().notify(
-    recipient_user_ids=(1, 2)
+    user_ids=(1, 2)
   )
 
   assert [call.kwargs["chat_id"] for call in sent_tg.await_args_list] == [11, 12]

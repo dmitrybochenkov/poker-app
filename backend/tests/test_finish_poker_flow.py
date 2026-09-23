@@ -24,7 +24,7 @@ class _TrackedSession:
 @pytest.mark.asyncio
 async def test_finish_poker_flow_notifies_after_use_case_session_closes(monkeypatch):
     events = []
-    result = SimpleNamespace(poker_id=7, recipient_user_ids=(1, 2))
+    result = SimpleNamespace(poker_id=7, participant_user_ids=(1, 2))
 
     class UseCase:
         def __init__(self, session):
@@ -36,8 +36,8 @@ async def test_finish_poker_flow_notifies_after_use_case_session_closes(monkeypa
             return result
 
     class Notifier:
-        async def notify(self, *, recipient_user_ids):
-            assert recipient_user_ids == (1, 2)
+        async def notify(self, *, user_ids):
+            assert user_ids == (1, 2)
             events.append("notify")
 
     monkeypatch.setattr(flow_module, "FinishPokerUseCase", UseCase)
@@ -111,7 +111,7 @@ async def test_finished_adapter_preserves_player_recipient_semantics(monkeypatch
     monkeypatch.setattr(notification_module, "UserRepository", Repository)
 
     await notification_module.PokerFinishedNotificationAdapter().notify(
-        recipient_user_ids=(1, 2, 3, 4, 5)
+        user_ids=(1, 2, 3, 4, 5)
     )
 
     assert [call.kwargs["chat_id"] for call in sent_tg.await_args_list] == [11, 12]

@@ -36,8 +36,8 @@ async def test_start_betting_flow_notifies_only_after_use_case_session_closes(mo
             return result
 
     class Notifier:
-        async def notify(self, *, recipient_user_ids):
-            assert recipient_user_ids == (1, 2)
+        async def notify(self, *, user_ids):
+            assert user_ids == (1, 2)
             events.append("notify")
 
     monkeypatch.setattr(flow_module, "StartBettingUseCase", UseCase)
@@ -62,7 +62,7 @@ async def test_start_betting_flow_keeps_committed_result_when_notifier_fails(mon
             return result
 
     class Notifier:
-        async def notify(self, *, recipient_user_ids):
+        async def notify(self, *, user_ids):
             raise RuntimeError("network unavailable")
 
     monkeypatch.setattr(flow_module, "StartBettingUseCase", UseCase)
@@ -115,7 +115,7 @@ async def test_betting_started_adapter_preserves_platform_delivery_and_cleanup(m
     monkeypatch.setattr(notification_module, "UserRepository", Repository)
 
     await notification_module.BettingStartedNotificationAdapter().notify(
-        recipient_user_ids=(1, 2, 3)
+        user_ids=(1, 2, 3)
     )
 
     assert [call.kwargs["chat_id"] for call in sent_tg.await_args_list] == [11, 12]

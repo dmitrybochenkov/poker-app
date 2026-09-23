@@ -33,7 +33,7 @@ async def finish_poker(message: Message) -> None:
         return
 
     await message.answer(Text.admin.POKER_FINISH_SUCCESS.value)
-    if result.recipient_user_ids:
+    if result.participant_user_ids:
         try:
             async with SessionFactory() as session:
                 await _upsert_tg_admin_chips_status(

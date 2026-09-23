@@ -27,7 +27,7 @@ class StartPokerFlow:
       )
 
     try:
-      await self.notifier.notify(recipient_user_ids=result.recipient_user_ids)
+      await self.notifier.notify(user_ids=result.recipient_user_ids)
     except Exception:
       logger.exception(
         "Failed to run post-commit Start Poker notifications for poker %s",

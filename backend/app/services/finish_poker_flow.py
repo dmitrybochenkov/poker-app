@@ -27,7 +27,7 @@ class FinishPokerFlow:
             result = await FinishPokerUseCase(session).execute(actor_user_id=actor_user_id)
 
         try:
-            await self.notifier.notify(recipient_user_ids=result.recipient_user_ids)
+            await self.notifier.notify(user_ids=result.participant_user_ids)
         except Exception:
             logger.exception(
                 "Failed to run post-commit Finish Poker notifications for poker %s",

@@ -88,7 +88,7 @@ async def test_finish_poker_commits_flags_and_deny_cleanup_atomically() -> None:
         result = await FinishPokerUseCase(session).execute(actor_user_id=actor_id)
 
     assert result.poker_id == poker_id
-    assert result.recipient_user_ids == (actor_id, player_id)
+    assert result.participant_user_ids == (actor_id, player_id)
     async with session_factory() as session:
         poker = await session.get(Poker, poker_id)
         assert poker is not None
@@ -199,7 +199,7 @@ async def test_notification_failure_does_not_rollback_finished_poker() -> None:
     actor_id, _, poker_id = await _seed(session_factory)
 
     class FailingNotifier:
-        async def notify(self, *, recipient_user_ids):
+        async def notify(self, *, user_ids):
             raise RuntimeError("network unavailable")
 
     result = await FinishPokerFlow(

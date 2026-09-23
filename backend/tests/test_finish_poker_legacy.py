@@ -26,7 +26,7 @@ async def test_telegram_finish_poker_preserves_post_commit_side_effect_order(mon
     result = SimpleNamespace(
         poker_id=7,
         poker_date="2026-09-23",
-        recipient_user_ids=(10,),
+        participant_user_ids=(10,),
     )
 
     async def execute(*, actor_user_id):
@@ -66,7 +66,7 @@ async def test_vk_finish_poker_preserves_post_commit_side_effect_order(monkeypat
     result = SimpleNamespace(
         poker_id=7,
         poker_date="2026-09-23",
-        recipient_user_ids=(10,),
+        participant_user_ids=(10,),
     )
 
     async def execute(*, actor_user_id):

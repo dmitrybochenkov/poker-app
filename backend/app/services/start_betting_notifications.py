@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 class BettingStartedNotificationAdapter:
-    async def notify(self, *, recipient_user_ids: tuple[int, ...]) -> None:
+    async def notify(self, *, user_ids: tuple[int, ...]) -> None:
         async with SessionFactory() as session:
-            recipients = await UserRepository(session).list_by_row_ids(recipient_user_ids)
+            recipients = await UserRepository(session).list_by_row_ids(user_ids)
 
         await self._clear_room_status_messages()
         for user in recipients:

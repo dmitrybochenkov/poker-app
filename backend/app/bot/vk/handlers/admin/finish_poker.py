@@ -40,7 +40,7 @@ async def handle_admin_room_finish_poker_text(*, user_id, text):
         response_text = Text.admin.POKER_FINISH_SUCCESS.value
 
     await send_vk_message(user_id=user_id, message=response_text)
-    if result is not None and result.recipient_user_ids:
+    if result is not None and result.participant_user_ids:
         try:
             async with SessionFactory() as session:
                 await _upsert_vk_admin_chips_status(

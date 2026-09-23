@@ -22,7 +22,7 @@ class ActivePokerNotFoundError(ApplicationError):
 class FinishPokerResult:
     poker_id: int
     poker_date: date
-    recipient_user_ids: tuple[int, ...]
+    participant_user_ids: tuple[int, ...]
 
 
 class FinishPokerUseCase:
@@ -60,5 +60,5 @@ class FinishPokerUseCase:
         return FinishPokerResult(
             poker_id=int(poker.row_id),
             poker_date=poker.date,
-            recipient_user_ids=tuple(int(player.player_id) for player in players),
+            participant_user_ids=tuple(int(player.player_id) for player in players),
         )

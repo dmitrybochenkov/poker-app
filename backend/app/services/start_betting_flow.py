@@ -2,7 +2,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.application.ports.start_betting import BettingStartedNotifier
+from app.application.ports.notifications import CanonicalRecipientNotifier
 from app.application.use_cases.poker.start_betting import (
     StartBettingResult,
     StartBettingUseCase,
@@ -17,7 +17,7 @@ class StartBettingFlow:
         self,
         *,
         session_factory: async_sessionmaker[AsyncSession],
-        notifier: BettingStartedNotifier,
+        notifier: CanonicalRecipientNotifier,
     ) -> None:
         self.session_factory = session_factory
         self.notifier = notifier
@@ -27,7 +27,7 @@ class StartBettingFlow:
             result = await StartBettingUseCase(session).execute(actor_user_id=actor_user_id)
 
         try:
-            await self.notifier.notify(recipient_user_ids=result.recipient_user_ids)
+            await self.notifier.notify(user_ids=result.recipient_user_ids)
         except Exception:
             logger.exception(
                 "Failed to run post-commit Start Betting notifications for poker %s",

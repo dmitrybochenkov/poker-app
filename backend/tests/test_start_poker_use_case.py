@@ -159,7 +159,7 @@ async def test_notification_failure_does_not_rollback_started_poker() -> None:
   actor_id, params_id, _ = await _seed(session_factory)
 
   class FailingNotifier:
-    async def notify(self, *, recipient_user_ids):
+    async def notify(self, *, user_ids):
       raise RuntimeError("network unavailable")
 
   result = await StartPokerFlow(
