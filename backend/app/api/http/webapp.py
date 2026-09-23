@@ -3,16 +3,16 @@ from io import BytesIO
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
-from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 from PIL import Image, ImageOps
+from pydantic import BaseModel
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.texts import Text
 from app.config.settings import settings
-from app.db.models.poker import Poker
 from app.db.dependencies import get_db_session
+from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
 from app.db.models.user import User
 from app.db.repositories.achievement_repository import AchievementRepository
@@ -241,32 +241,53 @@ async def webapp_players(
     for name in losers:
       losses_by_name[name] = losses_by_name.get(name, 0) + 1
 
-  result: list[WebAppPlayerCardRead] = []
+  # Single bulk query instead of one query per player (was N+1: one extra
+  # round-trip to the DB per approved user). We fetch all PokerData rows that
+  # could belong to ANY approved user (matched either by player_id or by
+  # player_name, same condition the old per-user query used) and aggregate
+  # them in Python, preserving the original OR-matching semantics: a row
+  # counts for a user if it matches by id OR by name (but only once each).
+  user_ids = {int(user.row_id) for user in approved_users}
+  user_names = {str(user.name) for user in approved_users}
+  user_ids_by_name: dict[str, set[int]] = {}
   for user in approved_users:
-    stats = (
-      await session.execute(
-        select(
-          func.count(PokerData.row_id).label("games_count"),
-          func.coalesce(func.sum(PokerData.money_kopecks), 0).label("profit_kopecks"),
-        ).where(
-          or_(
-            PokerData.player_id == user.row_id,
-            PokerData.player_name == user.name,
-          )
+    user_ids_by_name.setdefault(str(user.name), set()).add(int(user.row_id))
+
+  poker_data_rows = (
+    await session.execute(
+      select(PokerData.player_id, PokerData.player_name, PokerData.money_kopecks).where(
+        or_(
+          PokerData.player_id.in_(user_ids),
+          PokerData.player_name.in_(user_names),
         )
       )
-    ).one()
+    )
+  ).all()
 
+  games_by_user_id: dict[int, int] = {}
+  profit_by_user_id: dict[int, int] = {}
+  for player_id, player_name, money_kopecks in poker_data_rows:
+    matched_user_ids: set[int] = set()
+    if player_id in user_ids:
+      matched_user_ids.add(int(player_id))
+    matched_user_ids.update(user_ids_by_name.get(str(player_name), set()))
+    for uid in matched_user_ids:
+      games_by_user_id[uid] = games_by_user_id.get(uid, 0) + 1
+      profit_by_user_id[uid] = profit_by_user_id.get(uid, 0) + int(money_kopecks or 0)
+
+  result: list[WebAppPlayerCardRead] = []
+  for user in approved_users:
+    uid = int(user.row_id)
     result.append(
       WebAppPlayerCardRead(
-        player_id=int(user.row_id),
+        player_id=uid,
         name=str(user.name),
         tel_number=(str(user.tel_number).strip() if user.tel_number else None),
         bank_name=(str(user.bank_name).strip() if user.bank_name else None),
-        games=int(stats.games_count or 0),
+        games=games_by_user_id.get(uid, 0),
         wins=wins_by_name.get(str(user.name), 0),
         losses=losses_by_name.get(str(user.name), 0),
-        profit_rub=int(int(stats.profit_kopecks or 0) / 100),
+        profit_rub=int(profit_by_user_id.get(uid, 0) / 100),
         photo_url=_build_photo_url(user),
       )
     )
