@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.poker_room_denied import PokerRoomDenied
@@ -52,3 +52,7 @@ class PokerRoomDeniedRepository:
     for item in items:
       await self.session.delete(item)
     await self.session.commit()
+
+  async def clear_all_without_commit(self) -> None:
+    await self.session.execute(delete(PokerRoomDenied))
+    await self.session.flush()

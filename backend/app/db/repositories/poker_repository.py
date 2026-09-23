@@ -50,6 +50,20 @@ class PokerRepository:
     await self.session.refresh(poker)
     return poker
 
+  async def mark_finished_for_chips(self, *, poker_id: int) -> bool:
+    result = await self.session.execute(
+      update(Poker)
+      .where(Poker.row_id == poker_id)
+      .where(Poker.is_going.is_(True))
+      .values(
+        is_going=False,
+        is_bettable=False,
+        is_ready_for_chips_entering=True,
+      )
+    )
+    await self.session.flush()
+    return result.rowcount == 1
+
   async def get_latest_ready_for_chips(self) -> Poker | None:
     result = await self.session.execute(
       select(Poker)
