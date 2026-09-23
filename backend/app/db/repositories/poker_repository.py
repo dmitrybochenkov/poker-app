@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.poker import Poker
@@ -71,6 +71,18 @@ class PokerRepository:
     await self.session.commit()
     await self.session.refresh(poker)
     return poker
+
+  async def mark_betting_started(self, *, poker_id: int) -> bool:
+    result = await self.session.execute(
+      update(Poker)
+      .where(Poker.row_id == poker_id)
+      .where(Poker.is_going.is_(True))
+      .where(Poker.is_ready_for_chips_entering.is_(False))
+      .where(Poker.is_bettable.is_(False))
+      .values(is_bettable=True)
+    )
+    await self.session.flush()
+    return result.rowcount == 1
 
   async def list_all(self) -> list[Poker]:
     result = await self.session.execute(

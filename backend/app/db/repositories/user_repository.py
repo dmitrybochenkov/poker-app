@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
@@ -122,6 +122,36 @@ class UserRepository:
       .where(User.is_approved.is_(True))
       .where(User.notification_platform == "vk")
       .where(User.vk_id.is_not(None))
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
+  async def list_approved_notification_user_ids(self) -> list[int]:
+    result = await self.session.execute(
+      select(User.row_id)
+      .where(User.is_approved.is_(True))
+      .where(
+        or_(
+          and_(
+            User.notification_platform == "tg",
+            User.telegram_id.is_not(None),
+          ),
+          and_(
+            User.notification_platform == "vk",
+            User.vk_id.is_not(None),
+          ),
+        )
+      )
+      .order_by(User.row_id)
+    )
+    return list(result.scalars().all())
+
+  async def list_by_row_ids(self, row_ids: tuple[int, ...]) -> list[User]:
+    if not row_ids:
+      return []
+    result = await self.session.execute(
+      select(User)
+      .where(User.row_id.in_(row_ids))
       .order_by(User.row_id)
     )
     return list(result.scalars().all())
