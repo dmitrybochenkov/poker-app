@@ -13,10 +13,6 @@ from app.bot.vk.keyboards import (
     admin_room_keyboard,
     room_admin_keyboard,
 )
-from app.db.repositories.poker_data_repository import PokerDataRepository
-from app.db.repositories.poker_repository import PokerRepository
-from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
-from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 from .common import (
@@ -80,7 +76,6 @@ async def handle_admin_room_correct_to_admin_room_text(*, user_id, text):
 async def handle_admin_room_to_room_text(*, user_id, text):
     if text == Buttons.admin_room.TO_ROOM.value:
         async with SessionFactory() as session:
-            user_repository = UserRepository(session)
             if not await is_vk_admin(session=session, vk_id=user_id):
                 await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
                 return PlainTextResponse("ok")

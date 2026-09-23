@@ -21,7 +21,6 @@ from app.db.repositories.bet_tournament_param_repository import BetTournamentPar
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
-from app.db.repositories.poker_room_denied_repository import PokerRoomDeniedRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 from app.services.google_backup import backup_tables_to_google
