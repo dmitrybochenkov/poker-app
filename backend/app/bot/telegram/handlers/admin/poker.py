@@ -34,40 +34,11 @@ from .common import (
     _clear_tg_admin_chips_calc_buttons,
     _ensure_tg_admin_callback,
     _ensure_tg_admin_message,
-    _notify_players_about_finish,
     _refresh_admin_room_status,
     _split_names_csv,
-    _upsert_tg_admin_chips_status,
     _winner_mark,
     logger,
 )
-
-
-async def finish_poker(message: Message) -> None:
-    if message.from_user is None:
-        await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
-        return
-    async with SessionFactory() as session:
-        if not await _ensure_tg_admin_message(
-            session=session, user_id=message.from_user.id, message=message
-        ):
-            return
-        user_repository = UserRepository(session)
-        poker_repository = PokerRepository(session)
-        active = await poker_repository.get_started()
-        if active is None:
-            await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
-            return
-        poker, params = active
-        poker_data_repository = PokerDataRepository(session)
-        players = await poker_data_repository.list_players(date=poker.date)
-        await poker_repository.finish(poker)
-        await PokerRoomDeniedRepository(session).clear_all()
-    await _notify_players_about_finish(players=players)
-    await message.answer(Text.admin.POKER_FINISH_SUCCESS.value)
-    if players:
-        async with SessionFactory() as session:
-            await _upsert_tg_admin_chips_status(session=session, poker_date=players[0].date)
 
 
 async def calculate_poker(message: Message, admin_user_id: int | None = None) -> None:

@@ -6,6 +6,7 @@ from app.bot.telegram.states import AdminPokerState, RegistrationState
 from . import (
     bets,
     buyins,
+    finish_poker,
     management,
     players,
     poker,
@@ -18,7 +19,7 @@ from .common import router
 
 router.message(F.text == Buttons.admin_main.START_POKER.value)(start_poker.start_poker_menu)
 router.callback_query(F.data.startswith("pokerstart:"))(start_poker.start_poker_with_param)
-router.message(F.text == Buttons.admin_room.FINISH_POKER.value)(poker.finish_poker)
+router.message(F.text == Buttons.admin_room.FINISH_POKER.value)(finish_poker.finish_poker)
 router.message(F.text == Buttons.admin_room.CALCULATE_POKER.value)(poker.calculate_poker)
 router.callback_query(F.data == "pokercalc:run")(poker.calculate_poker_inline)
 router.message(F.text == Buttons.admin_room.START_BETTING.value)(start_betting.start_betting)

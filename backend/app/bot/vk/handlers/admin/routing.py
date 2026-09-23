@@ -5,6 +5,7 @@ from . import (
     buyins,
     cashier,
     chips,
+    finish_poker,
     management,
     players,
     poker,
@@ -390,7 +391,7 @@ async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextRes
     result = await start_poker.handle_admin_main_start_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await poker.handle_admin_room_finish_poker_text(user_id=user_id, text=text)
+    result = await finish_poker.handle_admin_room_finish_poker_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result
     result = await chips.handle_admin_room_calculate_poker_text(user_id=user_id, text=text)
