@@ -13,6 +13,7 @@ from app.db.base import Base
 from app.db.models.poker import Poker
 from app.db.models.poker_param import PokerParam
 from app.db.models.user import User
+from app.services.start_betting_flow import StartBettingFlow
 
 
 async def _session_factory():
@@ -149,4 +150,26 @@ async def test_start_betting_rejects_missing_actor() -> None:
         with pytest.raises(StartBettingNotAuthorizedError):
             await StartBettingUseCase(session).execute(actor_user_id=999_999)
 
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_notification_failure_does_not_rollback_opened_betting() -> None:
+    engine, session_factory = await _session_factory()
+    actor_id, poker_id, _ = await _seed(session_factory)
+
+    class FailingNotifier:
+        async def notify(self, *, recipient_user_ids):
+            raise RuntimeError("network unavailable")
+
+    result = await StartBettingFlow(
+        session_factory=session_factory,
+        notifier=FailingNotifier(),
+    ).execute(actor_user_id=actor_id)
+
+    assert result.poker_id == poker_id
+    async with session_factory() as verification_session:
+        poker = await verification_session.scalar(select(Poker).where(Poker.row_id == poker_id))
+        assert poker is not None
+        assert poker.is_bettable is True
     await engine.dispose()
