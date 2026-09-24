@@ -45,7 +45,6 @@ from .common import (
     _ensure_approved_telegram_user,
     _format_payment_requisites,
     _format_rub_from_kopecks,
-    _format_tournament_name,
     _format_unpaid_bets_lines,
     _get_telegram_user,
     _pick_fifo_bets_to_close,
@@ -53,6 +52,7 @@ from .common import (
     _telegram_external_file_id,
     logger,
 )
+from .stat_helpers import _format_tournament_name
 
 
 async def start_pay_bet(message: Message, state: FSMContext) -> None:

@@ -55,7 +55,6 @@ from .common import (
     _extract_vk_external_file_id,
     _format_payment_requisites,
     _format_rub_from_kopecks,
-    _format_tournament_name,
     _format_unpaid_bets_lines,
     _get_vk_user,
     _is_vk_user_approved,
@@ -64,6 +63,7 @@ from .common import (
     _vk_button_matches,
     logger,
 )
+from .stat_helpers import _format_tournament_name
 
 
 async def handle_bet_tournament_event(

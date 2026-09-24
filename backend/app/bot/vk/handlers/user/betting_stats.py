@@ -33,8 +33,10 @@ from .common import (
     HANDLER_UNMATCHED,
     STAT_SNACKBAR,
     _betting_vk_keyboard,
-    _default_betting_indicator,
     _delete_event_message_if_possible,
+)
+from .stat_helpers import (
+    _default_betting_indicator,
     _filter_betting_indicators_by_mode,
     _format_stat_caption,
 )

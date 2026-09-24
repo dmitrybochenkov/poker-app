@@ -39,8 +39,8 @@ from .common import (
     _build_poker_history_buyins_chart,
     _build_poker_history_report,
     _delete_event_message_if_possible,
-    _format_stat_caption,
 )
+from .stat_helpers import _format_stat_caption
 
 
 async def handle_pokerhist_cancel_event(

@@ -23,10 +23,12 @@ from app.services.stat_image import render_stat_table_png
 
 from .common import (
     _betting_tg_keyboard,
-    _default_betting_indicator,
     _delete_message_if_possible,
     _ensure_approved_telegram_callback_user,
     _ensure_approved_telegram_user,
+)
+from .stat_helpers import (
+    _default_betting_indicator,
     _filter_betting_indicators_by_mode,
     _format_stat_caption,
     _start_betting_stat_flow,

@@ -32,8 +32,8 @@ from .common import (
     _delete_message_if_possible,
     _ensure_approved_telegram_callback_user,
     _ensure_approved_telegram_user,
-    _format_stat_caption,
 )
+from .stat_helpers import _format_stat_caption
 
 
 async def show_poker_history_years(message: Message) -> None:

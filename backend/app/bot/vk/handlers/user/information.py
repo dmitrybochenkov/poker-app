@@ -14,10 +14,9 @@ from fastapi.responses import PlainTextResponse
 
 from .common import (
     HANDLER_UNMATCHED,
-    _format_achievement_info_report,
-    _format_stat_info_report,
     _strip_html_tags,
 )
+from .stat_helpers import _format_achievement_info_report, _format_stat_info_report
 
 
 async def handle_bettinginfo_betting_rules_text(*, user_id, text, raw_message):

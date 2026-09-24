@@ -22,10 +22,9 @@ from .common import (
     _approved_tg_keyboard,
     _betting_tg_keyboard,
     _ensure_approved_telegram_user,
-    _format_achievement_info_report,
-    _format_stat_info_report,
     _get_telegram_user,
 )
+from .stat_helpers import _format_achievement_info_report, _format_stat_info_report
 
 
 async def open_betting_menu(message: Message) -> None:
