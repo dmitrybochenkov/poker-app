@@ -34,7 +34,6 @@ from .common import (
     _clear_inline_keyboard,
     _ensure_tg_admin_callback,
     _ensure_tg_admin_message,
-    _refresh_admin_room_status,
     logger,
 )
 from .poker_helpers import (
@@ -44,6 +43,7 @@ from .poker_helpers import (
     _clear_tg_admin_chips_calc_buttons,
     _winner_mark,
 )
+from .room_status_helpers import _refresh_admin_room_status
 
 
 async def calculate_poker(message: Message, admin_user_id: int | None = None) -> None:

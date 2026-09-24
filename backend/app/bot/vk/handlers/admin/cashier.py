@@ -34,13 +34,13 @@ from app.db.session import SessionFactory
 from .common import (
     HANDLER_UNMATCHED,
     _clear_event_inline_keyboard_if_possible,
-    _refresh_admin_room_status,
 )
 from .poker_helpers import (
     _build_user_chips_text,
     _get_reaction,
     _upsert_vk_admin_chips_status,
 )
+from .room_status_helpers import _refresh_admin_room_status
 
 
 async def handle_poker_set_cashier_select_event(
