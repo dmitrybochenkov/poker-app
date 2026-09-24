@@ -96,6 +96,23 @@ class PokerRepository:
     await self.session.refresh(poker)
     return poker
 
+  async def finish_chips_entering_without_commit(
+    self, *, poker_id: int, winners: str, loosers: str
+  ) -> bool:
+    result = await self.session.execute(
+      update(Poker)
+      .where(Poker.row_id == poker_id)
+      .where(Poker.is_ready_for_chips_entering.is_(True))
+      .values(
+        is_going=False,
+        is_ready_for_chips_entering=False,
+        winners=winners,
+        loosers=loosers,
+      )
+    )
+    await self.session.flush()
+    return result.rowcount == 1
+
   async def start_betting(self, poker: Poker) -> Poker:
     poker.is_bettable = True
     await self.session.commit()

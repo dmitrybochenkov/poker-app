@@ -2,9 +2,17 @@ from types import SimpleNamespace
 
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
-from app.application.use_cases.poker.calculate_bet_scores import CalculateBetScoresUseCase
+from app.application.use_cases.poker.calculate_poker_result import (
+    CalculatePokerNotAuthorizedError,
+    CalculatePokerResultUseCase,
+    MissingPlayerChipsError,
+    PokerCalculationAlreadyCompletedError,
+    PokerChipTotalMismatchError,
+    PokerNotReadyForCalculationError,
+)
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.bot.shared.guards import is_tg_admin
+from app.bot.shared.identity import resolve_telegram_user_id
 from app.bot.shared.texts.inline.telegram.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -15,9 +23,6 @@ from app.bot.telegram.keyboards import (
 )
 from app.bot.vk.api import send_vk_message
 from app.bot.vk.keyboards import main_keyboard as vk_main_keyboard
-from app.db.repositories.bet_param_repository import BetParamRepository
-from app.db.repositories.bet_repository import BetRepository
-from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
@@ -34,7 +39,6 @@ from .common import (
     _ensure_tg_admin_callback,
     _ensure_tg_admin_message,
     _refresh_admin_room_status,
-    _split_names_csv,
     _winner_mark,
     logger,
 )
@@ -50,85 +54,48 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         await message.answer(Text.admin.IDENTIFY_USER_ERROR.value)
         return
     async with SessionFactory() as session:
-        if not await _ensure_tg_admin_message(
-            session=session, user_id=initiator_id, message=message
-        ):
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=initiator_id
+        )
+        try:
+            result = await CalculatePokerResultUseCase(session).execute(
+                actor_user_id=actor_user_id or -1
+            )
+        except CalculatePokerNotAuthorizedError:
+            await message.answer(Text.admin.NO_RIGHTS.value)
             return
-        user_repository = UserRepository(session)
-        poker_repository = PokerRepository(session)
-        ready = await poker_repository.get_latest_ready_for_chips_with_params()
-        if ready is None:
+        except (PokerNotReadyForCalculationError, PokerCalculationAlreadyCompletedError):
             await message.answer(Text.admin.POKER_CASHOUT_EMPTY.value)
             return
-        poker, params = ready
-        poker_data_repository = PokerDataRepository(session)
-        players = await poker_data_repository.list_players(date=poker.date)
-        if not players:
-            await message.answer(Text.admin.POKER_CASHOUT_EMPTY.value)
-            return
-        chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
-        chips_entered = sum(int(p.chips or 0) for p in players)
-        diff = chips_entered - chips_in_game
-        if diff != 0:
+        except MissingPlayerChipsError as error:
             await message.answer(
-                f'{InlineText.CALCULATE_POKER_TEXT_01_PART_1}{diff}'
+                Text.admin.POKER_CHIPS_WAITING.value.format(
+                    players=", ".join(error.player_names)
+                )
+            )
+            return
+        except PokerChipTotalMismatchError as error:
+            await message.answer(
+                f'{InlineText.CALCULATE_POKER_TEXT_01_PART_1}{error.diff}'
             )
             return
 
-        money_rows: list[dict[str, int | str]] = []
-        for player in players:
-            money_kopecks = (
-                (int(player.chips) - int(player.buyins) * int(params.buyin_size_chips))
-                * int(params.buyin_size_kopecks)
-            ) // int(params.buyin_size_chips)
-            await poker_data_repository.set_cashout(
-                date=poker.date,
-                player_id=int(player.player_id),
-                money_kopecks=int(money_kopecks),
-            )
-            money_rows.append({"name": player.player_name, "money": int(money_kopecks)})
-
-        max_money = max(int(item["money"]) for item in money_rows)
-        min_money = min(int(item["money"]) for item in money_rows)
-        winners = [str(item["name"]) for item in money_rows if int(item["money"]) == max_money]
-        loosers = [str(item["name"]) for item in money_rows if int(item["money"]) == min_money]
-        winners_text = ", ".join(winners)
-        loosers_text = ", ".join(loosers)
-        transfers = _calculate_transfers(money_rows)
-
-        # Bet scores are calculated only after final winners/losers/money are known.
-        await CalculateBetScoresUseCase(
-            bet_repository=BetRepository(session),
-            bet_param_repository=BetParamRepository(session),
-            bet_tournament_param_repository=BetTournamentParamRepository(session),
-            poker_data_repository=poker_data_repository,
-        ).execute(
-            poker_id=poker.row_id,
-            poker_date=poker.date,
-        )
-        bets = await BetRepository(session).list_for_poker(date=poker.date)
-
-        await poker_repository.finish_chips_entering(
-            poker,
-            winners=winners_text,
-            loosers=loosers_text,
-        )
+    players = result.players
+    bets = result.bets
+    winners = list(result.winners)
+    loosers = list(result.losers)
+    money_rows = [
+        {"name": player.player_name, "money": player.money_kopecks}
+        for player in players
+    ]
+    transfers = _calculate_transfers(money_rows)
+    prev_winners = set(result.previous_winners)
+    async with SessionFactory() as session:
+        user_repository = UserRepository(session)
         try:
             await backup_tables_to_google(session=session)
         except Exception:
             logger.exception("Google backup failed after poker calculation (TG).")
-
-        all_pokers = await poker_repository.list_all()
-        prev_completed = None
-        for old in sorted(all_pokers, key=lambda x: int(x.row_id), reverse=True):
-            if int(old.row_id) == int(poker.row_id):
-                continue
-            if bool(old.winners):
-                prev_completed = old
-                break
-        prev_winners = _split_names_csv(
-            prev_completed.winners if prev_completed is not None else None
-        )
 
         winner_line = ", ".join(
             f"{_winner_mark(is_streak=(name in prev_winners))} {name}" for name in winners
@@ -180,11 +147,13 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         lines.append(InlineText.CALCULATE_POKER_TEXT_04)
         lines.extend(bet_lines if bet_lines else [InlineText.CALCULATE_POKER_TEXT_05])
         result_text = "\n".join(lines)
-        chart_png = await _build_poker_buyins_session_chart(session=session, poker_date=poker.date)
+        chart_png = await _build_poker_buyins_session_chart(
+            session=session, poker_date=result.poker_date
+        )
 
         from app.bot.telegram.runtime import telegram_bot
 
-        recipient_row_ids = {int(p.player_id) for p in players} | {int(b.better_id) for b in bets}
+        recipient_row_ids = set(result.recipient_user_ids)
         sent_tg_ids: set[int] = set()
         sent_vk_ids: set[int] = set()
         for row_id in sorted(recipient_row_ids):

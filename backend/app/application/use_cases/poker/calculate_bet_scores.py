@@ -20,6 +20,11 @@ class CalculateBetScoresUseCase:
     self.poker_data_repository = poker_data_repository
 
   async def execute(self, *, poker_id: int, poker_date) -> int:
+    updated = await self.execute_without_commit(poker_id=poker_id, poker_date=poker_date)
+    await self.bet_repository.session.commit()
+    return updated
+
+  async def execute_without_commit(self, *, poker_id: int, poker_date) -> int:
     bets = await self.bet_repository.list_for_poker(date=poker_date)
     if not bets:
       return 0
@@ -43,7 +48,6 @@ class CalculateBetScoresUseCase:
       await self.bet_repository.update_score(bet=bet, score=score)
       updated += 1
 
-    await self.bet_repository.session.commit()
     return updated
 
   async def _calculate_score_for_bet(self, *, bet: Bet, winners: set[str], losers: set[str]) -> int:
