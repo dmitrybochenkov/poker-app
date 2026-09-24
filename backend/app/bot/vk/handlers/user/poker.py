@@ -38,10 +38,12 @@ from app.db.session import SessionFactory
 
 from .common import (
     HANDLER_UNMATCHED,
+    _get_vk_user,
+)
+from .poker_helpers import (
     _build_chips_status_text,
     _build_user_chips_text,
     _chips_reaction,
-    _get_vk_user,
     _notify_admins_about_room_join,
 )
 

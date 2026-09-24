@@ -24,9 +24,11 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 from .common import (
+    _get_telegram_user,
+)
+from .poker_helpers import (
     _build_user_chips_text,
     _chips_reaction,
-    _get_telegram_user,
     _notify_admins_about_chips_entry,
     _notify_admins_about_room_join,
     _upsert_tg_user_chips_result,
