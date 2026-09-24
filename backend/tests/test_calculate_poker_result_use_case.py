@@ -80,6 +80,8 @@ async def test_final_calculation_preserves_business_results_and_accepts_zero_chi
 
     assert result.winners == ("Second Player",)
     assert result.losers == ("First Player",)
+    assert len(result.recipient_user_ids) == 3
+    assert len(set(result.recipient_user_ids)) == 3
     assert [(row.player_name, row.money_kopecks) for row in result.players] == [
         ("First Player", -20_000), ("Second Player", 20_000)
     ]

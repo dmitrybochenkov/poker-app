@@ -147,9 +147,13 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         lines.append(InlineText.CALCULATE_POKER_TEXT_04)
         lines.extend(bet_lines if bet_lines else [InlineText.CALCULATE_POKER_TEXT_05])
         result_text = "\n".join(lines)
-        chart_png = await _build_poker_buyins_session_chart(
-            session=session, poker_date=result.poker_date
-        )
+        try:
+            chart_png = await _build_poker_buyins_session_chart(
+                session=session, poker_date=result.poker_date
+            )
+        except Exception:
+            logger.exception("Poker result chart generation failed after commit (TG).")
+            chart_png = None
 
         from app.bot.telegram.runtime import telegram_bot
 
@@ -157,73 +161,97 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         sent_tg_ids: set[int] = set()
         sent_vk_ids: set[int] = set()
         for row_id in sorted(recipient_row_ids):
-            user = await user_repository.get_by_row_id(row_id)
-            if user is None:
-                continue
-            if (
-                user.notification_platform == "tg"
-                and user.telegram_id is not None
-                and telegram_bot is not None
-            ):
-                await telegram_bot.send_message(
-                    chat_id=user.telegram_id, text=result_text, reply_markup=main_keyboard
-                )
-                if chart_png is not None:
-                    await telegram_bot.send_photo(
-                        chat_id=user.telegram_id,
-                        photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                        caption=InlineText.CALCULATE_POKER_TEXT_06,
-                        reply_markup=main_keyboard,
+            user = None
+            try:
+                user = await user_repository.get_by_row_id(row_id)
+                if user is None:
+                    continue
+                if (
+                    user.notification_platform == "tg"
+                    and user.telegram_id is not None
+                    and telegram_bot is not None
+                ):
+                    await telegram_bot.send_message(
+                        chat_id=user.telegram_id, text=result_text, reply_markup=main_keyboard
                     )
-                sent_tg_ids.add(int(user.telegram_id))
-            elif user.notification_platform == "vk" and user.vk_id is not None:
-                await send_vk_message(
-                    user_id=user.vk_id, message=result_text, keyboard=vk_main_keyboard
-                )
-                if chart_png is not None:
-                    from app.bot.vk.api import send_vk_photo
+                    if chart_png is not None:
+                        await telegram_bot.send_photo(
+                            chat_id=user.telegram_id,
+                            photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
+                            caption=InlineText.CALCULATE_POKER_TEXT_06,
+                            reply_markup=main_keyboard,
+                        )
+                    sent_tg_ids.add(int(user.telegram_id))
+                elif user.notification_platform == "vk" and user.vk_id is not None:
+                    await send_vk_message(
+                        user_id=user.vk_id, message=result_text, keyboard=vk_main_keyboard
+                    )
+                    if chart_png is not None:
+                        from app.bot.vk.api import send_vk_photo
 
-                    await send_vk_photo(
-                        user_id=user.vk_id,
-                        image_bytes=chart_png,
-                        filename="poker_buyins_session.png",
-                    )
-                sent_vk_ids.add(int(user.vk_id))
-        initiator_user = await user_repository.get_by_telegram_id(int(initiator_id))
+                        await send_vk_photo(
+                            user_id=user.vk_id,
+                            image_bytes=chart_png,
+                            filename="poker_buyins_session.png",
+                        )
+                    sent_vk_ids.add(int(user.vk_id))
+            except Exception:
+                logger.exception(
+                    "Poker result delivery failed: platform=%s user_id=%s context=TG calculation",
+                    getattr(user, "notification_platform", "unknown"),
+                    row_id,
+                )
+        try:
+            initiator_user = await user_repository.get_by_telegram_id(int(initiator_id))
+        except Exception:
+            logger.exception(
+                "Poker result initiator lookup failed: platform=tg context=TG calculation"
+            )
+            initiator_user = None
         if initiator_user is not None:
-            if (
-                initiator_user.notification_platform == "tg"
-                and initiator_user.telegram_id is not None
-                and telegram_bot is not None
-                and int(initiator_user.telegram_id) not in sent_tg_ids
-            ):
-                await telegram_bot.send_message(
-                    chat_id=initiator_user.telegram_id, text=result_text, reply_markup=main_keyboard
-                )
-                if chart_png is not None:
-                    await telegram_bot.send_photo(
-                        chat_id=initiator_user.telegram_id,
-                        photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                        caption=InlineText.CALCULATE_POKER_TEXT_07,
-                        reply_markup=main_keyboard,
+            try:
+                if (
+                    initiator_user.notification_platform == "tg"
+                    and initiator_user.telegram_id is not None
+                    and telegram_bot is not None
+                    and int(initiator_user.telegram_id) not in sent_tg_ids
+                ):
+                    await telegram_bot.send_message(
+                        chat_id=initiator_user.telegram_id, text=result_text, reply_markup=main_keyboard
                     )
-            elif (
-                initiator_user.notification_platform == "vk"
-                and initiator_user.vk_id is not None
-                and int(initiator_user.vk_id) not in sent_vk_ids
-            ):
-                await send_vk_message(
-                    user_id=initiator_user.vk_id, message=result_text, keyboard=vk_main_keyboard
-                )
-                if chart_png is not None:
-                    from app.bot.vk.api import send_vk_photo
+                    if chart_png is not None:
+                        await telegram_bot.send_photo(
+                            chat_id=initiator_user.telegram_id,
+                            photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
+                            caption=InlineText.CALCULATE_POKER_TEXT_07,
+                            reply_markup=main_keyboard,
+                        )
+                elif (
+                    initiator_user.notification_platform == "vk"
+                    and initiator_user.vk_id is not None
+                    and int(initiator_user.vk_id) not in sent_vk_ids
+                ):
+                    await send_vk_message(
+                        user_id=initiator_user.vk_id, message=result_text, keyboard=vk_main_keyboard
+                    )
+                    if chart_png is not None:
+                        from app.bot.vk.api import send_vk_photo
 
-                    await send_vk_photo(
-                        user_id=initiator_user.vk_id,
-                        image_bytes=chart_png,
-                        filename="poker_buyins_session.png",
-                    )
-        await _clear_tg_admin_chips_calc_buttons()
+                        await send_vk_photo(
+                            user_id=initiator_user.vk_id,
+                            image_bytes=chart_png,
+                            filename="poker_buyins_session.png",
+                        )
+            except Exception:
+                logger.exception(
+                    "Poker result initiator delivery failed: platform=%s user_id=%s context=TG calculation",
+                    initiator_user.notification_platform,
+                    int(initiator_user.row_id),
+                )
+        try:
+            await _clear_tg_admin_chips_calc_buttons()
+        except Exception:
+            logger.exception("Poker result cleanup failed after commit (TG).")
 
 
 async def calculate_poker_inline(callback: CallbackQuery) -> None:

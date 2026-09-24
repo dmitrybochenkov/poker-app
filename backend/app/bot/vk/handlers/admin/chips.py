@@ -185,9 +185,13 @@ async def handle_admin_room_calculate_poker_text(*, user_id, text):
             result_lines.append(InlineText.TEXT_1_11_TEXT_04)
             result_lines.extend(bet_lines if bet_lines else [InlineText.TEXT_1_11_TEXT_05])
             result_text = "\n".join(result_lines)
-            chart_png = await _build_poker_buyins_session_chart(
-                session=session, poker_date=result.poker_date
-            )
+            try:
+                chart_png = await _build_poker_buyins_session_chart(
+                    session=session, poker_date=result.poker_date
+                )
+            except Exception:
+                logger.exception("Poker result chart generation failed after commit (VK).")
+                chart_png = None
 
             from app.bot.telegram.runtime import telegram_bot
 
@@ -195,74 +199,98 @@ async def handle_admin_room_calculate_poker_text(*, user_id, text):
             sent_tg_ids: set[int] = set()
             sent_vk_ids: set[int] = set()
             for row_id in sorted(recipient_row_ids):
-                user = await user_repository.get_by_row_id(row_id)
-                if user is None:
-                    continue
-                if (
-                    user.notification_platform == "tg"
-                    and user.telegram_id is not None
-                    and telegram_bot is not None
-                ):
-                    await telegram_bot.send_message(
-                        chat_id=user.telegram_id, text=result_text, reply_markup=tg_main_keyboard
-                    )
-                    if chart_png is not None:
-                        from aiogram.types import BufferedInputFile
+                user = None
+                try:
+                    user = await user_repository.get_by_row_id(row_id)
+                    if user is None:
+                        continue
+                    if (
+                        user.notification_platform == "tg"
+                        and user.telegram_id is not None
+                        and telegram_bot is not None
+                    ):
+                        await telegram_bot.send_message(
+                            chat_id=user.telegram_id, text=result_text, reply_markup=tg_main_keyboard
+                        )
+                        if chart_png is not None:
+                            from aiogram.types import BufferedInputFile
 
-                        await telegram_bot.send_photo(
-                            chat_id=user.telegram_id,
-                            photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                            caption=InlineText.TEXT_1_11_TEXT_06,
-                            reply_markup=tg_main_keyboard,
+                            await telegram_bot.send_photo(
+                                chat_id=user.telegram_id,
+                                photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
+                                caption=InlineText.TEXT_1_11_TEXT_06,
+                                reply_markup=tg_main_keyboard,
+                            )
+                        sent_tg_ids.add(int(user.telegram_id))
+                    elif user.notification_platform == "vk" and user.vk_id is not None:
+                        await send_vk_message(
+                            user_id=user.vk_id, message=result_text, keyboard=main_keyboard
                         )
-                    sent_tg_ids.add(int(user.telegram_id))
-                elif user.notification_platform == "vk" and user.vk_id is not None:
-                    await send_vk_message(
-                        user_id=user.vk_id, message=result_text, keyboard=main_keyboard
+                        if chart_png is not None:
+                            await send_vk_photo(
+                                user_id=user.vk_id,
+                                image_bytes=chart_png,
+                                filename="poker_buyins_session.png",
+                            )
+                        sent_vk_ids.add(int(user.vk_id))
+                except Exception:
+                    logger.exception(
+                        "Poker result delivery failed: platform=%s user_id=%s context=VK calculation",
+                        getattr(user, "notification_platform", "unknown"),
+                        row_id,
                     )
-                    if chart_png is not None:
-                        await send_vk_photo(
-                            user_id=user.vk_id,
-                            image_bytes=chart_png,
-                            filename="poker_buyins_session.png",
-                        )
-                    sent_vk_ids.add(int(user.vk_id))
-            initiator = await user_repository.get_by_vk_id(int(user_id))
+            try:
+                initiator = await user_repository.get_by_vk_id(int(user_id))
+            except Exception:
+                logger.exception(
+                    "Poker result initiator lookup failed: platform=vk context=VK calculation"
+                )
+                initiator = None
             if initiator is not None:
-                if (
-                    initiator.notification_platform == "tg"
-                    and initiator.telegram_id is not None
-                    and telegram_bot is not None
-                    and int(initiator.telegram_id) not in sent_tg_ids
-                ):
-                    await telegram_bot.send_message(
-                        chat_id=initiator.telegram_id,
-                        text=result_text,
-                        reply_markup=tg_main_keyboard,
-                    )
-                    if chart_png is not None:
-                        from aiogram.types import BufferedInputFile
-
-                        await telegram_bot.send_photo(
+                try:
+                    if (
+                        initiator.notification_platform == "tg"
+                        and initiator.telegram_id is not None
+                        and telegram_bot is not None
+                        and int(initiator.telegram_id) not in sent_tg_ids
+                    ):
+                        await telegram_bot.send_message(
                             chat_id=initiator.telegram_id,
-                            photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
-                            caption=InlineText.TEXT_1_11_TEXT_07,
+                            text=result_text,
                             reply_markup=tg_main_keyboard,
                         )
-                elif (
-                    initiator.notification_platform == "vk"
-                    and initiator.vk_id is not None
-                    and int(initiator.vk_id) not in sent_vk_ids
-                ):
-                    await send_vk_message(
-                        user_id=initiator.vk_id, message=result_text, keyboard=main_keyboard
-                    )
-                    if chart_png is not None:
-                        await send_vk_photo(
-                            user_id=initiator.vk_id,
-                            image_bytes=chart_png,
-                            filename="poker_buyins_session.png",
+                        if chart_png is not None:
+                            from aiogram.types import BufferedInputFile
+
+                            await telegram_bot.send_photo(
+                                chat_id=initiator.telegram_id,
+                                photo=BufferedInputFile(chart_png, filename="poker_buyins_session.png"),
+                                caption=InlineText.TEXT_1_11_TEXT_07,
+                                reply_markup=tg_main_keyboard,
+                            )
+                    elif (
+                        initiator.notification_platform == "vk"
+                        and initiator.vk_id is not None
+                        and int(initiator.vk_id) not in sent_vk_ids
+                    ):
+                        await send_vk_message(
+                            user_id=initiator.vk_id, message=result_text, keyboard=main_keyboard
                         )
-            await _clear_vk_admin_chips_calc_buttons()
+                        if chart_png is not None:
+                            await send_vk_photo(
+                                user_id=initiator.vk_id,
+                                image_bytes=chart_png,
+                                filename="poker_buyins_session.png",
+                            )
+                except Exception:
+                    logger.exception(
+                        "Poker result initiator delivery failed: platform=%s user_id=%s context=VK calculation",
+                        initiator.notification_platform,
+                        int(initiator.row_id),
+                    )
+            try:
+                await _clear_vk_admin_chips_calc_buttons()
+            except Exception:
+                logger.exception("Poker result cleanup failed after commit (VK).")
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
