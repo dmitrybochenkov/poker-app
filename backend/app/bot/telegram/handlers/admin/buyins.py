@@ -25,8 +25,8 @@ from .common import (
     _clear_inline_keyboard,
     _ensure_tg_admin_callback,
     _ensure_tg_admin_message,
-    _notify_about_buyin,
 )
+from .player_notification_helpers import _notify_about_buyin
 from .poker_helpers import (
     _build_user_chips_text,
     _get_reaction,

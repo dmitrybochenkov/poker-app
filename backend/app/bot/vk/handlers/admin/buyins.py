@@ -29,8 +29,8 @@ from .common import (
     HANDLER_UNMATCHED,
     VK_BUYIN_NOTIFY_CASHIER_ONLY,
     _clear_event_inline_keyboard_if_possible,
-    _notify_about_buyin,
 )
+from .player_notification_helpers import _notify_about_buyin
 
 
 async def handle_poker_buyin_select_event(

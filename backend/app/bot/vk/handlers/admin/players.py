@@ -34,6 +34,8 @@ from .common import (
     HANDLER_UNMATCHED,
     VK_BUYIN_NOTIFY_CASHIER_ONLY,
     _clear_event_inline_keyboard_if_possible,
+)
+from .player_notification_helpers import (
     _notify_admins_about_removed_player,
     _notify_user_removed_from_room,
     _notify_user_unbanned_for_room,
