@@ -26,13 +26,12 @@ from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 from .common import (
-    _build_poker_history_buyins_chart,
-    _build_poker_history_report,
     _clear_inline_keyboard,
     _delete_message_if_possible,
     _ensure_approved_telegram_callback_user,
     _ensure_approved_telegram_user,
 )
+from .poker_history_helpers import _build_poker_history_buyins_chart, _build_poker_history_report
 from .stat_helpers import _format_stat_caption
 
 

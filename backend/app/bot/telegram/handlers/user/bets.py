@@ -38,13 +38,11 @@ from .common import (
     PAYMENT_OWNER_ROW_ID,
     _approved_tg_keyboard,
     _betting_tg_keyboard,
-    _build_bet_last_five_hints,
     _delete_message_if_possible,
     _download_telegram_receipt_bytes,
     _ensure_approved_telegram_callback_user,
     _ensure_approved_telegram_user,
     _format_payment_requisites,
-    _format_rub_from_kopecks,
     _format_unpaid_bets_lines,
     _get_telegram_user,
     _pick_fifo_bets_to_close,
@@ -52,6 +50,7 @@ from .common import (
     _telegram_external_file_id,
     logger,
 )
+from .poker_history_helpers import _build_bet_last_five_hints, _format_rub_from_kopecks
 from .stat_helpers import _format_tournament_name
 
 

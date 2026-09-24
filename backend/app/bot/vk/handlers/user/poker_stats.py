@@ -36,10 +36,9 @@ from app.services.stat_image import render_stat_table_png
 from .common import (
     HANDLER_UNMATCHED,
     STAT_SNACKBAR,
-    _build_poker_history_buyins_chart,
-    _build_poker_history_report,
     _delete_event_message_if_possible,
 )
+from .poker_history_helpers import _build_poker_history_buyins_chart, _build_poker_history_report
 from .stat_helpers import _format_stat_caption
 
 

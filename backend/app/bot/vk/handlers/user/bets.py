@@ -48,13 +48,11 @@ from .common import (
     PAYMENT_OWNER_ROW_ID,
     _approved_vk_keyboard,
     _betting_vk_keyboard,
-    _build_bet_last_five_hints,
     _clear_vk_bet_draft_state,
     _delete_event_message_if_possible,
     _download_vk_receipt_bytes,
     _extract_vk_external_file_id,
     _format_payment_requisites,
-    _format_rub_from_kopecks,
     _format_unpaid_bets_lines,
     _get_vk_user,
     _is_vk_user_approved,
@@ -63,6 +61,7 @@ from .common import (
     _vk_button_matches,
     logger,
 )
+from .poker_history_helpers import _build_bet_last_five_hints, _format_rub_from_kopecks
 from .stat_helpers import _format_tournament_name
 
 
