@@ -9,6 +9,7 @@ from app.db.models.user import User
 from .inline_base import InlineKeyboardBase
 
 class RegistrationInlineKbs(InlineKeyboardBase):
+  @staticmethod
   def played_before_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -22,6 +23,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def played_before_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -48,6 +50,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def registration_optional_details_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -65,6 +68,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def registration_platform_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -78,6 +82,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def registration_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(
@@ -101,6 +106,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def registration_link_review_tg(*, row_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(
@@ -120,6 +126,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def registration_review_vk(*, row_id: int) -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -178,6 +185,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def registration_link_review_vk(*, row_id: int) -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -223,9 +231,11 @@ class RegistrationInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def link_candidates_tg(*, pending_row_id: int, users: list[User]) -> InlineKeyboardMarkup:
     return RegistrationInlineKbs.link_candidates_tg_page(pending_row_id=pending_row_id, users=users, page=0)
 
+  @staticmethod
   def link_candidates_tg_page(*, pending_row_id: int, users: list[User], page: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     start = page * RegistrationInlineKbs.PAGE_SIZE
@@ -253,6 +263,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def make_admin_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for user in users[:20]:
@@ -263,9 +274,11 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def registration_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
     return RegistrationInlineKbs.registration_candidates_tg_page(users=users, page=0)
 
+  @staticmethod
   def registration_candidates_tg_page(*, users: list[User], page: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     start = page * RegistrationInlineKbs.PAGE_SIZE
@@ -298,9 +311,11 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def registration_candidates_vk(*, users: list[User]) -> str:
     return RegistrationInlineKbs.registration_candidates_vk_page(users=users, page=0)
 
+  @staticmethod
   def registration_candidates_vk_page(*, users: list[User], page: int) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     start = page * RegistrationInlineKbs.PAGE_SIZE
@@ -369,6 +384,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
     )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def registration_optional_details_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -405,6 +421,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def make_admin_candidates_vk(*, users: list[User]) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for user in users[:10]:
@@ -425,6 +442,7 @@ class RegistrationInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def registration_platform_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -451,9 +469,11 @@ class RegistrationInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def link_candidates_vk(*, pending_row_id: int, users: list[User]) -> str:
     return RegistrationInlineKbs.link_candidates_vk_page(pending_row_id=pending_row_id, users=users, page=0)
 
+  @staticmethod
   def link_candidates_vk_page(*, pending_row_id: int, users: list[User], page: int) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     start = page * RegistrationInlineKbs.PAGE_SIZE

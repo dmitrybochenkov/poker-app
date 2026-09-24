@@ -9,6 +9,7 @@ from app.db.models.user import User
 from .inline_base import InlineKeyboardBase
 
 class PokerInlineKbs(InlineKeyboardBase):
+  @staticmethod
   def poker_params_tg(*, params: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for p in params[:20]:
@@ -19,6 +20,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_add_player_candidates_tg(*, users: list[User]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for user in users[:20]:
@@ -37,6 +39,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_cashier_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -47,6 +50,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_room_admin_status_tg(*, players: list, can_start_betting: bool = False) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -62,6 +66,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_room_manage_player_tg(*, player_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -75,6 +80,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_room_approve_tg(*, player_id: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -88,6 +94,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_remove_player_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -98,6 +105,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_unban_player_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -108,6 +116,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_buyin_candidates_tg(
     *,
     players: list,
@@ -128,6 +137,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_buyin_count_tg(
     *,
     player_id: int,
@@ -180,6 +190,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*([1] * (safe_max + (len(unique_special_values) if safe_max == 2 else 0) + 1)))
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_buyin_correct_confirm_tg(*, player_id: int, new_buyins: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -193,6 +204,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(2)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_cashout_candidates_tg(*, players: list) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players[:20]:
@@ -203,6 +215,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_params_vk(*, params: list) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for p in params[:10]:
@@ -223,6 +236,7 @@ class PokerInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_add_player_candidates_vk(*, users: list[User]) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for user in users[:10]:
@@ -271,6 +285,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_cashier_candidates_vk(*, players: list) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
@@ -291,6 +306,7 @@ class PokerInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_room_admin_status_vk(*, players: list, can_start_betting: bool = False) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
@@ -326,6 +342,7 @@ class PokerInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_room_manage_player_vk(*, player_id: int) -> str:
     rows = [
       [
@@ -351,6 +368,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     ]
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_room_approve_vk(*, player_id: int) -> str:
     rows = [
       [
@@ -374,6 +392,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     ]
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_remove_player_candidates_vk(*, players: list) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
@@ -394,6 +413,7 @@ class PokerInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_unban_player_candidates_vk(*, players: list) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
@@ -414,6 +434,7 @@ class PokerInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_buyin_candidates_vk(
     *,
     players: list,
@@ -455,6 +476,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_buyin_correct_confirm_vk(*, player_id: int, new_buyins: int) -> str:
     rows = [
       [
@@ -486,6 +508,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     ]
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_buyin_count_vk(
     *,
     player_id: int,
@@ -571,6 +594,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_cashout_candidates_vk(*, players: list) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players[:10]:
@@ -591,6 +615,7 @@ class PokerInlineKbs(InlineKeyboardBase):
       )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_calc_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -600,6 +625,7 @@ class PokerInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_calc_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [

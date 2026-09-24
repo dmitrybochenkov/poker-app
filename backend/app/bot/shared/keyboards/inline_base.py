@@ -10,6 +10,7 @@ class InlineKeyboardBase:
   POLL_PAGE_SIZE = 4
   POLL_PAGE_SIZE_VK = 4
 
+  @staticmethod
   def _weekday_ru(value: date) -> str:
     names = [
       InlineText.INLINEKBS__WEEKDAY_RU_TEXT_01,
@@ -22,12 +23,14 @@ class InlineKeyboardBase:
     ]
     return names[value.weekday()]
 
+  @staticmethod
   def _shift_month(value: date, delta: int) -> date:
     total = value.year * 12 + (value.month - 1) + delta
     year = total // 12
     month = total % 12 + 1
     return date(year, month, 1)
 
+  @staticmethod
   def _poll_days_for_month(month: date, extra_dates: list[date] | None = None) -> list[date]:
     days_in_month = calendar.monthrange(month.year, month.month)[1]
     base_days = [
@@ -43,6 +46,7 @@ class InlineKeyboardBase:
         merged.add(item)
     return sorted(merged)
 
+  @staticmethod
   def _month_label_ru(month: date) -> str:
     names = [
       InlineText.INLINEKBS__MONTH_LABEL_RU_TEXT_01,
@@ -60,6 +64,7 @@ class InlineKeyboardBase:
     ]
     return names[month.month - 1]
 
+  @staticmethod
   def _format_rub_from_kopecks(value_kopecks: int) -> str:
     rub = int(value_kopecks) // 100
     kop = int(value_kopecks) % 100

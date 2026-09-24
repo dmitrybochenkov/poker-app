@@ -9,6 +9,7 @@ from app.bot.shared.texts.inline.shared import keyboards_inline as InlineText
 from .inline_base import InlineKeyboardBase
 
 class PollInlineKbs(InlineKeyboardBase):
+  @staticmethod
   def poll_month_tg(
     *,
     month: date,
@@ -64,6 +65,7 @@ class PollInlineKbs(InlineKeyboardBase):
     )
     return keyboard.as_markup()
 
+  @staticmethod
   def poll_month_vk(
     *,
     month: date,
@@ -151,6 +153,7 @@ class PollInlineKbs(InlineKeyboardBase):
     )
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poll_admin_choose_tg(*, current_month: date, next_month: date) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -165,6 +168,7 @@ class PollInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1, 1, 1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poll_admin_other_tg(*, months: list[date]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for item in months:
@@ -175,6 +179,7 @@ class PollInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poll_admin_choose_vk(*, current_month: date, next_month: date) -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -207,6 +212,7 @@ class PollInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def poll_admin_other_vk(*, months: list[date]) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for item in months:

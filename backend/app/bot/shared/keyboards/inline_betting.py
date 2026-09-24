@@ -8,6 +8,7 @@ from app.bot.shared.texts.inline.shared import keyboards_inline as InlineText
 from .inline_base import InlineKeyboardBase
 
 class BettingInlineKbs(InlineKeyboardBase):
+  @staticmethod
   def betting_tournament_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -21,6 +22,7 @@ class BettingInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def betting_size_tg(*, small_size_kopecks: int, big_size_kopecks: int) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(
@@ -34,6 +36,7 @@ class BettingInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def betting_player_tg(
     *,
     action: str,
@@ -49,6 +52,7 @@ class BettingInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def betting_confirm_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(text=Buttons.betting_inline.CONFIRM_YES.value, callback_data="bet_confirm:yes")
@@ -56,6 +60,7 @@ class BettingInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def betting_tournament_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -82,6 +87,7 @@ class BettingInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def betting_size_vk(*, small_size_kopecks: int, big_size_kopecks: int) -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -96,6 +102,7 @@ class BettingInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def betting_player_vk(
     *,
     action: str,
@@ -114,6 +121,7 @@ class BettingInlineKbs(InlineKeyboardBase):
       }])
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def betting_confirm_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -128,6 +136,7 @@ class BettingInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def bet_receipt_manual_tg(
     *,
     receipt_row_id: int,
@@ -142,6 +151,7 @@ class BettingInlineKbs(InlineKeyboardBase):
       page=page,
     )
 
+  @staticmethod
   def bet_receipt_manual_select_tg(
     *,
     receipt_row_id: int,
@@ -176,6 +186,7 @@ class BettingInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def bet_receipt_manual_vk(
     *,
     receipt_row_id: int,
@@ -190,6 +201,7 @@ class BettingInlineKbs(InlineKeyboardBase):
       page=page,
     )
 
+  @staticmethod
   def bet_receipt_manual_select_vk(
     *,
     receipt_row_id: int,

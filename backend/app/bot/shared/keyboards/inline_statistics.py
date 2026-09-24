@@ -9,6 +9,7 @@ from app.bot.shared.texts.inline.shared import keyboards_inline as InlineText
 from .inline_base import InlineKeyboardBase
 
 class StatisticsInlineKbs(InlineKeyboardBase):
+  @staticmethod
   def betting_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])
@@ -32,6 +33,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def betting_stat_indicators_vk(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     selected = set(selected_ids or [])
@@ -75,6 +77,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     ])
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def betting_stat_mode_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(text=InlineText.INLINEKBS_BETTING_STAT_MODE_TG_TEXT_01, callback_data="betstatmode:all")
@@ -83,6 +86,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+  @staticmethod
   def betting_stat_mode_vk() -> str:
     return ReplyKbs.make_vk_callback(
       [
@@ -101,6 +105,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
       ]
     )
 
+  @staticmethod
   def poker_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     selected = set(selected_ids or [])
@@ -124,6 +129,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_stat_indicators_vk(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     selected = set(selected_ids or [])
@@ -167,6 +173,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     ])
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def stat_year_tg(
     *,
     prefix: str,
@@ -196,6 +203,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def stat_year_vk(
     *,
     action: str,
@@ -229,6 +237,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     ])
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def stat_sort_tg(
     *,
     prefix: str,
@@ -263,6 +272,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def stat_sort_vk(
     *,
     action: str,
@@ -314,6 +324,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     ])
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_history_year_tg(*, years: list[int]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for year in years:
@@ -322,6 +333,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(1, *(1 for _ in years[1:]), 1)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_history_year_vk(*, years: list[int]) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for year in years:
@@ -339,6 +351,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     ])
     return ReplyKbs.make_vk_callback(rows)
 
+  @staticmethod
   def poker_history_dates_tg(*, year: int, dates: list[date], page: int = 0) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     page_size = 6
@@ -358,6 +371,7 @@ class StatisticsInlineKbs(InlineKeyboardBase):
     keyboard.adjust(*sizes)
     return keyboard.as_markup()
 
+  @staticmethod
   def poker_history_dates_vk(*, year: int, dates: list[date], page: int = 0) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     page_size = 6
