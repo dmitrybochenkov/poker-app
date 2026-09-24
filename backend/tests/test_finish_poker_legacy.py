@@ -6,10 +6,10 @@ import pytest
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram import runtime as tg_runtime
-from app.bot.telegram.handlers.admin import common as tg_common
 from app.bot.telegram.handlers.admin import finish_poker as tg_finish_poker
-from app.bot.vk.handlers.admin import common as vk_common
+from app.bot.telegram.handlers.admin import player_notification_helpers as tg_notifications
 from app.bot.vk.handlers.admin import finish_poker as vk_finish_poker
+from app.bot.vk.handlers.admin import player_notification_helpers as vk_notifications
 
 
 class _Session:
@@ -106,7 +106,7 @@ async def test_vk_finish_poker_preserves_post_commit_side_effect_order(monkeypat
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("notification_module", [tg_common, vk_common])
+@pytest.mark.parametrize("notification_module", [tg_notifications, vk_notifications])
 async def test_finish_poker_notification_builds_keyboard_without_runtime_error(
     monkeypatch,
     notification_module,
