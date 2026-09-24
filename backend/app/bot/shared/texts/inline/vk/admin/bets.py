@@ -2,6 +2,7 @@
 
 # Source line before extraction: 74
 EVENT_0_02_TEXT_01 = 'Квитанция не найдена'
+EVENT_0_02_TEXT_ALREADY_PROCESSED = 'Квитанция уже была обработана'
 
 # Source line before extraction: 93
 EVENT_0_02_TEXT_02 = 'Обновлено'

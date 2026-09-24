@@ -53,6 +53,13 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
         if receipt is None:
             await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_03, show_alert=True)
             return
+        if str(receipt.status).startswith(("accepted", "rejected")):
+            TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
+            await callback.answer(
+                InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_ALREADY_PROCESSED,
+                show_alert=True,
+            )
+            return
         unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
         selected = TG_MANUAL_RECEIPT_SELECTIONS.setdefault(state_key, set())
 

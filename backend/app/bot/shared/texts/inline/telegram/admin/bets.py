@@ -8,6 +8,7 @@ BET_RECEIPT_MANUAL_CALLBACK_TEXT_02 = 'Некорректные данные.'
 
 # Source line before extraction: 85
 BET_RECEIPT_MANUAL_CALLBACK_TEXT_03 = 'Квитанция не найдена.'
+BET_RECEIPT_MANUAL_CALLBACK_TEXT_ALREADY_PROCESSED = 'Квитанция уже была обработана.'
 
 # Source line before extraction: 92
 BET_RECEIPT_MANUAL_CALLBACK_TEXT_04 = 'Некорректные данные.'

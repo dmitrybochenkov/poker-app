@@ -69,6 +69,15 @@ async def handle_bet_receipt_actions_event(
                     text=InlineText.EVENT_0_02_TEXT_01,
                 )
                 return PlainTextResponse("ok")
+            if str(receipt.status).startswith(("accepted", "rejected")):
+                VK_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
+                await send_vk_message_event_answer(
+                    event_id=event_id,
+                    user_id=admin_user_id,
+                    peer_id=peer_id,
+                    text=InlineText.EVENT_0_02_TEXT_ALREADY_PROCESSED,
+                )
+                return PlainTextResponse("ok")
             unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
             selected = VK_MANUAL_RECEIPT_SELECTIONS.setdefault(state_key, set())
 
