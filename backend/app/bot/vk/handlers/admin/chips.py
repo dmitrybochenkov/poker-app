@@ -141,14 +141,9 @@ async def handle_admin_room_calculate_poker_text(*, user_id, text):
             )
             loser_line = ", ".join(f'{InlineText._TEXT_1_11_MARKER_01_PART_1}{name}' for name in loosers)
 
-            approved_users = await user_repository.list_approved()
             transfer_lines: list[str] = []
-            for line in transfers:
-                recipient_name = line.split(InlineText._TEXT_1_11_MARKER_02)[1].split(" ")[0:2]
-                recipient_name_joined = " ".join(recipient_name).strip()
-                recipient_user = next(
-                    (u for u in approved_users if u.name.startswith(recipient_name_joined)), None
-                )
+            for line, transfer in zip(transfers, result.transfers, strict=True):
+                recipient_user = await user_repository.get_by_row_id(transfer.to_user_id)
                 extra = ""
                 if recipient_user is not None and recipient_user.tel_number:
                     bank = f" ({recipient_user.bank_name})" if recipient_user.bank_name else ""

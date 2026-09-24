@@ -29,7 +29,7 @@ class _UseCase:
         return SimpleNamespace(
             poker_id=5, poker_date=date(2026, 9, 24), players=(player,), bets=(),
             winners=("Player",), losers=("Player",), previous_winners=frozenset(),
-            recipient_user_ids=(1, 2, 3),
+            recipient_user_ids=(1, 2, 3), transfers=(),
         )
 
 
@@ -238,3 +238,58 @@ async def test_committed_result_survives_publication_failure(monkeypatch):
         assert [row.money_kopecks for row in rows] == [-20_000, 20_000]
         assert bet.score == 5
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("module,platform", [(tg_poker, "tg"), (vk_chips, "vk")])
+async def test_transfer_contact_comes_from_canonical_payee_with_overlapping_names(
+    monkeypatch, module, platform
+):
+    payer = SimpleNamespace(player_id=1, player_name="Иван", money_kopecks=-10_000)
+    payee = SimpleNamespace(player_id=2, player_name="Алексей Петров", money_kopecks=10_000)
+    class TransferUseCase:
+        def __init__(self, session): pass
+        async def execute(self, *, actor_user_id):
+            return SimpleNamespace(
+                poker_id=5, poker_date=date(2026, 9, 24), players=(payer, payee), bets=(),
+                winners=(payee.player_name,), losers=(payer.player_name,),
+                previous_winners=frozenset(), recipient_user_ids=(2,),
+                transfers=(SimpleNamespace(to_user_id=2),),
+            )
+    wrong = SimpleNamespace(
+        row_id=3, name="Алексей Петрович", notification_platform=None,
+        telegram_id=None, vk_id=None, tel_number="+7 WRONG", bank_name="Wrong Bank",
+    )
+    correct = _user(2, platform=platform)
+    correct.name = payee.player_name
+    correct.tel_number = "+7 CORRECT"
+    correct.bank_name = "Correct Bank"
+    class Users:
+        def __init__(self, session): pass
+        async def list_approved(self): return [wrong, correct]
+        async def get_by_row_id(self, row_id): return correct
+        async def get_by_telegram_id(self, value): return None
+        async def get_by_vk_id(self, value): return None
+    _common(monkeypatch, module, platform)
+    monkeypatch.setattr(module, "CalculatePokerResultUseCase", TransferUseCase)
+    monkeypatch.setattr(module, "UserRepository", Users)
+    monkeypatch.setattr(module, "_build_poker_buyins_session_chart", AsyncMock(return_value=None))
+    if platform == "tg":
+        monkeypatch.setattr(module, "resolve_telegram_user_id", AsyncMock(return_value=9))
+        sent = AsyncMock()
+        monkeypatch.setattr(tg_runtime, "telegram_bot", SimpleNamespace(send_message=sent, send_photo=AsyncMock()))
+        monkeypatch.setattr(module, "_clear_tg_admin_chips_calc_buttons", AsyncMock())
+        await module.calculate_poker(SimpleNamespace(from_user=SimpleNamespace(id=9), answer=AsyncMock()))
+        text = sent.await_args.kwargs["text"]
+    else:
+        monkeypatch.setattr(module, "resolve_vk_user_id", AsyncMock(return_value=9))
+        sent = AsyncMock()
+        monkeypatch.setattr(module, "send_vk_message", sent)
+        monkeypatch.setattr(module, "_clear_vk_admin_chips_calc_buttons", AsyncMock())
+        await module.handle_admin_room_calculate_poker_text(
+            user_id=9, text=Buttons.admin_room.CALCULATE_POKER.value
+        )
+        text = sent.await_args.kwargs["message"]
+
+    assert "+7 CORRECT" in text
+    assert "+7 WRONG" not in text

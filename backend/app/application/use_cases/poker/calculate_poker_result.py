@@ -43,7 +43,9 @@ class CalculatedBet:
 
 @dataclass(frozen=True)
 class PokerTransfer:
+  from_user_id: int
   from_name: str
+  to_user_id: int
   to_name: str
   amount_kopecks: int
 
@@ -62,7 +64,10 @@ class CalculatePokerResult:
 
 
 def _calculate_transfers(players: list[CalculatedPlayer]) -> tuple[PokerTransfer, ...]:
-  rows = [{"name": row.player_name, "money": row.money_kopecks} for row in players]
+  rows = [
+    {"user_id": row.player_id, "name": row.player_name, "money": row.money_kopecks}
+    for row in players
+  ]
   transfers: list[PokerTransfer] = []
   while True:
     loser = min(rows, key=lambda row: int(row["money"]))
@@ -72,7 +77,15 @@ def _calculate_transfers(players: list[CalculatedPlayer]) -> tuple[PokerTransfer
       break
     loser["money"] = int(loser["money"]) + transfer
     winner["money"] = int(winner["money"]) - transfer
-    transfers.append(PokerTransfer(str(loser["name"]), str(winner["name"]), transfer))
+    transfers.append(
+      PokerTransfer(
+        int(loser["user_id"]),
+        str(loser["name"]),
+        int(winner["user_id"]),
+        str(winner["name"]),
+        transfer,
+      )
+    )
   return tuple(transfers)
 
 

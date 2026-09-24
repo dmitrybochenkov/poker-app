@@ -25,6 +25,7 @@ def _result():
         losers=("Player",),
         previous_winners=frozenset(),
         recipient_user_ids=(),
+        transfers=(),
     )
 
 

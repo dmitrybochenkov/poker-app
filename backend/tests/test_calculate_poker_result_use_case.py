@@ -3,11 +3,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.application.use_cases.poker.calculate_poker_result import (
+    CalculatedPlayer,
     CalculatePokerNotAuthorizedError,
     CalculatePokerResultUseCase,
     MissingPlayerChipsError,
     PokerChipTotalMismatchError,
     PokerNotReadyForCalculationError,
+    _calculate_transfers,
 )
 from app.db.base import Base
 from app.db.models.bet import Bet
@@ -85,8 +87,11 @@ async def test_final_calculation_preserves_business_results_and_accepts_zero_chi
     assert [(row.player_name, row.money_kopecks) for row in result.players] == [
         ("First Player", -20_000), ("Second Player", 20_000)
     ]
-    assert [(item.from_name, item.to_name, item.amount_kopecks) for item in result.transfers] == [
-        ("First Player", "Second Player", 20_000)
+    assert [
+        (item.from_user_id, item.from_name, item.to_user_id, item.to_name, item.amount_kopecks)
+        for item in result.transfers
+    ] == [
+        (result.players[0].player_id, "First Player", result.players[1].player_id, "Second Player", 20_000)
     ]
     async with sessions() as session:
         poker = await session.get(Poker, poker_id)
@@ -157,6 +162,19 @@ async def test_repeated_final_calculation_does_not_apply_results_twice():
         with pytest.raises(PokerNotReadyForCalculationError):
             await CalculatePokerResultUseCase(session).execute(actor_user_id=admin_id)
     await engine.dispose()
+
+
+def test_transfer_dto_preserves_canonical_ids_when_names_are_equal():
+    transfers = _calculate_transfers(
+        [
+            CalculatedPlayer(player_id=10, player_name="Алексей", money_kopecks=-10_000),
+            CalculatedPlayer(player_id=20, player_name="Алексей", money_kopecks=10_000),
+        ]
+    )
+
+    assert len(transfers) == 1
+    assert transfers[0].from_user_id == 10
+    assert transfers[0].to_user_id == 20
 
 
 @pytest.mark.asyncio

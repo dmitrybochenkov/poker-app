@@ -103,18 +103,8 @@ async def calculate_poker(message: Message, admin_user_id: int | None = None) ->
         loser_line = ", ".join(f'{InlineText.CALCULATE_POKER_MARKER_01_PART_1}{name}' for name in loosers)
 
         transfer_lines: list[str] = []
-        for line in transfers:
-            # add recipient bank/phone for convenience
-            recipient_name = line.split(InlineText.CALCULATE_POKER_MARKER_02)[1].split(" ")[0:2]
-            recipient_name_joined = " ".join(recipient_name).strip()
-            recipient_user = next(
-                (
-                    u
-                    for u in await user_repository.list_approved()
-                    if u.name.startswith(recipient_name_joined)
-                ),
-                None,
-            )
+        for line, transfer in zip(transfers, result.transfers, strict=True):
+            recipient_user = await user_repository.get_by_row_id(transfer.to_user_id)
             extra = ""
             if recipient_user is not None and recipient_user.tel_number:
                 bank = f" ({recipient_user.bank_name})" if recipient_user.bank_name else ""
