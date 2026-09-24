@@ -589,7 +589,6 @@ async def handle_remove_player_text(*, user_id, text):
         or text == Buttons.admin_room_correct.REMOVE_PLAYER.value
     ):
         async with SessionFactory() as session:
-            user_repository = UserRepository(session)
             if not await is_vk_admin(session=session, vk_id=user_id):
                 await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
                 return PlainTextResponse("ok")
