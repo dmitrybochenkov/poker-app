@@ -13,7 +13,8 @@ from app.bot.vk.api import send_vk_message
 from app.db.session import SessionFactory
 from app.services.finish_poker_flow import execute_finish_poker
 
-from .common import HANDLER_UNMATCHED, _upsert_vk_admin_chips_status
+from .common import HANDLER_UNMATCHED
+from .poker_helpers import _upsert_vk_admin_chips_status
 
 logger = logging.getLogger(__name__)
 

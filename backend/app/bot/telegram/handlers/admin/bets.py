@@ -17,11 +17,11 @@ from app.services.google_backup import backup_tables_to_google
 from .common import (
     TG_MANUAL_RECEIPT_SELECTIONS,
     _ensure_tg_admin_callback,
-    _format_rub_from_kopecks,
     _safe_callback_edit_reply_markup,
     _safe_callback_edit_text,
     logger,
 )
+from .poker_helpers import _format_rub_from_kopecks
 
 
 async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:

@@ -33,10 +33,12 @@ from app.db.session import SessionFactory
 
 from .common import (
     HANDLER_UNMATCHED,
-    _build_user_chips_text,
     _clear_event_inline_keyboard_if_possible,
-    _get_reaction,
     _refresh_admin_room_status,
+)
+from .poker_helpers import (
+    _build_user_chips_text,
+    _get_reaction,
     _upsert_vk_admin_chips_status,
 )
 

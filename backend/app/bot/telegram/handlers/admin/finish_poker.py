@@ -9,7 +9,8 @@ from app.bot.shared.texts.texts import Text
 from app.db.session import SessionFactory
 from app.services.finish_poker_flow import execute_finish_poker
 
-from .common import _upsert_tg_admin_chips_status, logger
+from .common import logger
+from .poker_helpers import _upsert_tg_admin_chips_status
 
 
 async def finish_poker(message: Message) -> None:

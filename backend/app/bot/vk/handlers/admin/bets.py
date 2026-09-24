@@ -23,9 +23,9 @@ from .common import (
     HANDLER_UNMATCHED,
     VK_MANUAL_RECEIPT_SELECTIONS,
     _clear_event_inline_keyboard_if_possible,
-    _format_rub_from_kopecks,
     logger,
 )
+from .poker_helpers import _format_rub_from_kopecks
 
 
 async def handle_bet_receipt_actions_event(
