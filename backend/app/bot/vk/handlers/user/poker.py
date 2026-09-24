@@ -1,6 +1,7 @@
 from fastapi.responses import PlainTextResponse
 
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.enter_player_chips import EnterPlayerChipsUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.chips_runtime import (
     VK_ADMIN_CHIPS_STATUS_MSG_IDS,
@@ -41,7 +42,6 @@ from .common import (
     _build_user_chips_text,
     _chips_reaction,
     _get_vk_user,
-    _money_kopecks_from_chips,
     _notify_admins_about_room_join,
 )
 
@@ -88,25 +88,12 @@ async def handle_chips_input_text(*, user_id, text, raw_message):
                     user_id=user_id, message=Text.user.FINISH_CHIPS_NOT_IN_GAME.value
                 )
                 return PlainTextResponse("ok")
-            money_kopecks = _money_kopecks_from_chips(
+            updated = await EnterPlayerChipsUseCase(session).execute(
+                actor_user_id=int(user.row_id),
+                player_user_id=int(user.row_id),
                 chips=chips,
-                buyins=int(player.buyins),
-                buyin_size_chips=int(params.buyin_size_chips),
-                buyin_size_kopecks=int(params.buyin_size_kopecks),
             )
-            updated = await poker_data_repository.set_chips(
-                date=poker.date, player_id=int(user.row_id), chips=chips
-            )
-            if updated is None:
-                await send_vk_message(
-                    user_id=user_id, message=Text.user.FINISH_CHIPS_NOT_IN_GAME.value
-                )
-                return PlainTextResponse("ok")
-            await poker_data_repository.set_cashout(
-                date=poker.date,
-                player_id=int(user.row_id),
-                money_kopecks=int(money_kopecks),
-            )
+            money_kopecks = updated.money_kopecks
             all_players = await poker_data_repository.list_players(date=poker.date)
             player_row_ids = {int(p.player_id) for p in all_players}
             admins = [

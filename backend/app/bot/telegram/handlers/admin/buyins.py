@@ -2,6 +2,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.enter_player_chips import EnterPlayerChipsUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_tg_admin
 from app.bot.shared.texts.inline.telegram.admin import buyins as InlineText
@@ -434,18 +435,16 @@ async def cashout_select_callback(callback: CallbackQuery, state: FSMContext) ->
                     )
                 await callback.answer()
                 return
-            money_kopecks = (
-                (chips - int(player.buyins) * int(params.buyin_size_chips))
-                * int(params.buyin_size_kopecks)
-            ) // int(params.buyin_size_chips)
-            updated = await poker_data_repository.set_chips(
-                date=poker.date, player_id=player_id, chips=chips
+            actor = await user_repository.get_by_telegram_id(callback.from_user.id)
+            updated = await EnterPlayerChipsUseCase(session).execute(
+                actor_user_id=int(actor.row_id),
+                player_user_id=player_id,
+                chips=chips,
             )
-            if updated is not None:
-                await poker_data_repository.set_cashout(
-                    date=poker.date, player_id=player_id, money_kopecks=int(money_kopecks)
-                )
-                await _upsert_tg_admin_chips_status(session=session, poker_date=poker.date)
+            money_kopecks = updated.money_kopecks
+            await _upsert_tg_admin_chips_status(
+                session=session, poker_date=updated.poker_date
+            )
             await state.update_data(cashout_input_value=None)
             if updated is not None:
                 user = await user_repository.get_by_row_id(int(updated.player_id))
@@ -526,27 +525,16 @@ async def cashout_amount_input(message: Message, state: FSMContext) -> None:
         if chips % step != 0:
             await message.answer(Text.user.FINISH_CHIPS_INVALID.value.format(step=step))
             return
-        use_case = ManagePokerPlayersUseCase(
-            poker_repository=PokerRepository(session),
-            poker_data_repository=PokerDataRepository(session),
+        actor = await user_repository.get_by_telegram_id(message.from_user.id)
+        updated = await EnterPlayerChipsUseCase(session).execute(
+            actor_user_id=int(actor.row_id),
+            player_user_id=int(player_id),
+            chips=chips,
         )
-        updated = await use_case.set_chips_for_ready_poker_player(
-            player_id=int(player_id), chips=chips
+        money_kopecks = updated.money_kopecks
+        await _upsert_tg_admin_chips_status(
+            session=session, poker_date=updated.poker_date
         )
-        if updated is None:
-            await state.clear()
-            await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
-            return
-        money_kopecks = (
-            (chips - int(updated.buyins) * int(params.buyin_size_chips))
-            * int(params.buyin_size_kopecks)
-        ) // int(params.buyin_size_chips)
-        await PokerDataRepository(session).set_cashout(
-            date=poker.date,
-            player_id=int(player_id),
-            money_kopecks=int(money_kopecks),
-        )
-        await _upsert_tg_admin_chips_status(session=session, poker_date=poker.date)
         target_user = await user_repository.get_by_row_id(int(player_id))
     await state.clear()
     if (

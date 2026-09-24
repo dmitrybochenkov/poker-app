@@ -2,6 +2,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.enter_player_chips import EnterPlayerChipsUseCase
 from app.bot.shared.texts.inline.telegram.user import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -26,7 +27,6 @@ from .common import (
     _build_user_chips_text,
     _chips_reaction,
     _get_telegram_user,
-    _money_kopecks_from_chips,
     _notify_admins_about_chips_entry,
     _notify_admins_about_room_join,
     _upsert_tg_user_chips_result,
@@ -194,23 +194,12 @@ async def process_chips_input(message: Message, state: FSMContext) -> None:
         if player is None:
             await message.answer(Text.user.FINISH_CHIPS_NOT_IN_GAME.value)
             return
-        money_kopecks = _money_kopecks_from_chips(
+        updated = await EnterPlayerChipsUseCase(session).execute(
+            actor_user_id=int(user.row_id),
+            player_user_id=int(user.row_id),
             chips=chips,
-            buyins=int(player.buyins),
-            buyin_size_chips=int(params.buyin_size_chips),
-            buyin_size_kopecks=int(params.buyin_size_kopecks),
         )
-        updated = await poker_data_repository.set_chips(
-            date=poker.date, player_id=int(user.row_id), chips=chips
-        )
-        if updated is None:
-            await message.answer(Text.user.FINISH_CHIPS_NOT_IN_GAME.value)
-            return
-        await poker_data_repository.set_cashout(
-            date=poker.date,
-            player_id=int(user.row_id),
-            money_kopecks=int(money_kopecks),
-        )
+        money_kopecks = updated.money_kopecks
         await _notify_admins_about_chips_entry(
             session=session,
             player=updated,

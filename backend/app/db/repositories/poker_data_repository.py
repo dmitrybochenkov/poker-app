@@ -112,3 +112,19 @@ class PokerDataRepository:
     await self.session.commit()
     await self.session.refresh(item)
     return item
+
+  async def set_chips_and_cashout_without_commit(
+    self,
+    *,
+    date,
+    player_id: int,
+    chips: int,
+    money_kopecks: int,
+  ) -> PokerData | None:
+    item = await self.get_player(date=date, player_id=player_id)
+    if item is None:
+      return None
+    item.chips = int(chips)
+    item.money_kopecks = int(money_kopecks)
+    await self.session.flush()
+    return item

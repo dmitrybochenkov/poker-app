@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from fastapi.responses import PlainTextResponse
 
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.enter_player_chips import EnterPlayerChipsUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.chips_runtime import (
     VK_USER_CHIPS_RESULT_MSG_IDS,
@@ -183,22 +184,16 @@ async def handle_poker_cashout_select_event(
                             )
                             result_text = Text.user.FINISH_CHIPS_INVALID.value.format(step=step)
                         else:
-                            money_kopecks = (
-                                (chips - int(player.buyins) * int(params.buyin_size_chips))
-                                * int(params.buyin_size_kopecks)
-                            ) // int(params.buyin_size_chips)
-                            updated = await pdata.set_chips(
-                                date=poker.date, player_id=int(player_id), chips=chips
+                            actor = await user_repository.get_by_vk_id(admin_user_id)
+                            updated = await EnterPlayerChipsUseCase(session).execute(
+                                actor_user_id=int(actor.row_id),
+                                player_user_id=int(player_id),
+                                chips=chips,
                             )
-                            if updated is not None:
-                                await pdata.set_cashout(
-                                    date=poker.date,
-                                    player_id=int(player_id),
-                                    money_kopecks=int(money_kopecks),
-                                )
-                                await _upsert_vk_admin_chips_status(
-                                    session=session, poker_date=poker.date
-                                )
+                            money_kopecks = updated.money_kopecks
+                            await _upsert_vk_admin_chips_status(
+                                session=session, poker_date=updated.poker_date
+                            )
                             vk_user_contexts.setdefault(admin_user_id, {}).pop(
                                 "cashout_input_value", None
                             )
@@ -285,30 +280,16 @@ async def handle_admin_cashout_amount_text(*, user_id, text):
                     user_id=user_id, message=Text.user.FINISH_CHIPS_INVALID.value.format(step=step)
                 )
                 return PlainTextResponse("ok")
-            use_case = ManagePokerPlayersUseCase(
-                poker_repository=PokerRepository(session),
-                poker_data_repository=PokerDataRepository(session),
+            actor = await user_repository.get_by_vk_id(user_id)
+            updated = await EnterPlayerChipsUseCase(session).execute(
+                actor_user_id=int(actor.row_id),
+                player_user_id=int(player_id),
+                chips=chips,
             )
-            updated = await use_case.set_chips_for_ready_poker_player(
-                player_id=int(player_id), chips=chips
+            money_kopecks = updated.money_kopecks
+            await _upsert_vk_admin_chips_status(
+                session=session, poker_date=updated.poker_date
             )
-            if updated is None:
-                vk_user_states.pop(user_id, None)
-                vk_user_contexts.pop(user_id, None)
-                await send_vk_message(
-                    user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value
-                )
-                return PlainTextResponse("ok")
-            money_kopecks = (
-                (chips - int(updated.buyins) * int(params.buyin_size_chips))
-                * int(params.buyin_size_kopecks)
-            ) // int(params.buyin_size_chips)
-            await PokerDataRepository(session).set_cashout(
-                date=poker.date,
-                player_id=int(player_id),
-                money_kopecks=int(money_kopecks),
-            )
-            await _upsert_vk_admin_chips_status(session=session, poker_date=poker.date)
             target_user = await user_repository.get_by_row_id(int(player_id))
         vk_user_states.pop(user_id, None)
         vk_user_contexts.pop(user_id, None)
