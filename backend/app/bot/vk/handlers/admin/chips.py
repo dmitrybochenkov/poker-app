@@ -71,6 +71,17 @@ async def handle_poker_calc_run_event(
                 return PlainTextResponse("ok")
             poker, params = ready
             players = await PokerDataRepository(session).list_players(date=poker.date)
+            missing_players = [player.player_name for player in players if player.chips is None]
+            if missing_players:
+                await send_vk_message_event_answer(
+                    event_id=event_id,
+                    user_id=admin_user_id,
+                    peer_id=peer_id,
+                    text=Text.admin.POKER_CHIPS_WAITING.value.format(
+                        players=", ".join(missing_players)
+                    ),
+                )
+                return PlainTextResponse("ok")
             chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
             chips_entered = sum(int(p.chips or 0) for p in players)
             diff = chips_entered - chips_in_game

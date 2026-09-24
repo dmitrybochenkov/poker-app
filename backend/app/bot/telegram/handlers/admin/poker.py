@@ -259,6 +259,15 @@ async def calculate_poker_inline(callback: CallbackQuery) -> None:
                 return
             poker, params = ready
             players = await PokerDataRepository(session).list_players(date=poker.date)
+            missing_players = [player.player_name for player in players if player.chips is None]
+            if missing_players:
+                await callback.answer(
+                    Text.admin.POKER_CHIPS_WAITING.value.format(
+                        players=", ".join(missing_players)
+                    ),
+                    show_alert=True,
+                )
+                return
             chips_in_game = sum(int(p.buyins) * int(params.buyin_size_chips) for p in players)
             chips_entered = sum(int(p.chips or 0) for p in players)
             diff = chips_entered - chips_in_game
