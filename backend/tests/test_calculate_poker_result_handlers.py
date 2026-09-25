@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.bot.shared.buttons.buttons import Buttons
-from app.bot.telegram.handlers.admin import poker as tg_poker
+from app.bot.telegram.handlers.admin import calculation as tg_poker
 from app.bot.vk.handlers.admin import chips as vk_chips
 
 

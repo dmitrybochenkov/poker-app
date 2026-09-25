@@ -6,10 +6,11 @@ from app.bot.telegram.states import AdminPokerState, RegistrationState
 from . import (
     bets,
     buyins,
+    calculation,
+    cashier,
     finish_poker,
     management,
     players,
-    poker,
     polls,
     registrations,
     start_betting,
@@ -20,8 +21,8 @@ from .common import router
 router.message(F.text == Buttons.admin_main.START_POKER.value)(start_poker.start_poker_menu)
 router.callback_query(F.data.startswith("pokerstart:"))(start_poker.start_poker_with_param)
 router.message(F.text == Buttons.admin_room.FINISH_POKER.value)(finish_poker.finish_poker)
-router.message(F.text == Buttons.admin_room.CALCULATE_POKER.value)(poker.calculate_poker)
-router.callback_query(F.data == "pokercalc:run")(poker.calculate_poker_inline)
+router.message(F.text == Buttons.admin_room.CALCULATE_POKER.value)(calculation.calculate_poker)
+router.callback_query(F.data == "pokercalc:run")(calculation.calculate_poker_inline)
 router.message(F.text == Buttons.admin_room.START_BETTING.value)(start_betting.start_betting)
 router.callback_query(F.data == "pokerstartbetting:inline")(start_betting.start_betting_inline)
 router.message(F.text == Buttons.admin_main.CREATE_POLL.value)(polls.create_poll_menu)
@@ -31,13 +32,15 @@ router.callback_query(F.data.startswith("polladmin_month:"))(polls.create_poll_s
 router.message(
     (F.text == Buttons.admin_room.SET_CASHIER.value)
     | (F.text == Buttons.admin_room_correct.SET_CASHIER.value)
-)(poker.set_cashier_menu)
-router.message(F.text == Buttons.admin_room.CORRECT_POKER.value)(poker.open_correct_poker_menu)
+)(cashier.set_cashier_menu)
+router.message(F.text == Buttons.admin_room.CORRECT_POKER.value)(cashier.open_correct_poker_menu)
 router.message(F.text == Buttons.admin_room_correct.TO_ADMIN_ROOM.value)(
-    poker.back_from_correct_poker_menu
+    cashier.back_from_correct_poker_menu
 )
-router.callback_query(F.data.startswith("pokercashier:"))(poker.set_cashier_callback)
-router.callback_query(F.data.startswith("pokerroomcashier:"))(poker.set_cashier_from_room_callback)
+router.callback_query(F.data.startswith("pokercashier:"))(cashier.set_cashier_callback)
+router.callback_query(F.data.startswith("pokerroomcashier:"))(
+    cashier.set_cashier_from_room_callback
+)
 router.callback_query(F.data.startswith("pokerroommanage:"))(players.poker_room_manage_callback)
 router.callback_query(F.data.startswith("pokerroomapprove:"))(players.poker_room_approve_callback)
 router.callback_query(F.data.startswith("pokerroomreject:"))(players.poker_room_reject_callback)

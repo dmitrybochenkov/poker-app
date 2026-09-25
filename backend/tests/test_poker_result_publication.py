@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.bot.shared.buttons.buttons import Buttons
-from app.bot.telegram.handlers.admin import poker as tg_poker
+from app.bot.telegram.handlers.admin import calculation as tg_poker
 from app.bot.telegram import runtime as tg_runtime
 from app.bot.vk import api as vk_api
 from app.bot.vk.handlers.admin import chips as vk_chips

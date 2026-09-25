@@ -5,7 +5,7 @@ import pytest
 
 from app.bot.shared.texts.inline.telegram.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
-from app.bot.telegram.handlers.admin import poker as tg_poker
+from app.bot.telegram.handlers.admin import cashier as tg_poker
 
 
 class _Session:
