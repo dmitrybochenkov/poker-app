@@ -53,3 +53,14 @@ class BuyinDataRepository:
     )
     await self.session.commit()
     return int(result.rowcount or 0)
+
+  async def delete_for_player_on_date_without_commit(
+    self, *, poker_date, player_id: int
+  ) -> int:
+    result = await self.session.execute(
+      delete(BuyinData)
+      .where(BuyinData.poker_date == poker_date)
+      .where(BuyinData.player_id == player_id)
+    )
+    await self.session.flush()
+    return int(result.rowcount or 0)

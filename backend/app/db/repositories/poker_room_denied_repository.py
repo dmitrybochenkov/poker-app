@@ -20,6 +20,15 @@ class PokerRoomDeniedRepository:
     await self.session.refresh(item)
     return item
 
+  async def add_without_commit(self, *, user_row_id: int) -> PokerRoomDenied:
+    existing = await self.get(user_row_id=user_row_id)
+    if existing is not None:
+      return existing
+    item = PokerRoomDenied(user_row_id=user_row_id)
+    self.session.add(item)
+    await self.session.flush()
+    return item
+
   async def get(self, *, user_row_id: int) -> PokerRoomDenied | None:
     result = await self.session.execute(
       select(PokerRoomDenied)

@@ -113,6 +113,14 @@ class PokerDataRepository:
     await self.session.commit()
     return True
 
+  async def remove_player_without_commit(self, *, date, player_id: int) -> bool:
+    item = await self.get_player(date=date, player_id=player_id)
+    if item is None:
+      return False
+    await self.session.delete(item)
+    await self.session.flush()
+    return True
+
   async def set_cashout(self, *, date, player_id: int, money_kopecks: int) -> PokerData | None:
     item = await self.get_player(date=date, player_id=player_id)
     if item is None:

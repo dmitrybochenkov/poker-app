@@ -56,28 +56,39 @@ class ManagePokerPlayersUseCase:
     return await self.poker_repository.set_cashier(poker, cashier_id=cashier_id)
 
   async def remove_player_from_active_poker(self, *, player_id: int) -> bool | None:
-    active = await self.poker_repository.get_started()
-    if active is None:
-      return None
-    poker, _ = active
-    if self.buyin_data_repository is not None:
-      await self.buyin_data_repository.delete_for_player_on_date(
-        poker_date=poker.date,
-        player_id=player_id,
+    session = self.poker_repository.session
+    try:
+      active = await self.poker_repository.get_started()
+      if active is None:
+        return None
+      poker, _ = active
+      player = await self.poker_data_repository.get_player(
+        date=poker.date, player_id=player_id
       )
-    removed = await self.poker_data_repository.remove_player(date=poker.date, player_id=player_id)
-    if removed and self.poker_room_denied_repository is not None:
-      is_admin = False
-      if self.user_repository is not None:
-        user = await self.user_repository.get_by_row_id(int(player_id))
-        is_admin = bool(user and user.is_admin)
-      if not is_admin and self.user_repository is not None:
-        user = await self.user_repository.get_by_row_id(int(player_id))
-        if user is not None:
-          await self.poker_room_denied_repository.add(
+      if player is None:
+        return False
+
+      if self.buyin_data_repository is not None:
+        await self.buyin_data_repository.delete_for_player_on_date_without_commit(
+          poker_date=poker.date,
+          player_id=player_id,
+        )
+      removed = await self.poker_data_repository.remove_player_without_commit(
+        date=poker.date, player_id=player_id
+      )
+      if removed and self.poker_room_denied_repository is not None:
+        user = None
+        if self.user_repository is not None:
+          user = await self.user_repository.get_by_row_id(int(player_id))
+        if user is not None and not user.is_admin:
+          await self.poker_room_denied_repository.add_without_commit(
             user_row_id=int(user.row_id),
           )
-    return removed
+      await session.commit()
+      return removed
+    except Exception:
+      await session.rollback()
+      raise
 
   async def is_denied_for_active_poker(self, *, user_row_id: int) -> bool:
     if self.poker_room_denied_repository is None:
