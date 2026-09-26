@@ -1,8 +1,18 @@
 from fastapi.responses import PlainTextResponse
 
-from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.buyins import (
+    ActivePokerNotFoundError,
+    AddBuyinUseCase,
+    BuyinNotAuthorizedError,
+    BuyinPlayerNotFoundError,
+    CorrectBuyinUseCase,
+    InvalidBuyinCountError,
+    PokerCashierRequiredError,
+    PokerReadyForChipsError,
+)
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.identity import resolve_vk_user_id
 from app.bot.shared.texts.inline.vk.admin import buyins as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import (
@@ -19,7 +29,6 @@ from app.bot.vk.state import (
     vk_user_contexts,
     vk_user_states,
 )
-from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
@@ -206,76 +215,46 @@ async def handle_buyin_correction_confirmation_event(
         new_buyins = callback_payload.get("new_buyins")
         if not isinstance(player_id, int) or not isinstance(new_buyins, int):
             return PlainTextResponse("ok")
-        if action.endswith("_no"):
+        if action == "poker_buyin_correct_confirm_no":
             vk_user_states.pop(admin_user_id, None)
             vk_user_contexts.pop(admin_user_id, None)
-            await send_vk_message_event_answer(
-                event_id=event_id,
-                user_id=admin_user_id,
-                peer_id=peer_id,
-                text=Buttons.betting_inline.CONFIRM_NO.value,
-            )
-            await _clear_event_inline_keyboard_if_possible(
-                peer_id=peer_id, conversation_message_id=conversation_message_id
-            )
-            return PlainTextResponse("ok")
-        async with SessionFactory() as session:
-            if not await is_vk_admin(session=session, vk_id=admin_user_id):
-                await send_vk_message_event_answer(
-                    event_id=event_id,
-                    user_id=admin_user_id,
-                    peer_id=peer_id,
-                    text=Text.admin.NO_RIGHTS.value,
+            result_text = Buttons.betting_inline.CONFIRM_NO.value
+        else:
+            async with SessionFactory() as session:
+                actor_user_id = await resolve_vk_user_id(
+                    session=session, vk_id=admin_user_id
                 )
-                return PlainTextResponse("ok")
-            active = await PokerRepository(session).get_started()
-            if active is None:
-                await send_vk_message_event_answer(
-                    event_id=event_id,
-                    user_id=admin_user_id,
-                    peer_id=peer_id,
-                    text=Text.admin.POKER_ACTIVE_NOT_FOUND.value,
-                )
-                return PlainTextResponse("ok")
-            poker, _ = active
-            poker_data_repository = PokerDataRepository(session)
-            player = await poker_data_repository.get_player(
-                date=poker.date, player_id=int(player_id)
-            )
-            if player is None:
-                await send_vk_message_event_answer(
-                    event_id=event_id,
-                    user_id=admin_user_id,
-                    peer_id=peer_id,
-                    text=Text.admin.USER_NOT_FOUND.value,
-                )
-                return PlainTextResponse("ok")
-            old_buyins = int(player.buyins)
-            delta = int(new_buyins) - old_buyins
-            if delta != 0:
-                updated = await poker_data_repository.add_buyins(
-                    date=poker.date,
-                    player_id=int(player_id),
-                    buyins_count=int(delta),
-                    big_buyin_count=0,
-                    super_buyin_count=0,
-                )
-            else:
-                updated = player
-        vk_user_states.pop(admin_user_id, None)
-        vk_user_contexts.pop(admin_user_id, None)
+            async with SessionFactory() as session:
+                try:
+                    updated = await CorrectBuyinUseCase(session).execute(
+                        actor_user_id=actor_user_id,
+                        target_user_id=player_id,
+                        total_buyins=new_buyins,
+                    )
+                except BuyinNotAuthorizedError:
+                    result_text = Text.admin.NO_RIGHTS.value
+                except ActivePokerNotFoundError:
+                    result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+                except BuyinPlayerNotFoundError:
+                    result_text = Text.admin.USER_NOT_FOUND.value
+                except InvalidBuyinCountError:
+                    result_text = Text.admin.POKER_BUYIN_INVALID.value
+                else:
+                    result_text = Text.admin.POKER_BUYIN_SAVED.value
+                    await send_vk_message(
+                        user_id=admin_user_id,
+                        message=f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.total_buyins}",
+                    )
+            vk_user_states.pop(admin_user_id, None)
+            vk_user_contexts.pop(admin_user_id, None)
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,
             peer_id=peer_id,
-            text=Text.admin.POKER_BUYIN_SAVED.value,
+            text=result_text,
         )
         await _clear_event_inline_keyboard_if_possible(
             peer_id=peer_id, conversation_message_id=conversation_message_id
-        )
-        await send_vk_message(
-            user_id=admin_user_id,
-            message=f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}",
         )
         return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
@@ -297,139 +276,47 @@ async def handle_poker_buyin_count_select_event(
         if not isinstance(player_id, int) or not isinstance(buyins_count, int) or buyins_count <= 0:
             return PlainTextResponse("ok")
         async with SessionFactory() as session:
-            is_admin = await is_vk_admin(session=session, vk_id=admin_user_id)
-            requester = await UserRepository(session).get_by_vk_id(admin_user_id)
-            requester_row_id = int(requester.row_id) if requester is not None else -1
-            if not is_admin and int(player_id) != requester_row_id:
+            actor_user_id = await resolve_vk_user_id(session=session, vk_id=admin_user_id)
+        result = None
+        async with SessionFactory() as session:
+            try:
+                result = await AddBuyinUseCase(session).execute(
+                    actor_user_id=actor_user_id,
+                    target_user_id=player_id,
+                    buyins_count=buyins_count,
+                )
+            except BuyinNotAuthorizedError:
                 result_text = Text.admin.NO_RIGHTS.value
-            else:
-                poker_repository = PokerRepository(session)
-                active = await poker_repository.get_started()
-                if active is None:
-                    result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
-                else:
-                    poker, params = active
-                    if poker.is_ready_for_chips_entering:
-                        result_text = Text.user.FINISH_CHIPS_NOT_READY.value
-                        await send_vk_message_event_answer(
-                            event_id=event_id,
-                            user_id=admin_user_id,
-                            peer_id=peer_id,
-                            text=result_text,
-                        )
-                        await _clear_event_inline_keyboard_if_possible(
-                            peer_id=peer_id, conversation_message_id=conversation_message_id
-                        )
-                        await send_vk_message(user_id=admin_user_id, message=result_text)
-                        return PlainTextResponse("ok")
-                    if poker.cashier_id is None:
-                        result_text = Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value
-                        await send_vk_message_event_answer(
-                            event_id=event_id,
-                            user_id=admin_user_id,
-                            peer_id=peer_id,
-                            text=result_text,
-                        )
-                        await _clear_event_inline_keyboard_if_possible(
-                            peer_id=peer_id, conversation_message_id=conversation_message_id
-                        )
-                        await send_vk_message(user_id=admin_user_id, message=result_text)
-                        return PlainTextResponse("ok")
-                    poker_data_repository = PokerDataRepository(session)
-                    prev_player = await poker_data_repository.get_player(
-                        date=poker.date, player_id=int(player_id)
-                    )
-                    is_special_mode = int(params.max_buyins) == 2
-                    include_king_buyin = bool(
-                        prev_player is not None and prev_player.is_prev_winner
-                    )
-                    big_threshold = int(params.big_buyin or 5)
-                    super_threshold = int(params.super_buyin or 10)
-                    king_threshold = int(params.king_buyin or 15)
-                    current_big_count = (
-                        int(prev_player.big_buyin_count) if prev_player is not None else 0
-                    )
-                    current_super_count = (
-                        int(prev_player.super_buyin_count) if prev_player is not None else 0
-                    )
-                    if is_special_mode:
-                        allowed_special_amounts: set[int] = set()
-                        if current_super_count == 0 and current_big_count < 2:
-                            allowed_special_amounts.add(big_threshold)
-                        if current_super_count == 0 and current_big_count == 0:
-                            allowed_special_amounts.add(super_threshold)
-                            if include_king_buyin:
-                                allowed_special_amounts.add(king_threshold)
-                        if (
-                            int(buyins_count) > int(params.max_buyins)
-                            and int(buyins_count) not in allowed_special_amounts
-                        ):
-                            result_text = Text.admin.POKER_BUYIN_INVALID.value
-                            await send_vk_message_event_answer(
-                                event_id=event_id,
-                                user_id=admin_user_id,
-                                peer_id=peer_id,
-                                text=result_text,
-                            )
-                            await _clear_event_inline_keyboard_if_possible(
-                                peer_id=peer_id, conversation_message_id=conversation_message_id
-                            )
-                            await send_vk_message(user_id=admin_user_id, message=result_text)
-                            return PlainTextResponse("ok")
-                    big_count = 0
-                    super_count = 0
-                    if is_special_mode:
-                        if (
-                            include_king_buyin
-                            and current_big_count == 0
-                            and current_super_count == 0
-                            and int(buyins_count) >= king_threshold
-                        ):
-                            big_count += 1
-                            super_count += 1
-                        elif int(buyins_count) >= super_threshold:
-                            if current_big_count == 0 and current_super_count == 0:
-                                super_count += 1
-                            elif (
-                                current_super_count == 0
-                                and current_big_count < 2
-                                and int(buyins_count) >= big_threshold
-                            ):
-                                big_count += 1
-                        elif (
-                            current_super_count == 0
-                            and current_big_count < 2
-                            and int(buyins_count) >= big_threshold
-                        ):
-                            big_count += 1
-                    use_case = ManagePokerPlayersUseCase(
-                        poker_repository=poker_repository,
-                        poker_data_repository=poker_data_repository,
-                        buyin_data_repository=BuyinDataRepository(session),
-                    )
-                    updated = await use_case.add_buyin_to_active_player(
-                        player_id=int(player_id),
-                        buyins_count=int(buyins_count),
-                        big_buyin_count=big_count,
-                        super_buyin_count=super_count,
-                        poker_date=poker.date,
-                    )
-                    if updated is None:
-                        result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
-                    else:
-                        result_text = f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}"
-                        notify_admins = True
-                        key = (int(admin_user_id), int(player_id))
-                        if key in VK_BUYIN_NOTIFY_CASHIER_ONLY:
-                            notify_admins = False
-                            VK_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
-                        await _notify_about_buyin(
-                            session=session,
-                            poker=poker,
-                            updated_player=updated,
-                            buyins_count=int(buyins_count),
-                            notify_admins=notify_admins,
-                        )
+            except ActivePokerNotFoundError:
+                result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+            except PokerReadyForChipsError:
+                result_text = Text.user.FINISH_CHIPS_NOT_READY.value
+            except PokerCashierRequiredError:
+                result_text = Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value
+            except (InvalidBuyinCountError, BuyinPlayerNotFoundError):
+                result_text = Text.admin.POKER_BUYIN_INVALID.value
+        if result is not None:
+            result_text = f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{result.player_name}: {result.total_buyins}"
+            notify_admins = True
+            key = (int(admin_user_id), int(player_id))
+            if key in VK_BUYIN_NOTIFY_CASHIER_ONLY:
+                notify_admins = False
+                VK_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
+            async with SessionFactory() as session:
+                await _notify_about_buyin(
+                    session=session,
+                    poker=type("PokerNotice", (), {
+                        "date": result.poker_date,
+                        "cashier_id": result.cashier_user_id,
+                    })(),
+                    updated_player=type("PlayerNotice", (), {
+                        "player_id": result.player_user_id,
+                        "player_name": result.player_name,
+                        "buyins": result.total_buyins,
+                    })(),
+                    buyins_count=result.added_buyins,
+                    notify_admins=notify_admins,
+                )
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,

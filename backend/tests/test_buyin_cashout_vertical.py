@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -18,6 +20,8 @@ from app.db.models.user import User
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
+from app.bot.telegram.handlers.admin import buyins as tg_buyins
+from app.bot.vk.handlers.admin import buyins as vk_buyins
 
 
 @pytest.fixture
@@ -256,3 +260,43 @@ async def test_special_buyin_validation_and_counters_are_preserved(buyin_session
             await AddBuyinUseCase(session).execute(
                 actor_user_id=admin_id, target_user_id=player_id, buyins_count=7
             )
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [tg_buyins.buyin_count_callback, vk_buyins.handle_poker_buyin_count_select_event],
+)
+def test_tg_vk_add_buyin_handlers_use_shared_atomic_operation(handler):
+    source = inspect.getsource(handler)
+    assert "AddBuyinUseCase" in source
+    assert "add_buyin_to_active_player" not in source
+    assert ".add_buyins(" not in source
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        tg_buyins.buyin_correct_confirm_callback,
+        vk_buyins.handle_buyin_correction_confirmation_event,
+    ],
+)
+def test_tg_vk_correction_handlers_use_shared_atomic_operation(handler):
+    source = inspect.getsource(handler)
+    assert "CorrectBuyinUseCase" in source
+    assert ".add_buyins(" not in source
+
+
+@pytest.mark.asyncio
+async def test_post_commit_delivery_failure_does_not_undo_buyin(buyin_sessions):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
+    with pytest.raises(RuntimeError, match="delivery failed"):
+        async with buyin_sessions() as session:
+            await AddBuyinUseCase(session).execute(
+                actor_user_id=admin_id, target_user_id=player_id, buyins_count=1
+            )
+            raise RuntimeError("delivery failed")
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+        history = (await session.execute(select(BuyinData))).scalars().all()
+    assert stored is not None and stored.buyins == 1
+    assert [row.buyins_count for row in history] == [1]

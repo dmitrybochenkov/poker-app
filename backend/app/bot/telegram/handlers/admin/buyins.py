@@ -1,10 +1,20 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.buyins import (
+    ActivePokerNotFoundError,
+    AddBuyinUseCase,
+    BuyinNotAuthorizedError,
+    BuyinPlayerNotFoundError,
+    CorrectBuyinUseCase,
+    InvalidBuyinCountError,
+    PokerCashierRequiredError,
+    PokerReadyForChipsError,
+)
 from app.application.use_cases.poker.enter_player_chips import EnterPlayerChipsUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.guards import is_tg_admin
+from app.bot.shared.identity import resolve_telegram_user_id
 from app.bot.shared.texts.inline.telegram.admin import buyins as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -14,7 +24,6 @@ from app.bot.telegram.keyboards import (
 )
 from app.bot.telegram.states import AdminPokerState
 from app.bot.vk.api import send_vk_message
-from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
@@ -236,38 +245,35 @@ async def buyin_correct_confirm_callback(callback: CallbackQuery, state: FSMCont
             await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
             await state.clear()
             return
-        active = await PokerRepository(session).get_started()
-        if active is None:
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=callback.from_user.id
+        )
+    async with SessionFactory() as session:
+        try:
+            updated = await CorrectBuyinUseCase(session).execute(
+                actor_user_id=actor_user_id,
+                target_user_id=player_id,
+                total_buyins=new_buyins,
+            )
+        except BuyinNotAuthorizedError:
+            await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+            await state.clear()
+            return
+        except ActivePokerNotFoundError:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             await state.clear()
             return
-        poker, _ = active
-        poker_data_repository = PokerDataRepository(session)
-        player = await poker_data_repository.get_player(date=poker.date, player_id=player_id)
-        if player is None:
+        except BuyinPlayerNotFoundError:
             await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
             await state.clear()
             return
-        old_buyins = int(player.buyins)
-        delta = int(new_buyins) - old_buyins
-        if delta != 0:
-            updated = await poker_data_repository.add_buyins(
-                date=poker.date,
-                player_id=player_id,
-                buyins_count=delta,
-                big_buyin_count=0,
-                super_buyin_count=0,
-            )
-            if updated is None:
-                await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
-                await state.clear()
-                return
-        else:
-            updated = player
+        except InvalidBuyinCountError:
+            await callback.answer(Text.admin.POKER_BUYIN_INVALID.value, show_alert=True)
+            return
     await state.clear()
     if callback.message is not None:
         await callback.message.answer(
-            f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.buyins}"
+            f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.total_buyins}"
         )
     await callback.answer(Text.admin.POKER_BUYIN_SAVED.value)
 
@@ -277,7 +283,7 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
         await callback.answer(Text.admin.IDENTIFY_USER_ERROR.value, show_alert=True)
         return
     parts = callback.data.split(":")
-    if len(parts) != 3:
+    if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():
         await callback.answer(Text.admin.POKER_BUYIN_INVALID.value, show_alert=True)
         return
     player_id = int(parts[1])
@@ -288,97 +294,49 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
     source_message = callback.message
     await _clear_inline_keyboard(callback)
     async with SessionFactory() as session:
-        is_admin = await is_tg_admin(session=session, telegram_id=callback.from_user.id)
-        requester = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
-        requester_row_id = int(requester.row_id) if requester is not None else -1
-        if not is_admin and int(player_id) != requester_row_id:
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=callback.from_user.id
+        )
+    async with SessionFactory() as session:
+        try:
+            result = await AddBuyinUseCase(session).execute(
+                actor_user_id=actor_user_id,
+                target_user_id=player_id,
+                buyins_count=buyins_count,
+            )
+        except BuyinNotAuthorizedError:
             await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
             return
-        poker_repository = PokerRepository(session)
-        active = await poker_repository.get_started()
-        if active is None:
+        except ActivePokerNotFoundError:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
-        poker, params = active
-        if poker.is_ready_for_chips_entering:
+        except PokerReadyForChipsError:
             await callback.answer(Text.user.FINISH_CHIPS_NOT_READY.value, show_alert=True)
             return
-        if poker.cashier_id is None:
+        except PokerCashierRequiredError:
             await callback.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value, show_alert=True)
             return
-        prev_player = await PokerDataRepository(session).get_player(
-            date=poker.date, player_id=player_id
-        )
-        is_special_mode = int(params.max_buyins) == 2
-        include_king_buyin = bool(prev_player is not None and prev_player.is_prev_winner)
-        big_threshold = int(params.big_buyin or 5)
-        super_threshold = int(params.super_buyin or 10)
-        king_threshold = int(params.king_buyin or 15)
-        current_big_count = int(prev_player.big_buyin_count) if prev_player is not None else 0
-        current_super_count = int(prev_player.super_buyin_count) if prev_player is not None else 0
-        if is_special_mode:
-            allowed_special_amounts: set[int] = set()
-            if current_super_count == 0 and current_big_count < 2:
-                allowed_special_amounts.add(big_threshold)
-            if current_super_count == 0 and current_big_count == 0:
-                allowed_special_amounts.add(super_threshold)
-                if include_king_buyin:
-                    allowed_special_amounts.add(king_threshold)
-            if (
-                buyins_count > int(params.max_buyins)
-                and buyins_count not in allowed_special_amounts
-            ):
-                await callback.answer(Text.admin.POKER_BUYIN_INVALID.value, show_alert=True)
-                return
-        big_count = 0
-        super_count = 0
-        if is_special_mode:
-            if (
-                include_king_buyin
-                and current_big_count == 0
-                and current_super_count == 0
-                and buyins_count >= king_threshold
-            ):
-                big_count += 1
-                super_count += 1
-            elif buyins_count >= super_threshold:
-                if current_big_count == 0 and current_super_count == 0:
-                    super_count += 1
-                elif (
-                    current_super_count == 0
-                    and current_big_count < 2
-                    and buyins_count >= big_threshold
-                ):
-                    big_count += 1
-            elif (
-                current_super_count == 0 and current_big_count < 2 and buyins_count >= big_threshold
-            ):
-                big_count += 1
-        use_case = ManagePokerPlayersUseCase(
-            poker_repository=poker_repository,
-            poker_data_repository=PokerDataRepository(session),
-            buyin_data_repository=BuyinDataRepository(session),
-        )
-        updated = await use_case.add_buyin_to_active_player(
-            player_id=int(player_id),
-            buyins_count=buyins_count,
-            big_buyin_count=big_count,
-            super_buyin_count=super_count,
-            poker_date=poker.date,
-        )
-        if updated is None:
-            await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
+        except (InvalidBuyinCountError, BuyinPlayerNotFoundError):
+            await callback.answer(Text.admin.POKER_BUYIN_INVALID.value, show_alert=True)
             return
-        notify_admins = True
-        key = (int(callback.from_user.id), int(player_id))
-        if key in TG_BUYIN_NOTIFY_CASHIER_ONLY:
-            notify_admins = False
-            TG_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
+    notify_admins = True
+    key = (int(callback.from_user.id), int(player_id))
+    if key in TG_BUYIN_NOTIFY_CASHIER_ONLY:
+        notify_admins = False
+        TG_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
+    async with SessionFactory() as session:
         await _notify_about_buyin(
             session=session,
-            poker=poker,
-            updated_player=updated,
-            buyins_count=buyins_count,
+            poker=type("PokerNotice", (), {
+                "date": result.poker_date,
+                "cashier_id": result.cashier_user_id,
+            })(),
+            updated_player=type("PlayerNotice", (), {
+                "player_id": result.player_user_id,
+                "player_name": result.player_name,
+                "buyins": result.total_buyins,
+            })(),
+            buyins_count=result.added_buyins,
             notify_admins=notify_admins,
         )
     if source_message is not None:
