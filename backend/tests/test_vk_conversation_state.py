@@ -12,6 +12,8 @@ from app.db.repositories.vk_conversation_state_repository import (
 )
 from app.bot.vk import state as vk_state
 from app.bot.vk.handlers.admin import buyins as vk_buyins
+from app.bot.vk.handlers.admin import routing as vk_admin_routing
+from app.api.http import vk_webhook as vk_webhook_module
 
 
 @pytest.fixture
@@ -147,3 +149,92 @@ async def test_legacy_registration_state_is_hydrated_and_persisted_between_worke
     await second_worker(user_id=101)
     async with state_sessions() as session:
         assert await VkConversationStateRepository(session).get(vk_user_id=101) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("local_state", "local_context"),
+    [
+        (vk_state.WAITING_FOR_BET_PAYMENT_RECEIPT, {}),
+        (None, {"betstat_mode": "personal", "betstat_selected_ids": "7"}),
+    ],
+)
+async def test_routing_preserves_ephemeral_vk_state_without_durable_row(
+    state_sessions, monkeypatch, local_state, local_context
+):
+    monkeypatch.setattr(vk_state, "SessionFactory", state_sessions)
+    user_id = 101
+    if local_state is not None:
+        vk_state.vk_user_states[user_id] = local_state
+    vk_state.vk_user_contexts[user_id] = dict(local_context)
+
+    async def consumer(**kwargs):
+        assert vk_state.vk_user_states.get(user_id) == local_state
+        assert vk_state.vk_user_contexts.get(user_id) == local_context
+        return PlainTextResponse("consumed")
+
+    monkeypatch.setattr(
+        vk_admin_routing.registrations,
+        "handle_admin_corrected_name_text",
+        consumer,
+    )
+
+    response = await vk_admin_routing.handle_admin_text_commands(
+        user_id=user_id, text="next"
+    )
+
+    assert response is not None and response.body == b"consumed"
+    async with state_sessions() as session:
+        assert await VkConversationStateRepository(session).get(vk_user_id=user_id) is None
+
+
+@pytest.mark.asyncio
+async def test_vk_start_clears_local_and_durable_state_without_resurrection(
+    state_sessions, monkeypatch
+):
+    monkeypatch.setattr(vk_state, "SessionFactory", state_sessions)
+    monkeypatch.setattr(vk_webhook_module, "SessionFactory", state_sessions)
+    monkeypatch.setattr(vk_webhook_module, "send_vk_message", AsyncMock())
+    monkeypatch.setattr(vk_webhook_module.settings, "vk_secret_key", "")
+    user_id = 101
+    await vk_state.replace_durable_vk_state(
+        user_id,
+        state_type=vk_state.WAITING_FOR_NEW_NAME,
+        payload={"registration_name": "Stale"},
+    )
+    vk_state.vk_user_states[user_id] = vk_state.WAITING_FOR_NEW_NAME
+    vk_state.vk_user_contexts[user_id] = {"registration_name": "Stale"}
+
+    response = await vk_webhook_module.vk_webhook(
+        {
+            "type": "message_new",
+            "object": {"message": {"from_id": user_id, "text": "/start"}},
+        }
+    )
+
+    assert response.body == b"ok"
+    assert user_id not in vk_state.vk_user_states
+    assert user_id not in vk_state.vk_user_contexts
+    async with state_sessions() as session:
+        assert await VkConversationStateRepository(session).get(vk_user_id=user_id) is None
+
+    await vk_state.hydrate_legacy_vk_state(user_id)
+    assert user_id not in vk_state.vk_user_states
+    assert user_id not in vk_state.vk_user_contexts
+
+
+@pytest.mark.asyncio
+async def test_vk_start_without_durable_state_is_idempotent(state_sessions, monkeypatch):
+    monkeypatch.setattr(vk_state, "SessionFactory", state_sessions)
+    monkeypatch.setattr(vk_webhook_module, "SessionFactory", state_sessions)
+    monkeypatch.setattr(vk_webhook_module, "send_vk_message", AsyncMock())
+    monkeypatch.setattr(vk_webhook_module.settings, "vk_secret_key", "")
+
+    for _ in range(2):
+        response = await vk_webhook_module.vk_webhook(
+            {
+                "type": "message_new",
+                "object": {"message": {"from_id": 202, "text": "/start"}},
+            }
+        )
+        assert response.body == b"ok"
