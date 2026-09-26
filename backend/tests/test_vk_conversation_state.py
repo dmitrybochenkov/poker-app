@@ -164,6 +164,7 @@ async def test_routing_preserves_ephemeral_vk_state_without_durable_row(
 ):
     monkeypatch.setattr(vk_state, "SessionFactory", state_sessions)
     user_id = 101
+    vk_state.vk_user_states.pop(user_id, None)
     if local_state is not None:
         vk_state.vk_user_states[user_id] = local_state
     vk_state.vk_user_contexts[user_id] = dict(local_context)

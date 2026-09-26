@@ -77,8 +77,6 @@ LEGACY_DURABLE_STATE_TYPES = {
 async def hydrate_legacy_vk_state(vk_user_id: int) -> None:
   row = await load_durable_vk_state(vk_user_id)
   if row is None or row.state_type not in LEGACY_DURABLE_STATE_TYPES:
-    vk_user_states.pop(vk_user_id, None)
-    vk_user_contexts.pop(vk_user_id, None)
     return
   vk_user_states[vk_user_id] = row.state_type
   vk_user_contexts[vk_user_id] = dict(row.payload)
