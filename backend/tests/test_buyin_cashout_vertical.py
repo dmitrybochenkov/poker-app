@@ -1,10 +1,14 @@
-from datetime import date
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.buyins import (
+    AddBuyinUseCase,
+    BuyinNotAuthorizedError,
+    CorrectBuyinUseCase,
+    InvalidBuyinCountError,
+)
 from app.db.base import Base
 from app.db.models.buyin_data import BuyinData
 from app.db.models.poker import Poker
@@ -158,3 +162,97 @@ def test_field_null_and_zero_contracts():
     assert PokerData.__table__.c.super_buyin_count.nullable is False
     assert PokerData.__table__.c.chips.nullable is True
     assert PokerData.__table__.c.money_kopecks.nullable is False
+
+
+@pytest.mark.asyncio
+async def test_add_buyin_operation_commits_player_and_history_together(buyin_sessions):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
+    async with buyin_sessions() as session:
+        result = await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id, target_user_id=player_id, buyins_count=2
+        )
+    assert (result.added_buyins, result.total_buyins) == (2, 2)
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+        history = (await session.execute(select(BuyinData))).scalars().all()
+    assert stored is not None and stored.buyins == 2
+    assert [row.buyins_count for row in history] == [2]
+
+
+@pytest.mark.asyncio
+async def test_player_can_add_own_buyin_but_not_another_players(buyin_sessions):
+    _, player_id, pdata_id, _ = await _seed(buyin_sessions)
+    async with buyin_sessions() as session:
+        await AddBuyinUseCase(session).execute(
+            actor_user_id=player_id, target_user_id=player_id, buyins_count=1
+        )
+    async with buyin_sessions() as session:
+        with pytest.raises(BuyinNotAuthorizedError):
+            await AddBuyinUseCase(session).execute(
+                actor_user_id=None, target_user_id=player_id, buyins_count=1
+            )
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+    assert stored is not None and stored.buyins == 1
+
+
+@pytest.mark.asyncio
+async def test_add_buyin_rolls_back_player_when_history_write_fails(
+    buyin_sessions, monkeypatch
+):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
+    async with buyin_sessions() as session:
+        use_case = AddBuyinUseCase(session)
+
+        async def fail_history(self, **kwargs):
+            raise RuntimeError("history failed")
+
+        monkeypatch.setattr(BuyinDataRepository, "add_buyin", fail_history)
+        with pytest.raises(RuntimeError, match="history failed"):
+            await use_case.execute(
+                actor_user_id=admin_id, target_user_id=player_id, buyins_count=1
+            )
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+    assert stored is not None and stored.buyins == 0
+
+
+@pytest.mark.asyncio
+async def test_correct_buyin_preserves_special_counts_and_writes_no_history(buyin_sessions):
+    admin_id, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
+    async with buyin_sessions() as session:
+        await PokerDataRepository(session).add_buyins(
+            date=poker_date,
+            player_id=player_id,
+            buyins_count=10,
+            big_buyin_count=1,
+            super_buyin_count=1,
+        )
+    async with buyin_sessions() as session:
+        result = await CorrectBuyinUseCase(session).execute(
+            actor_user_id=admin_id, target_user_id=player_id, total_buyins=3
+        )
+    assert (result.previous_buyins, result.total_buyins) == (10, 3)
+    assert (result.big_buyin_count, result.super_buyin_count) == (1, 1)
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+        history = (await session.execute(select(BuyinData))).scalars().all()
+    assert stored is not None and stored.buyins == 3
+    assert history == []
+
+
+@pytest.mark.asyncio
+async def test_special_buyin_validation_and_counters_are_preserved(buyin_sessions):
+    admin_id, player_id, _, _ = await _seed(
+        buyin_sessions, max_buyins=2, previous_winner=True
+    )
+    async with buyin_sessions() as session:
+        result = await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id, target_user_id=player_id, buyins_count=15
+        )
+    assert (result.big_buyin_count, result.super_buyin_count) == (1, 1)
+    async with buyin_sessions() as session:
+        with pytest.raises(InvalidBuyinCountError):
+            await AddBuyinUseCase(session).execute(
+                actor_user_id=admin_id, target_user_id=player_id, buyins_count=7
+            )

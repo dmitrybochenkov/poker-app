@@ -87,6 +87,24 @@ class PokerDataRepository:
     await self.session.refresh(item)
     return item
 
+  async def add_buyins_without_commit(
+    self,
+    *,
+    date,
+    player_id: int,
+    buyins_count: int,
+    big_buyin_count: int = 0,
+    super_buyin_count: int = 0,
+  ) -> PokerData | None:
+    item = await self.get_player(date=date, player_id=player_id)
+    if item is None:
+      return None
+    item.buyins = int(item.buyins) + int(buyins_count)
+    item.big_buyin_count = int(item.big_buyin_count) + int(big_buyin_count)
+    item.super_buyin_count = int(item.super_buyin_count) + int(super_buyin_count)
+    await self.session.flush()
+    return item
+
   async def remove_player(self, *, date, player_id: int) -> bool:
     item = await self.get_player(date=date, player_id=player_id)
     if item is None:
