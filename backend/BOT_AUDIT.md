@@ -25,6 +25,10 @@
 - Каждый мигрированный registration use case владеет одной транзакцией. Точечные repository methods выполняют `flush()` без внутреннего commit; внешние TG/VK уведомления начинаются только после закрытия transaction context.
 - Сохранены legacy semantics повторного approve/reject/correct, platform identity conflicts, canonical row при link, admin recipients, тексты, клавиатуры, callback payloads, FSM и routing order. Сбой post-commit notification не откатывает pending registration.
 - Legacy registration use cases с repository-owned commit сохранены для HTTP и других немигрированных callers. Persistent VK conversation state, retry/outbox и WebApp/HTTP registration auth в этот срез не входили.
+- **Buyin / Cashout transaction migration completed (26.09.2026).** TG/VK add-buyin и correction entry points разрешают actor platform ID в canonical `User.row_id` и используют общие `AddBuyinUseCase` / `CorrectBuyinUseCase`.
+- Add buyin теперь атомарно обновляет `PokerData.buyins`/special counters и добавляет `BuyinData` history одной application-owned транзакцией. Раньше эти записи разделяли два commit и могли расходиться при ошибке второго шага.
+- Сохранены self-or-admin authorization, active poker/cashier/chips-stage guards, special buyin thresholds, повторное увеличение при повторном callback и legacy correction semantics: меняется только total buyins, без переписывания special counters/history.
+- Cashout уже был мигрирован как `EnterPlayerChipsUseCase`: он атомарно сохраняет `chips` и вычисленный `money_kopecks`. Cashier selection, receipt/payment processing и final calculation не изменялись.
 
 ## Срочно
 
@@ -41,10 +45,10 @@
 ## Границы слоёв
 
 1. `application/use_cases` напрямую импортирует SQLAlchemy-модели и конкретные `db.repositories` как минимум в 13 файлах. Это привязывает сценарии к хранению данных. Сначала стоит выделить интерфейсы для ключевых сценариев покера, ставок и регистрации; массовую замену в одном проходе делать не следует.
-2. Многие обработчики ботов напрямую импортируют `db` и совмещают распознавание события, бизнес-решение, транзакцию, построение текста и сетевую отправку. Start Betting, Start Poker, Finish Poker и registration mutations уже мигрированы; среди ближайших рискованных legacy-сценариев остаются платежи и ввод/расчёт результатов.
+2. Многие обработчики ботов напрямую импортируют `db` и совмещают распознавание события, бизнес-решение, транзакцию, построение текста и сетевую отправку. Start Betting, Start Poker, Finish Poker, registration и buyin/cashout mutations уже мигрированы; среди ближайших рискованных legacy-сценариев остаются платежи и управление составом комнаты.
 3. `api/http/vk_webhook.py` содержит логику `/start`, управление состоянием пользователя, доступ к репозиторию и выбор клавиатуры. HTTP-слой должен передавать событие в VK-адаптер, а ответ формироваться там.
 4. В немигрированных handlers ещё есть Telegram → VK и VK → Telegram presentation imports. Три мигрированных flows устранили их внутри своих transport modules через post-commit adapters.
-5. Legacy repository methods продолжают вызывать `commit()` внутри методов; ещё часть транзакций завершается в обработчиках. Для Start Betting, Start Poker, Finish Poker и registration mutations добавлены точечные non-committing methods, а use cases владеют commit. Остальные границы переносятся только вместе с соответствующим vertical flow.
+5. Legacy repository methods продолжают вызывать `commit()` внутри методов; ещё часть транзакций завершается в обработчиках. Для Start Betting, Start Poker, Finish Poker, registration и buyin/cashout mutations добавлены точечные non-committing methods, а use cases владеют commit. Остальные границы переносятся только вместе с соответствующим vertical flow.
 6. Словари состояния VK и ID сообщений находятся в памяти процесса. Перезапуск или несколько воркеров теряют/разделяют состояние непредсказуемо. Для регистрации, черновиков ставок и уведомлений нужен общий persistent storage.
 
 ## Нейминг и сопровождение
@@ -63,6 +67,7 @@
 - Start Poker regression suite проверяет authorization, invalid params без mutation, один commit для игры и инициатора, canonical approved recipients, повторный и concurrent start, post-commit ordering, best-effort dual-platform delivery, сохранение committed state при сбое notifier и отсутствие cross-presentation imports. Отдельный VK regression test защищает прежний post-save `approved_users` failure path.
 - Finish Poker regression suite проверяет authorization, точные state flags, неизменность PokerData, атомарную очистку deny-list, rollback при cleanup failure, repeated/concurrent transition, player recipient filters, post-commit ordering/failures, shared wording, transport boundaries и прежний TG/VK side-effect order.
 - Registration regression suite проверяет старые TG/VK semantics до миграции, canonical identity, pending/duplicate outcomes, approve/reject/correct/link и repeated actions. Независимые application tests проверяют server-side authorization без mutation, единую транзакцию, admin recipient IDs, identity preservation и post-commit notification failure.
+- Buyin/cashout regression suite фиксирует точные persisted totals, special counters, append-only history, correction semantics, cashout formula, self/admin authorization, rollback при history failure и сохранение commit при post-commit delivery failure. TG/VK wiring tests запрещают возврат к handler-owned buyin mutation.
 - Во время review найден `NameError` в `services/buyins_chart.py`: генератор графика истории обращался к отсутствующему `chart_type` при непустых данных. Сначала добавлен падающий регрессионный тест, затем исправление отдельным коммитом.
 - Финальный прогон после миграции Finish Poker: 62 теста проходят, `compileall` проходит, `from app.main import app` отвечает `OK`, полный `ruff F821` проходит. Полный Ruff всё ещё сообщает 485 оставшихся замечаний: 425 `E501`, 56 `I001`, 2 `F841`, 2 `F401`. Их массовое исправление в эту задачу не входило.
 - Токен VK отвечает на read-only запрос API. Адреса callback-сервера, секрет и статус событий проверены без вывода секретов. Текущий адрес приложения принял POST подтверждения. Отправка пользователям и изменение настройки VK в ходе аудита не выполнялись.
