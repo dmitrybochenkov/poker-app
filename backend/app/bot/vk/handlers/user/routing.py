@@ -1,9 +1,11 @@
 from fastapi.responses import PlainTextResponse
+from app.bot.vk.state import durable_vk_workflow
 
 from . import bets, betting_stats, information, navigation, poker, poker_stats, polls, registration
 from .common import HANDLER_UNMATCHED
 
 
+@durable_vk_workflow
 async def handle_user_message_event(event_object: dict) -> PlainTextResponse | None:
     user_id = event_object.get("user_id")
     peer_id = event_object.get("peer_id")
@@ -446,6 +448,7 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     return None
 
 
+@durable_vk_workflow
 async def handle_user_message_new(
     *, user_id: int, text: str, raw_message: dict | None = None
 ) -> PlainTextResponse | None:

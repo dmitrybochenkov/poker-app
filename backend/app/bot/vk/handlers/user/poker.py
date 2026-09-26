@@ -27,7 +27,8 @@ from app.bot.vk.keyboards import (
     room_keyboard,
 )
 from app.bot.vk.state import (
-    vk_user_contexts,
+    WAITING_FOR_ADMIN_CASHOUT_TARGET,
+    replace_durable_vk_state,
 )
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -75,7 +76,11 @@ async def handle_chips_input_text(*, user_id, text, raw_message):
                 )
                 return PlainTextResponse("ok")
             if user.is_admin:
-                vk_user_contexts.setdefault(user_id, {})["cashout_input_value"] = str(chips)
+                await replace_durable_vk_state(
+                    user_id,
+                    state_type=WAITING_FOR_ADMIN_CASHOUT_TARGET,
+                    payload={"cashout_input_value": chips},
+                )
                 await send_vk_message(
                     user_id=user_id,
                     message=Text.admin.POKER_CHIPS_FOR_WHO.value.format(chips=chips),

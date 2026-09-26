@@ -26,8 +26,9 @@ from app.bot.vk.keyboards import (
 )
 from app.bot.vk.state import (
     WAITING_FOR_ADMIN_BUYIN_CORRECT_AMOUNT,
-    vk_user_contexts,
-    vk_user_states,
+    clear_durable_vk_state,
+    load_durable_vk_state,
+    replace_durable_vk_state,
 )
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
@@ -178,11 +179,15 @@ async def handle_poker_buyin_correct_select_event(
                     text=Text.admin.USER_NOT_FOUND.value,
                 )
                 return PlainTextResponse("ok")
-            vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_BUYIN_CORRECT_AMOUNT
-            vk_user_contexts.setdefault(admin_user_id, {})
-            vk_user_contexts[admin_user_id]["buyin_correct_player_id"] = str(int(player_id))
-            vk_user_contexts[admin_user_id]["buyin_correct_old_buyins"] = str(int(player.buyins))
-            vk_user_contexts[admin_user_id]["buyin_correct_player_name"] = str(player.player_name)
+            await replace_durable_vk_state(
+                admin_user_id,
+                state_type=WAITING_FOR_ADMIN_BUYIN_CORRECT_AMOUNT,
+                payload={
+                    "buyin_correct_player_id": int(player_id),
+                    "buyin_correct_old_buyins": int(player.buyins),
+                    "buyin_correct_player_name": str(player.player_name),
+                },
+            )
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,
@@ -216,8 +221,7 @@ async def handle_buyin_correction_confirmation_event(
         if not isinstance(player_id, int) or not isinstance(new_buyins, int):
             return PlainTextResponse("ok")
         if action == "poker_buyin_correct_confirm_no":
-            vk_user_states.pop(admin_user_id, None)
-            vk_user_contexts.pop(admin_user_id, None)
+            await clear_durable_vk_state(admin_user_id)
             result_text = Buttons.betting_inline.CONFIRM_NO.value
         else:
             async with SessionFactory() as session:
@@ -245,8 +249,7 @@ async def handle_buyin_correction_confirmation_event(
                         user_id=admin_user_id,
                         message=f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{updated.player_name}: {updated.total_buyins}",
                     )
-            vk_user_states.pop(admin_user_id, None)
-            vk_user_contexts.pop(admin_user_id, None)
+            await clear_durable_vk_state(admin_user_id)
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,
@@ -358,18 +361,18 @@ async def handle_poker_buyin_cancel_event(
 
 
 async def handle_admin_buyin_correct_amount_text(*, user_id, text):
-    if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_BUYIN_CORRECT_AMOUNT:
+    durable_state = await load_durable_vk_state(user_id)
+    if durable_state is not None and durable_state.state_type == WAITING_FOR_ADMIN_BUYIN_CORRECT_AMOUNT:
         if not text.isdigit():
             await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_INVALID.value)
             return PlainTextResponse("ok")
         new_buyins = int(text)
-        ctx = vk_user_contexts.get(user_id, {})
+        ctx = durable_state.payload
         player_id = int(ctx.get("buyin_correct_player_id", "0") or "0")
         old_buyins = int(ctx.get("buyin_correct_old_buyins", "0") or "0")
         player_name = str(ctx.get("buyin_correct_player_name", InlineText.TEXT_1_02_TEXT_01))
         if player_id <= 0:
-            vk_user_states.pop(user_id, None)
-            vk_user_contexts.pop(user_id, None)
+            await clear_durable_vk_state(user_id)
             await send_vk_message(user_id=user_id, message=Text.admin.REQUEST_NOT_FOUND.value)
             return PlainTextResponse("ok")
         await send_vk_message(

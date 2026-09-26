@@ -22,8 +22,10 @@ from app.bot.vk.keyboards import (
 )
 from app.bot.vk.state import (
     WAITING_FOR_ADMIN_CASHOUT_AMOUNT,
-    vk_user_contexts,
-    vk_user_states,
+    WAITING_FOR_ADMIN_CASHOUT_TARGET,
+    clear_durable_vk_state,
+    load_durable_vk_state,
+    replace_durable_vk_state,
 )
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
@@ -175,15 +177,19 @@ async def handle_poker_cashout_select_event(
                     poker, params = ready
                     pdata = PokerDataRepository(session)
                     player = await pdata.get_player(date=poker.date, player_id=int(player_id))
-                    chips_raw = vk_user_contexts.get(admin_user_id, {}).get("cashout_input_value")
+                    durable_state = await load_durable_vk_state(admin_user_id)
+                    chips_raw = (
+                        durable_state.payload.get("cashout_input_value")
+                        if durable_state is not None
+                        and durable_state.state_type == WAITING_FOR_ADMIN_CASHOUT_TARGET
+                        else None
+                    )
                     if chips_raw is not None and player is not None:
                         chips = int(chips_raw)
                         bb_size = max(1, int(params.bb_size_chips or 10))
                         step = max(1, bb_size // 2)
                         if chips % step != 0:
-                            vk_user_contexts.setdefault(admin_user_id, {}).pop(
-                                "cashout_input_value", None
-                            )
+                            await clear_durable_vk_state(admin_user_id)
                             result_text = Text.user.FINISH_CHIPS_INVALID.value.format(step=step)
                         else:
                             actor = await user_repository.get_by_vk_id(admin_user_id)
@@ -196,9 +202,7 @@ async def handle_poker_cashout_select_event(
                             await _upsert_vk_admin_chips_status(
                                 session=session, poker_date=updated.poker_date
                             )
-                            vk_user_contexts.setdefault(admin_user_id, {}).pop(
-                                "cashout_input_value", None
-                            )
+                            await clear_durable_vk_state(admin_user_id)
                             target_user = await user_repository.get_by_row_id(int(player_id))
                             if target_user is not None and target_user.vk_id is not None:
                                 user_text = _build_user_chips_text(
@@ -228,8 +232,11 @@ async def handle_poker_cashout_select_event(
                                     )
                             result_text = InlineText.EVENT_0_24_TEXT_01
                     else:
-                        vk_user_states[admin_user_id] = WAITING_FOR_ADMIN_CASHOUT_AMOUNT
-                        vk_user_contexts[admin_user_id] = {"cashout_player_id": str(player_id)}
+                        await replace_durable_vk_state(
+                            admin_user_id,
+                            state_type=WAITING_FOR_ADMIN_CASHOUT_AMOUNT,
+                            payload={"cashout_player_id": player_id},
+                        )
                         result_text = Text.admin.POKER_CASHOUT_PROMPT.value
         await send_vk_message_event_answer(
             event_id=event_id,
@@ -247,29 +254,27 @@ async def handle_poker_cashout_select_event(
 
 
 async def handle_admin_cashout_amount_text(*, user_id, text):
-    if vk_user_states.get(user_id) == WAITING_FOR_ADMIN_CASHOUT_AMOUNT:
+    durable_state = await load_durable_vk_state(user_id)
+    if durable_state is not None and durable_state.state_type == WAITING_FOR_ADMIN_CASHOUT_AMOUNT:
         if not text.isdigit() or int(text) < 0:
             await send_vk_message(user_id=user_id, message=Text.admin.POKER_CASHOUT_INVALID.value)
             return PlainTextResponse("ok")
         chips = int(text)
         target_user = None
-        player_id = vk_user_contexts.get(user_id, {}).get("cashout_player_id")
+        player_id = durable_state.payload.get("cashout_player_id")
         if player_id is None:
-            vk_user_states.pop(user_id, None)
-            vk_user_contexts.pop(user_id, None)
+            await clear_durable_vk_state(user_id)
             await send_vk_message(user_id=user_id, message=Text.admin.REQUEST_NOT_FOUND.value)
             return PlainTextResponse("ok")
         async with SessionFactory() as session:
             if not await is_vk_admin(session=session, vk_id=user_id):
-                vk_user_states.pop(user_id, None)
-                vk_user_contexts.pop(user_id, None)
+                await clear_durable_vk_state(user_id)
                 await send_vk_message(user_id=user_id, message=Text.admin.NO_RIGHTS.value)
                 return PlainTextResponse("ok")
             user_repository = UserRepository(session)
             ready = await PokerRepository(session).get_latest_ready_for_chips_with_params()
             if ready is None:
-                vk_user_states.pop(user_id, None)
-                vk_user_contexts.pop(user_id, None)
+                await clear_durable_vk_state(user_id)
                 await send_vk_message(
                     user_id=user_id, message=Text.admin.POKER_ACTIVE_NOT_FOUND.value
                 )
@@ -293,8 +298,7 @@ async def handle_admin_cashout_amount_text(*, user_id, text):
                 session=session, poker_date=updated.poker_date
             )
             target_user = await user_repository.get_by_row_id(int(player_id))
-        vk_user_states.pop(user_id, None)
-        vk_user_contexts.pop(user_id, None)
+        await clear_durable_vk_state(user_id)
         if target_user is not None and target_user.vk_id is not None:
             user_text = _build_user_chips_text(
                 chips=int(chips),

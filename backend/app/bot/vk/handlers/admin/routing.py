@@ -1,4 +1,5 @@
 from fastapi.responses import PlainTextResponse
+from app.bot.vk.state import durable_vk_workflow
 
 from . import (
     bets,
@@ -17,6 +18,7 @@ from . import (
 from .common import HANDLER_UNMATCHED
 
 
+@durable_vk_workflow
 async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     admin_user_id = event_object.get("user_id")
     peer_id = event_object.get("peer_id")
@@ -360,6 +362,7 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
     return None
 
 
+@durable_vk_workflow
 async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextResponse | None:
     result = await registrations.handle_admin_corrected_name_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
