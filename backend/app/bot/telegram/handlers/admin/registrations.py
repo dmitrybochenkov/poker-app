@@ -2,15 +2,19 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.application.exceptions import (
+    RegistrationNotAuthorizedError,
     UserAlreadyApprovedError,
     UserLinkConflictError,
     UserNameRequiredError,
     UserNotFoundError,
 )
-from app.application.use_cases.user.approve_user import ApproveUserUseCase
-from app.application.use_cases.user.correct_user import CorrectUserUseCase
-from app.application.use_cases.user.link_pending_user import LinkPendingUserUseCase
-from app.application.use_cases.user.reject_user import RejectUserUseCase
+from app.application.use_cases.user.registration import (
+    ApproveRegistrationUseCase,
+    CorrectRegistrationUseCase,
+    LinkRegistrationUseCase,
+    RejectRegistrationUseCase,
+)
+from app.bot.shared.identity import resolve_telegram_user_id
 from app.bot.shared.texts.inline.telegram.admin import registrations as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -40,15 +44,21 @@ async def approve_registration_callback(callback: CallbackQuery) -> None:
     await _clear_inline_keyboard(callback)
 
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await _ensure_tg_admin_callback(
             session=session, user_id=callback.from_user.id, callback=callback
         ):
             return
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=callback.from_user.id
+        )
 
-        use_case = ApproveUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = ApproveRegistrationUseCase(session)
         try:
-            user = await use_case.execute(row_id=row_id)
+            user = await use_case.execute(actor_user_id=actor_user_id, row_id=row_id)
+        except RegistrationNotAuthorizedError:
+            await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+            return
         except UserNotFoundError:
             await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
             return
@@ -130,14 +140,22 @@ async def finish_correct_user(message: Message, state: FSMContext) -> None:
         ):
             await state.clear()
             return
-        repository = UserRepository(session)
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=message.from_user.id
+        )
 
-        use_case = CorrectUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = CorrectRegistrationUseCase(session)
         try:
             user = await use_case.execute(
+                actor_user_id=actor_user_id,
                 row_id=pending_row_id,
                 corrected_name=corrected_name,
             )
+        except RegistrationNotAuthorizedError:
+            await state.clear()
+            await message.answer(Text.admin.NO_RIGHTS.value)
+            return
         except UserNotFoundError:
             await state.clear()
             await message.answer(Text.admin.REQUEST_NOT_FOUND.value)
@@ -180,29 +198,30 @@ async def reject_registration_callback(callback: CallbackQuery) -> None:
     await _clear_inline_keyboard(callback)
 
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await _ensure_tg_admin_callback(
             session=session, user_id=callback.from_user.id, callback=callback
         ):
             return
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=callback.from_user.id
+        )
 
-        user = await repository.get_by_row_id(row_id)
-        if user is None:
-            await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
-            return
-
-        user_telegram_id = user.telegram_id
-        user_name = user.name
-
-        use_case = RejectUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = RejectRegistrationUseCase(session)
         try:
-            await use_case.execute(row_id=row_id)
+            user = await use_case.execute(actor_user_id=actor_user_id, row_id=row_id)
+        except RegistrationNotAuthorizedError:
+            await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+            return
         except UserNotFoundError:
             await callback.answer(Text.admin.REQUEST_NOT_FOUND.value, show_alert=True)
             return
         except UserAlreadyApprovedError:
             await callback.answer(Text.admin.REQUEST_ALREADY_APPROVED.value, show_alert=True)
             return
+
+    user_telegram_id = user.telegram_id
+    user_name = user.name
 
     if user_telegram_id is not None:
         await notify_user_about_approval(telegram_id=user_telegram_id, approved=False)
@@ -255,18 +274,25 @@ async def choose_link_target_callback(callback: CallbackQuery) -> None:
     existing_row_id = int(existing_row_id_text)
 
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await _ensure_tg_admin_callback(
             session=session, user_id=callback.from_user.id, callback=callback
         ):
             return
+        actor_user_id = await resolve_telegram_user_id(
+            session=session, telegram_id=callback.from_user.id
+        )
 
-        use_case = LinkPendingUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = LinkRegistrationUseCase(session)
         try:
             user = await use_case.execute(
+                actor_user_id=actor_user_id,
                 pending_row_id=pending_row_id,
                 existing_row_id=existing_row_id,
             )
+        except RegistrationNotAuthorizedError:
+            await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
+            return
         except UserNotFoundError:
             await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
             return

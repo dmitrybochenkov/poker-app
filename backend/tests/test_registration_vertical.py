@@ -184,7 +184,7 @@ async def test_current_telegram_admin_authorization_stops_approval(monkeypatch):
     monkeypatch.setattr(tg_admin, "UserRepository", Mock())
     monkeypatch.setattr(tg_admin, "_clear_inline_keyboard", AsyncMock())
     monkeypatch.setattr(tg_admin, "_ensure_tg_admin_callback", AsyncMock(return_value=False))
-    monkeypatch.setattr(tg_admin, "ApproveUserUseCase", use_case)
+    monkeypatch.setattr(tg_admin, "ApproveRegistrationUseCase", use_case)
 
     await tg_admin.approve_registration_callback(callback)
 
@@ -195,10 +195,9 @@ async def test_current_telegram_admin_authorization_stops_approval(monkeypatch):
 @pytest.mark.asyncio
 async def test_current_vk_admin_authorization_stops_approval(monkeypatch):
     monkeypatch.setattr(vk_admin_common, "SessionFactory", _Session)
-    monkeypatch.setattr(vk_admin_common, "UserRepository", Mock())
     monkeypatch.setattr(vk_admin_common, "is_vk_admin", AsyncMock(return_value=False))
     use_case = Mock()
-    monkeypatch.setattr(vk_admin_common, "ApproveUserUseCase", use_case)
+    monkeypatch.setattr(vk_admin_common, "ApproveRegistrationUseCase", use_case)
 
     result = await vk_admin_common._process_vk_approve(admin_user_id=77, row_id=42)
 
@@ -288,3 +287,34 @@ async def test_current_vk_submit_clears_state_and_notifies_both_admin_platforms(
         message="wait",
         keyboard=vk_user_common.new_user_keyboard,
     )
+
+
+@pytest.mark.asyncio
+async def test_registration_stays_committed_when_post_commit_notification_fails(
+    registration_db, monkeypatch
+):
+    monkeypatch.setattr(tg_user_common, "SessionFactory", registration_db)
+    monkeypatch.setattr(
+        tg_user_common,
+        "notify_admins_about_registration",
+        AsyncMock(side_effect=RuntimeError("delivery failed")),
+    )
+    monkeypatch.setattr(
+        tg_user_common, "notify_vk_admins_about_registration", AsyncMock()
+    )
+    message = SimpleNamespace(from_user=SimpleNamespace(id=300), answer=AsyncMock())
+    state = SimpleNamespace(clear=AsyncMock())
+
+    with pytest.raises(RuntimeError, match="delivery failed"):
+        await tg_user_common._submit_registration_request(
+            message=message,
+            state=state,
+            name="Committed User",
+            success_text="wait",
+        )
+
+    async with registration_db() as session:
+        stored = await UserRepository(session).get_by_telegram_id(300)
+    assert stored is not None
+    assert stored.name == "Committed User"
+    assert stored.is_approved is False

@@ -2,16 +2,20 @@ import logging
 from datetime import date
 
 from app.application.exceptions import (
+    RegistrationNotAuthorizedError,
     UserAlreadyApprovedError,
     UserLinkConflictError,
     UserNameRequiredError,
     UserNotFoundError,
 )
-from app.application.use_cases.user.approve_user import ApproveUserUseCase
-from app.application.use_cases.user.correct_user import CorrectUserUseCase
-from app.application.use_cases.user.link_pending_user import LinkPendingUserUseCase
-from app.application.use_cases.user.reject_user import RejectUserUseCase
+from app.application.use_cases.user.registration import (
+    ApproveRegistrationUseCase,
+    CorrectRegistrationUseCase,
+    LinkRegistrationUseCase,
+    RejectRegistrationUseCase,
+)
 from app.bot.shared.guards import is_vk_admin
+from app.bot.shared.identity import resolve_vk_user_id
 from app.bot.shared.texts.inline.vk.admin import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.notifications import notify_user_about_approval
@@ -22,7 +26,6 @@ from app.bot.vk.api import (
 from app.bot.vk.keyboards import (
     main_keyboard,
 )
-from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 
@@ -100,13 +103,18 @@ async def _ensure_vk_admin_message(*, session, user_id: int) -> bool:
 
 async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await is_vk_admin(session=session, vk_id=admin_user_id):
             return Text.admin.NO_RIGHTS.value
+        actor_user_id = await resolve_vk_user_id(session=session, vk_id=admin_user_id)
 
-        use_case = ApproveUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = ApproveRegistrationUseCase(session)
         try:
-            approved_user = await use_case.execute(row_id=row_id)
+            approved_user = await use_case.execute(
+                actor_user_id=actor_user_id, row_id=row_id
+            )
+        except RegistrationNotAuthorizedError:
+            return Text.admin.NO_RIGHTS.value
         except UserNotFoundError:
             return Text.admin.REQUEST_NOT_FOUND.value
 
@@ -126,23 +134,25 @@ async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
 
 async def _process_vk_reject(*, admin_user_id: int, row_id: int) -> str:
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await is_vk_admin(session=session, vk_id=admin_user_id):
             return Text.admin.NO_RIGHTS.value
+        actor_user_id = await resolve_vk_user_id(session=session, vk_id=admin_user_id)
 
-        pending_user = await repository.get_by_row_id(row_id)
-        if pending_user is None:
-            return Text.admin.REQUEST_NOT_FOUND.value
-
-        pending_vk_id = pending_user.vk_id
-        pending_telegram_id = pending_user.telegram_id
-        use_case = RejectUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = RejectRegistrationUseCase(session)
         try:
-            await use_case.execute(row_id=row_id)
+            pending_user = await use_case.execute(
+                actor_user_id=actor_user_id, row_id=row_id
+            )
+        except RegistrationNotAuthorizedError:
+            return Text.admin.NO_RIGHTS.value
         except UserNotFoundError:
             return Text.admin.REQUEST_NOT_FOUND.value
         except UserAlreadyApprovedError:
             return Text.admin.REQUEST_ALREADY_APPROVED.value
+
+    pending_vk_id = pending_user.vk_id
+    pending_telegram_id = pending_user.telegram_id
 
     if pending_vk_id is not None:
         await send_vk_message(
@@ -163,16 +173,20 @@ async def _process_vk_correct(
     corrected_name: str,
 ) -> str:
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await is_vk_admin(session=session, vk_id=admin_user_id):
             return Text.admin.NO_RIGHTS.value
+        actor_user_id = await resolve_vk_user_id(session=session, vk_id=admin_user_id)
 
-        use_case = CorrectUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = CorrectRegistrationUseCase(session)
         try:
             corrected_user = await use_case.execute(
+                actor_user_id=actor_user_id,
                 row_id=row_id,
                 corrected_name=corrected_name,
             )
+        except RegistrationNotAuthorizedError:
+            return Text.admin.NO_RIGHTS.value
         except UserNotFoundError:
             return Text.admin.REQUEST_NOT_FOUND.value
         except UserNameRequiredError:
@@ -201,16 +215,20 @@ async def _process_vk_link(
     existing_row_id: int,
 ) -> str:
     async with SessionFactory() as session:
-        repository = UserRepository(session)
         if not await is_vk_admin(session=session, vk_id=admin_user_id):
             return Text.admin.NO_RIGHTS.value
+        actor_user_id = await resolve_vk_user_id(session=session, vk_id=admin_user_id)
 
-        use_case = LinkPendingUserUseCase(repository)
+    async with SessionFactory() as session:
+        use_case = LinkRegistrationUseCase(session)
         try:
             linked_user = await use_case.execute(
+                actor_user_id=actor_user_id,
                 pending_row_id=pending_row_id,
                 existing_row_id=existing_row_id,
             )
+        except RegistrationNotAuthorizedError:
+            return Text.admin.NO_RIGHTS.value
         except UserNotFoundError:
             return Text.admin.USER_NOT_FOUND.value
         except UserLinkConflictError:
