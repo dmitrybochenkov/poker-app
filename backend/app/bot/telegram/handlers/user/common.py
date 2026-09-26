@@ -11,7 +11,7 @@ from app.application.exceptions import (
     UserNameRequiredError,
     UserRegistrationPendingError,
 )
-from app.application.use_cases.user.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.user.registration import SubmitRegistrationUseCase
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     betting_dynamic_keyboard,
@@ -310,10 +310,10 @@ async def _submit_registration_request(
 
     async with SessionFactory() as session:
         repository = UserRepository(session)
-        use_case = RequestRegistrationUseCase(repository)
+        use_case = SubmitRegistrationUseCase(session)
 
         try:
-            user = await use_case.execute(
+            result = await use_case.execute(
                 name=name,
                 telegram_id=telegram_id,
                 bank_name=bank_name,
@@ -344,8 +344,9 @@ async def _submit_registration_request(
             await state.clear()
             return
 
-        tg_admin_chat_ids = await repository.list_admin_tg_ids()
-        vk_admin_ids = await repository.list_admin_vk_ids()
+        user = result.user
+        tg_admin_chat_ids = result.telegram_admin_ids
+        vk_admin_ids = result.vk_admin_ids
 
     await notify_admins_about_registration(
         name=name,

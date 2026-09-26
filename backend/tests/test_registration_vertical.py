@@ -209,17 +209,17 @@ async def test_current_vk_admin_authorization_stops_approval(monkeypatch):
 @pytest.mark.asyncio
 async def test_current_telegram_submit_notifies_both_admin_platforms_after_creation(monkeypatch):
     user = SimpleNamespace(row_id=42)
-    repository = SimpleNamespace(
-        list_admin_tg_ids=AsyncMock(return_value=[1]),
-        list_admin_vk_ids=AsyncMock(return_value=[2]),
+    result = SimpleNamespace(
+        user=user,
+        telegram_admin_ids=(1,),
+        vk_admin_ids=(2,),
     )
-    execute = AsyncMock(return_value=user)
+    execute = AsyncMock(return_value=result)
     monkeypatch.setattr(tg_user_common, "SessionFactory", _Session)
-    monkeypatch.setattr(tg_user_common, "UserRepository", lambda session: repository)
     monkeypatch.setattr(
         tg_user_common,
-        "RequestRegistrationUseCase",
-        lambda repository: SimpleNamespace(execute=execute),
+        "SubmitRegistrationUseCase",
+        lambda session: SimpleNamespace(execute=execute),
     )
     tg_notify = AsyncMock()
     vk_notify = AsyncMock()
@@ -252,17 +252,17 @@ async def test_current_telegram_submit_notifies_both_admin_platforms_after_creat
 async def test_current_vk_submit_clears_state_and_notifies_both_admin_platforms(monkeypatch):
     user_id = 200
     user = SimpleNamespace(row_id=43)
-    repository = SimpleNamespace(
-        list_admin_vk_ids=AsyncMock(return_value=[2]),
-        list_admin_tg_ids=AsyncMock(return_value=[1]),
+    result = SimpleNamespace(
+        user=user,
+        telegram_admin_ids=(1,),
+        vk_admin_ids=(2,),
     )
-    execute = AsyncMock(return_value=user)
+    execute = AsyncMock(return_value=result)
     monkeypatch.setattr(vk_user_common, "SessionFactory", _Session)
-    monkeypatch.setattr(vk_user_common, "UserRepository", lambda session: repository)
     monkeypatch.setattr(
         vk_user_common,
-        "RequestRegistrationUseCase",
-        lambda repository: SimpleNamespace(execute=execute),
+        "SubmitRegistrationUseCase",
+        lambda session: SimpleNamespace(execute=execute),
     )
     tg_notify = AsyncMock()
     vk_notify = AsyncMock()

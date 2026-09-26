@@ -7,7 +7,7 @@ from app.application.exceptions import (
     UserNameRequiredError,
     UserRegistrationPendingError,
 )
-from app.application.use_cases.user.request_registration import RequestRegistrationUseCase
+from app.application.use_cases.user.registration import SubmitRegistrationUseCase
 from app.bot.shared.texts.inline.vk.user import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -278,9 +278,9 @@ async def _submit_registration_request(
 ) -> None:
     async with SessionFactory() as session:
         repository = UserRepository(session)
-        use_case = RequestRegistrationUseCase(repository)
+        use_case = SubmitRegistrationUseCase(session)
         try:
-            user = await use_case.execute(
+            result = await use_case.execute(
                 name=name,
                 vk_id=user_id,
                 bank_name=bank_name,
@@ -316,8 +316,9 @@ async def _submit_registration_request(
             )
             return
 
-        admin_ids = await repository.list_admin_vk_ids()
-        tg_admin_chat_ids = await repository.list_admin_tg_ids()
+        user = result.user
+        admin_ids = result.vk_admin_ids
+        tg_admin_chat_ids = result.telegram_admin_ids
 
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
