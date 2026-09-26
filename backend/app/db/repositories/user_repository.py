@@ -39,6 +39,75 @@ class UserRepository:
     await self.session.refresh(user)
     return user
 
+  async def add_without_commit(
+    self,
+    *,
+    name: str,
+    telegram_id: int | None = None,
+    vk_id: int | None = None,
+    tel_number: str | None = None,
+    bank_name: str | None = None,
+    is_admin: bool = False,
+    is_approved: bool = False,
+    notification_platform: str | None = None,
+  ) -> User:
+    user = User(
+      name=name,
+      telegram_id=telegram_id,
+      vk_id=vk_id,
+      notification_platform=self._resolve_notification_platform(
+        notification_platform=notification_platform,
+        telegram_id=telegram_id,
+        vk_id=vk_id,
+      ),
+      tel_number=tel_number,
+      bank_name=bank_name,
+      is_admin=is_admin,
+      is_approved=is_approved,
+    )
+    self.session.add(user)
+    await self.session.flush()
+    return user
+
+  async def approve_without_commit(self, user: User) -> User:
+    user.is_approved = True
+    await self.session.flush()
+    return user
+
+  async def delete_without_commit(self, user: User) -> None:
+    await self.session.delete(user)
+    await self.session.flush()
+
+  async def correct_name_and_approve_without_commit(
+    self, user: User, *, corrected_name: str
+  ) -> User:
+    user.name = corrected_name
+    user.is_approved = True
+    await self.session.flush()
+    return user
+
+  async def link_pending_user_without_commit(
+    self, existing_user: User, pending_user: User
+  ) -> User:
+    pending_telegram_id = pending_user.telegram_id
+    pending_vk_id = pending_user.vk_id
+    pending_notification_platform = pending_user.notification_platform
+
+    await self.session.delete(pending_user)
+    await self.session.flush()
+    if pending_telegram_id is not None:
+      existing_user.telegram_id = pending_telegram_id
+    if pending_vk_id is not None:
+      existing_user.vk_id = pending_vk_id
+    if existing_user.notification_platform is None:
+      existing_user.notification_platform = self._resolve_notification_platform(
+        notification_platform=pending_notification_platform,
+        telegram_id=existing_user.telegram_id,
+        vk_id=existing_user.vk_id,
+      )
+    await self.session.flush()
+    return existing_user
+
   async def get_by_telegram_id(self, telegram_id: int) -> User | None:
     result = await self.session.execute(
       select(User).where(User.telegram_id == telegram_id)

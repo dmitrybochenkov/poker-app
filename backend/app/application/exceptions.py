@@ -50,3 +50,7 @@ class UserLinkConflictError(ApplicationError):
   def __init__(self, field: str) -> None:
     self.field = field
     super().__init__(f"User already has this {field}")
+
+
+class RegistrationNotAuthorizedError(ApplicationError):
+  """Raised when an actor cannot administer registration requests."""
