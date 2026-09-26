@@ -7,7 +7,7 @@ from app.bot.vk.api import send_vk_message
 from app.bot.vk.handlers_admin import handle_admin_text_commands, handle_message_event
 from app.bot.vk.handlers_user import handle_user_message_event, handle_user_message_new
 from app.bot.vk.keyboards import main_admin_entry_keyboard, main_keyboard, new_user_keyboard
-from app.bot.vk.state import vk_user_contexts, vk_user_states
+from app.bot.vk.state import clear_durable_vk_state, vk_user_contexts, vk_user_states
 from app.config.settings import settings
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
@@ -51,6 +51,7 @@ async def vk_webhook(payload: dict) -> PlainTextResponse:
   if text.lower() in {"начать", "start", "/start"}:
     vk_user_states.pop(user_id, None)
     vk_user_contexts.pop(user_id, None)
+    await clear_durable_vk_state(user_id)
     keyboard = new_user_keyboard
     async with SessionFactory() as session:
       repository = UserRepository(session)
