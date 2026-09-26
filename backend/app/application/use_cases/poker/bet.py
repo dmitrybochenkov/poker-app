@@ -1,3 +1,5 @@
+from sqlalchemy.exc import IntegrityError
+
 from app.db.models.bet import Bet
 from app.db.models.bet_param import BetParam
 from app.db.models.poker import Poker
@@ -5,8 +7,8 @@ from app.db.models.poker_data import PokerData
 from app.db.models.user import User
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_repository import BetRepository
-from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
+from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
@@ -65,7 +67,7 @@ class BetUseCases:
   async def create_bet(
     self,
     *,
-    better_id: int,
+    actor_user_id: int,
     tournament_type: str,
     amount_kopecks: int,
     winner_name: str | None = None,
@@ -74,8 +76,8 @@ class BetUseCases:
     if amount_kopecks <= 0:
       return None, "invalid_amount"
 
-    user = await self._get_approved_user(better_id=better_id)
-    if user is None:
+    user = await self.user_repository.get_by_row_id(actor_user_id)
+    if user is None or not user.is_approved:
       return None, "user_not_approved"
     better_row_id = int(user.row_id)
 
@@ -109,24 +111,36 @@ class BetUseCases:
     if params_id is None:
       return None, "missing_params"
 
-    created = await self.bet_repository.create(
-      poker_id=poker.row_id,
-      date=poker.date,
-      better_id=better_row_id,
-      better_name=user.name,
-      tournament_type=tournament_type,
-      amount_kopecks=amount_kopecks,
-      params_id=params_id,
-      winner_name=winner_name,
-      loser_name=loser_name,
-      is_paid=(better_row_id == 1),
-    )
-    await self._add_bet_to_current_tournament_banks(
-      poker_date=poker.date,
-      params_id=int(params_id),
-      amount_kopecks=int(amount_kopecks),
-    )
-    await self.bet_repository.session.commit()
+    poker_date = poker.date
+    try:
+      created = await self.bet_repository.create(
+        poker_id=poker.row_id,
+        date=poker_date,
+        better_id=better_row_id,
+        better_name=user.name,
+        tournament_type=tournament_type,
+        amount_kopecks=amount_kopecks,
+        params_id=params_id,
+        winner_name=winner_name,
+        loser_name=loser_name,
+        is_paid=(better_row_id == 1),
+      )
+      await self._add_bet_to_current_tournament_banks(
+        poker_date=poker_date,
+        params_id=int(params_id),
+        amount_kopecks=int(amount_kopecks),
+      )
+      await self.bet_repository.session.commit()
+    except IntegrityError:
+      await self.bet_repository.session.rollback()
+      existing = await self.bet_repository.get_by_poker_user_and_tournament(
+        date=poker_date,
+        better_id=better_row_id,
+        tournament_type=tournament_type,
+      )
+      if existing is not None:
+        return None, "already_bet"
+      raise
     return created, "ok"
 
   async def _add_bet_to_current_tournament_banks(

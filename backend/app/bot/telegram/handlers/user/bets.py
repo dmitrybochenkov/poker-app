@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery, Message
 
 from app.application.use_cases.poker.bet import BetUseCases
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.identity import resolve_telegram_user_id
 from app.bot.shared.texts.inline.shared import receipt_ocr as ReceiptText
 from app.bot.shared.texts.inline.telegram.user import bets as InlineText
 from app.bot.shared.texts.texts import Text
@@ -326,6 +327,10 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
 
     try:
         async with SessionFactory() as session:
+            actor_user_id = await resolve_telegram_user_id(
+                session=session,
+                telegram_id=callback.from_user.id,
+            )
             use_case = BetUseCases(
                 user_repository=UserRepository(session),
                 poker_repository=PokerRepository(session),
@@ -336,7 +341,7 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
                 poker_data_repository=PokerDataRepository(session),
             )
             created, status = await use_case.create_bet(
-                better_id=callback.from_user.id,
+                actor_user_id=actor_user_id or -1,
                 tournament_type=tournament_type,
                 amount_kopecks=amount_kopecks,
                 winner_name=winner_name,

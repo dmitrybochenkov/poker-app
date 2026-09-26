@@ -20,7 +20,7 @@ def test_bet_metadata_matches_accepted_legacy_schema():
         constraint.name
         for constraint in Bet.__table__.constraints
         if isinstance(constraint, UniqueConstraint)
-    } == set()
+    } == {"uq_bets_date_better_id"}
 
 
 def test_buyin_metadata_preserves_historical_index_names():

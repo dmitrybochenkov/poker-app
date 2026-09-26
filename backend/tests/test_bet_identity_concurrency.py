@@ -128,7 +128,7 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
     try:
         async with sessions() as session:
             first = await _use_case(session).create_bet(
-                better_id=101,
+                actor_user_id=linked_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
                 winner_name="Winner",
@@ -140,14 +140,14 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
             await session.commit()
         async with sessions() as session:
             linked_through_vk = await _use_case(session).create_bet(
-                better_id=202,
+                actor_user_id=linked_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
                 winner_name="Winner",
                 loser_name="Loser",
             )
             other_same_name = await _use_case(session).create_bet(
-                better_id=303,
+                actor_user_id=other_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
                 winner_name="Winner",
@@ -168,7 +168,7 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_platform_id_collision_is_resolved_as_telegram_first(tmp_path):
+async def test_canonical_actor_prevents_platform_id_collision(tmp_path):
     engine, sessions = await _store(tmp_path, "platform-id-collision.db")
     await _seed(sessions)
     try:
@@ -184,7 +184,7 @@ async def test_platform_id_collision_is_resolved_as_telegram_first(tmp_path):
 
         async with sessions() as session:
             created, status = await _use_case(session).create_bet(
-                better_id=777,
+                actor_user_id=vk_user_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
                 winner_name="Winner",
@@ -192,24 +192,24 @@ async def test_platform_id_collision_is_resolved_as_telegram_first(tmp_path):
             )
 
         assert status == "ok" and created is not None
-        assert created.better_id == telegram_user_id
-        assert created.better_id != vk_user_id
-        assert created.better_name == "Telegram Owner"
+        assert created.better_id == vk_user_id
+        assert created.better_id != telegram_user_id
+        assert created.better_name == "VK Owner"
     finally:
         await engine.dispose()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("case_name", "external_ids"),
+    "case_name",
     [
-        ("telegram-telegram", (101, 101)),
-        ("vk-vk", (202, 202)),
-        ("telegram-vk", (101, 202)),
+        "telegram-telegram",
+        "vk-vk",
+        "telegram-vk",
     ],
 )
-async def test_concurrent_duplicate_checks_create_two_bets_and_double_bank(
-    tmp_path, monkeypatch, case_name, external_ids
+async def test_concurrent_duplicate_checks_create_one_bet_and_increment_bank_once(
+    tmp_path, monkeypatch, case_name
 ):
     engine, sessions = await _store(tmp_path, f"concurrent-{case_name}.db")
     linked_id, _, game_date = await _seed(sessions)
@@ -238,10 +238,10 @@ async def test_concurrent_duplicate_checks_create_two_bets_and_double_bank(
         synchronized_check,
     )
 
-    async def submit(external_id):
+    async def submit():
         async with sessions() as session:
             return await _use_case(session).create_bet(
-                better_id=external_id,
+                actor_user_id=linked_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
                 winner_name="Winner",
@@ -250,7 +250,8 @@ async def test_concurrent_duplicate_checks_create_two_bets_and_double_bank(
 
     try:
         outcomes = await asyncio.gather(
-            *(submit(external_id) for external_id in external_ids),
+            submit(),
+            submit(),
             return_exceptions=True,
         )
         async with sessions() as session:
@@ -262,11 +263,11 @@ async def test_concurrent_duplicate_checks_create_two_bets_and_double_bank(
             ).scalar_one()
 
         assert observed == [None, None]
-        assert [result[1] for result in outcomes] == ["ok", "ok"]
+        assert not any(isinstance(result, Exception) for result in outcomes), outcomes
+        assert sorted(result[1] for result in outcomes) == ["already_bet", "ok"]
         assert [(row.better_id, row.date) for row in rows] == [
             (linked_id, game_date),
-            (linked_id, game_date),
         ]
-        assert tournament.current_bank_kopecks == 20_000
+        assert tournament.current_bank_kopecks == 10_000
     finally:
         await engine.dispose()

@@ -2,6 +2,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.application.use_cases.poker.bet import BetUseCases
 from app.bot.shared.buttons.buttons import Buttons
+from app.bot.shared.identity import resolve_vk_user_id
 from app.bot.shared.texts.inline.shared import receipt_ocr as ReceiptText
 from app.bot.shared.texts.inline.vk.user import bets as InlineText
 from app.bot.shared.texts.texts import Text
@@ -357,6 +358,10 @@ async def handle_bet_confirmation_event(
             return PlainTextResponse("ok")
         try:
             async with SessionFactory() as session:
+                actor_user_id = await resolve_vk_user_id(
+                    session=session,
+                    vk_id=user_id,
+                )
                 use_case = BetUseCases(
                     user_repository=UserRepository(session),
                     poker_repository=PokerRepository(session),
@@ -367,7 +372,7 @@ async def handle_bet_confirmation_event(
                     poker_data_repository=PokerDataRepository(session),
                 )
                 created, status = await use_case.create_bet(
-                    better_id=user_id,
+                    actor_user_id=actor_user_id or -1,
                     tournament_type=tournament_type,
                     amount_kopecks=amount_kopecks,
                     winner_name=winner_name,
