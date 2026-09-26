@@ -14,6 +14,7 @@ from app.db.models.poll_vote import PollVote
 from app.db.models.poll_config import PollConfig
 from app.db.models.sync_state import SyncState
 from app.db.models.bet_payment_receipt import BetPaymentReceipt
+from app.db.models.vk_conversation_state import VkConversationState
 
 __all__ = [
   "User",
@@ -32,4 +33,5 @@ __all__ = [
   "PollConfig",
   "SyncState",
   "BetPaymentReceipt",
+  "VkConversationState",
 ]
