@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, func
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Text, func
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,7 +22,7 @@ class Poker(Base):
   is_going: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
   is_bettable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   is_ready_for_chips_entering: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-  winners: Mapped[str | None] = mapped_column(nullable=True)
-  loosers: Mapped[str | None] = mapped_column(nullable=True)
+  winners: Mapped[str | None] = mapped_column(Text, nullable=True)
+  loosers: Mapped[str | None] = mapped_column(Text, nullable=True)
   created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
   updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

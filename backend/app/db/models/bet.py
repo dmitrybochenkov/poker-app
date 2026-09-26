@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Date, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, Index, Integer, String
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,7 +10,7 @@ from app.db.base import Base
 class Bet(Base):
   __tablename__ = "bets"
   __table_args__ = (
-    UniqueConstraint("date", "better_name", name="uq_bets_date_better_name"),
+    Index("ix_bets_date", "date"),
   )
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

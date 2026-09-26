@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Integer, UniqueConstraint
+from sqlalchemy import Date, DateTime, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -10,6 +10,8 @@ class PollVote(Base):
   __tablename__ = "poll_votes"
   __table_args__ = (
     UniqueConstraint("poll_date", "player_row_id", name="uq_poll_votes_date_player"),
+    Index("ix_poll_votes_poll_date", "poll_date"),
+    Index("ix_poll_votes_player_row_id", "player_row_id"),
   )
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
