@@ -109,63 +109,8 @@ class ManagePokerPlayersUseCase:
       user_row_id=user_row_id,
     )
 
-  async def add_buyin_to_active_player(
-    self,
-    *,
-    player_id: int,
-    buyins_count: int,
-    big_buyin_count: int = 0,
-    super_buyin_count: int = 0,
-    poker_date=None,
-  ):
-    if poker_date is None:
-      active = await self.poker_repository.get_started()
-      if active is None:
-        return None
-      poker, _ = active
-      poker_date = poker.date
-    updated = await self.poker_data_repository.add_buyins(
-      date=poker_date,
-      player_id=player_id,
-      buyins_count=buyins_count,
-      big_buyin_count=big_buyin_count,
-      super_buyin_count=super_buyin_count,
-    )
-    if updated is None:
-      return None
-    if self.buyin_data_repository is not None:
-      await self.buyin_data_repository.add_buyin(
-        poker_date=poker_date,
-        player_id=player_id,
-        player_name=updated.player_name,
-        buyins_count=buyins_count,
-      )
-      await self.buyin_data_repository.session.commit()
-    return updated
-
-  async def set_cashout_for_active_player(self, *, player_id: int, money_kopecks: int):
-    active = await self.poker_repository.get_started()
-    if active is None:
-      return None
-    poker, _ = active
-    return await self.poker_data_repository.set_cashout(
-      date=poker.date,
-      player_id=player_id,
-      money_kopecks=money_kopecks,
-    )
-
   async def list_players_for_chips_entry(self):
     poker = await self.poker_repository.get_latest_ready_for_chips()
     if poker is None:
       return []
     return await self.poker_data_repository.list_players(date=poker.date)
-
-  async def set_chips_for_ready_poker_player(self, *, player_id: int, chips: int):
-    poker = await self.poker_repository.get_latest_ready_for_chips()
-    if poker is None:
-      return None
-    return await self.poker_data_repository.set_chips(
-      date=poker.date,
-      player_id=player_id,
-      chips=chips,
-    )

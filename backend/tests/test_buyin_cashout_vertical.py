@@ -4,7 +4,6 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
 from app.application.use_cases.poker.buyins import (
     AddBuyinUseCase,
     BuyinNotAuthorizedError,
@@ -19,7 +18,6 @@ from app.db.models.poker_param import PokerParam
 from app.db.models.user import User
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
-from app.db.repositories.poker_repository import PokerRepository
 from app.bot.telegram.handlers.admin import buyins as tg_buyins
 from app.bot.vk.handlers.admin import buyins as vk_buyins
 
@@ -73,46 +71,35 @@ async def _seed(sessions, *, max_buyins=3, previous_winner=False):
 
 
 @pytest.mark.asyncio
-async def test_current_add_buyin_updates_player_and_appends_history(buyin_sessions):
-    _, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
+async def test_add_buyin_updates_player_and_appends_history(buyin_sessions):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
-        result = await ManagePokerPlayersUseCase(
-            poker_repository=PokerRepository(session),
-            poker_data_repository=PokerDataRepository(session),
-            buyin_data_repository=BuyinDataRepository(session),
-        ).add_buyin_to_active_player(
-            player_id=player_id,
+        result = await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id,
+            target_user_id=player_id,
             buyins_count=2,
-            big_buyin_count=1,
-            super_buyin_count=0,
-            poker_date=poker_date,
         )
-    assert result is not None
-    assert (result.buyins, result.big_buyin_count, result.super_buyin_count) == (2, 1, 0)
+    assert (result.total_buyins, result.big_buyin_count, result.super_buyin_count) == (2, 0, 0)
     async with buyin_sessions() as session:
         stored = await session.get(PokerData, pdata_id)
         history = (await session.execute(select(BuyinData))).scalars().all()
     assert stored is not None
-    assert (stored.buyins, stored.big_buyin_count, stored.super_buyin_count) == (2, 1, 0)
+    assert (stored.buyins, stored.big_buyin_count, stored.super_buyin_count) == (2, 0, 0)
     assert [(row.player_id, row.player_name, row.buyins_count) for row in history] == [
         (player_id, "Player", 2)
     ]
 
 
 @pytest.mark.asyncio
-async def test_current_repeated_buyin_adds_again_and_keeps_separate_history(buyin_sessions):
-    _, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
+async def test_repeated_buyin_adds_again_and_keeps_separate_history(buyin_sessions):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
-        use_case = ManagePokerPlayersUseCase(
-            poker_repository=PokerRepository(session),
-            poker_data_repository=PokerDataRepository(session),
-            buyin_data_repository=BuyinDataRepository(session),
+        await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id, target_user_id=player_id, buyins_count=1
         )
-        await use_case.add_buyin_to_active_player(
-            player_id=player_id, buyins_count=1, poker_date=poker_date
-        )
-        await use_case.add_buyin_to_active_player(
-            player_id=player_id, buyins_count=1, poker_date=poker_date
+    async with buyin_sessions() as session:
+        await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id, target_user_id=player_id, buyins_count=1
         )
     async with buyin_sessions() as session:
         stored = await session.get(PokerData, pdata_id)
@@ -269,7 +256,6 @@ async def test_special_buyin_validation_and_counters_are_preserved(buyin_session
 def test_tg_vk_add_buyin_handlers_use_shared_atomic_operation(handler):
     source = inspect.getsource(handler)
     assert "AddBuyinUseCase" in source
-    assert "add_buyin_to_active_player" not in source
     assert ".add_buyins(" not in source
 
 

@@ -52,10 +52,9 @@ WebApp ───┘                         │
 2. Telegram handlers импортируют VK API/keyboards, а VK handlers импортируют Telegram runtime/keyboards.
 3. Большинство repository mutation methods сами вызывают `commit()`. Поэтому одна бизнес-операция не всегда имеет единый transaction boundary.
 4. Часть application use cases импортирует конкретные repositories и ORM models. Для текущего размера это допустимый pragmatic coupling, но application не должен импортировать transport types.
-5. `BroadcastUseCases` в `application/use_cases/poker/broadcast.py` — незавершённая заглушка с `NotImplementedError`; это не рабочая abstraction и не основа для новой миграции.
-6. `api/http/vk_webhook.py` содержит transport dispatch вместе с identity lookup, состоянием диалога и выбором клавиатур. WebApp и webhook cleanup не входят в первый срез.
-7. Исторические poker records и расчёты местами используют `player_name`. Имя не является stable identity; это отдельный legacy debt, который этим контрактом не исправляется автоматически.
-8. In-memory dictionaries для VK state и IDs закреплённых сообщений не устойчивы к рестарту или нескольким workers.
+5. `api/http/vk_webhook.py` содержит transport dispatch вместе с identity lookup, состоянием диалога и выбором клавиатур. WebApp и webhook cleanup не входят в первый срез.
+6. Исторические poker records и расчёты местами используют `player_name`. Имя не является stable identity; это отдельный legacy debt, который этим контрактом не исправляется автоматически.
+7. In-memory dictionaries для VK state и IDs закреплённых сообщений не устойчивы к рестарту или нескольким workers.
 
 ## 3. Presentation contract
 
@@ -133,7 +132,7 @@ Application выражает business intent (`betting started`, `registration a
 
 Для первого мигрированного cross-platform flow нужен один узкий application port по событию, а не event bus и не универсальный notification framework. Port не должен принимать Telegram/VK keyboard или transport object. Его composite adapter может делегировать platform adapters и возвращать delivery report либо реализовывать best effort внутри.
 
-Существующие `telegram/notifications.py` и `vk/notifications.py` полезны как примеры platform delivery, но сейчас ориентированы на регистрацию и зависят от platform types. Их не следует превращать в общий application service. `BroadcastUseCases` следует считать legacy-заглушкой и удалить, когда подтверждено отсутствие callers, вместо реализации второго конкурирующего механизма.
+Существующие `telegram/notifications.py` и `vk/notifications.py` полезны как примеры platform delivery, но сейчас ориентированы на регистрацию и зависят от platform types. Их не следует превращать в общий application service.
 
 ## 8. User-facing texts
 
@@ -546,7 +545,7 @@ Unrelated failing test, lint debt, uncovered legacy code или архитект
 - Telegram/VK `betting_keyboard` и API send functions — platform adapter details.
 - Handler and dispatch regression tests — wiring protection.
 
-Не переиспользовать как abstraction: `BroadcastUseCases` (пустая заглушка), cross-imports из TG/VK handlers и дублированные Start Betting helpers.
+Не переиспользовать как abstraction cross-imports из TG/VK handlers и дублированные Start Betting helpers.
 
 ## 12. Target design
 
@@ -694,7 +693,7 @@ No other handlers, repositories or WebApp flows are included.
 | External identity resolution | Guards currently query by platform independently and Start Betting receives external ID | A: common global resolver now; B: thin platform resolvers using `UserRepository` | **B** for first slice | Small duplicate composition remains, business operation stays shared |
 | Authorization | Telegram checks outside helper; VK checks inside handler | A: trust transport; B: enforce in use case with optional early UX check | **B** | Use case loads canonical actor; buttons remain UX only |
 | Existing repositories | Concrete repositories commit and return ORM models | A: define interfaces for all; B: reuse concrete classes and change only required methods | **B** | Keeps migration small; application remains pragmatically coupled to SQLAlchemy |
-| Existing use-case/service abstractions | `StartPokerUseCase` establishes naming; `BroadcastUseCases` is empty | A: implement BroadcastUseCases; B: add focused notifier port and later delete shell | **B** | Avoids duplicate generic broadcast abstraction |
+| Existing use-case/service abstractions | `StartPokerUseCase` establishes naming | A: reuse the focused notifier port; B: add another generic broadcast abstraction | **A** | Avoids duplicate generic broadcast abstraction |
 | Shared texts | `Text.user.START_BETTING` is already shared; inline trees contain platform copies elsewhere | A: new texts tree; B: reuse current domain text | **B** | No text migration required for Start Betting |
 | Status-message cleanup | IDs live in process-global TG/VK maps | A: include in business use case; B: adapter-owned cleanup; C: persist immediately | **B** now; persistence is separate reliability work | Business layer stays transport-neutral; restart limitation remains |
 | Notification failure result | Current operation reports success despite per-recipient failures | A: fail command; B: best effort and log/report; C: outbox retries | **B**, matching current behavior | State remains committed; optional delivery report improves observability |
