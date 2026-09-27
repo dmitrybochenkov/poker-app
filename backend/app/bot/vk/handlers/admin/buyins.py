@@ -287,6 +287,7 @@ async def handle_poker_buyin_count_select_event(
                     actor_user_id=actor_user_id,
                     target_user_id=player_id,
                     buyins_count=buyins_count,
+                    operation_id=f"vk:{event_id}",
                 )
             except BuyinNotAuthorizedError:
                 result_text = Text.admin.NO_RIGHTS.value
@@ -299,27 +300,30 @@ async def handle_poker_buyin_count_select_event(
             except (InvalidBuyinCountError, BuyinPlayerNotFoundError):
                 result_text = Text.admin.POKER_BUYIN_INVALID.value
         if result is not None:
-            result_text = f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{result.player_name}: {result.total_buyins}"
-            notify_admins = True
-            key = (int(admin_user_id), int(player_id))
-            if key in VK_BUYIN_NOTIFY_CASHIER_ONLY:
-                notify_admins = False
-                VK_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
-            async with SessionFactory() as session:
-                await _notify_about_buyin(
-                    session=session,
-                    poker=type("PokerNotice", (), {
-                        "date": result.poker_date,
-                        "cashier_id": result.cashier_user_id,
-                    })(),
-                    updated_player=type("PlayerNotice", (), {
-                        "player_id": result.player_user_id,
-                        "player_name": result.player_name,
-                        "buyins": result.total_buyins,
-                    })(),
-                    buyins_count=result.added_buyins,
-                    notify_admins=notify_admins,
-                )
+            if not result.applied:
+                result_text = Text.admin.POKER_BUYIN_ALREADY_SAVED.value
+            else:
+                result_text = f"{Text.admin.POKER_BUYIN_SAVED.value}\n\n{result.player_name}: {result.total_buyins}"
+                notify_admins = True
+                key = (int(admin_user_id), int(player_id))
+                if key in VK_BUYIN_NOTIFY_CASHIER_ONLY:
+                    notify_admins = False
+                    VK_BUYIN_NOTIFY_CASHIER_ONLY.discard(key)
+                async with SessionFactory() as session:
+                    await _notify_about_buyin(
+                        session=session,
+                        poker=type("PokerNotice", (), {
+                            "date": result.poker_date,
+                            "cashier_id": result.cashier_user_id,
+                        })(),
+                        updated_player=type("PlayerNotice", (), {
+                            "player_id": result.player_user_id,
+                            "player_name": result.player_name,
+                            "buyins": result.total_buyins,
+                        })(),
+                        buyins_count=result.added_buyins,
+                        notify_admins=notify_admins,
+                    )
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,

@@ -303,6 +303,7 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
                 actor_user_id=actor_user_id,
                 target_user_id=player_id,
                 buyins_count=buyins_count,
+                operation_id=f"tg:{callback.id}",
             )
         except BuyinNotAuthorizedError:
             await callback.answer(Text.admin.NO_RIGHTS.value, show_alert=True)
@@ -319,6 +320,10 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
         except (InvalidBuyinCountError, BuyinPlayerNotFoundError):
             await callback.answer(Text.admin.POKER_BUYIN_INVALID.value, show_alert=True)
             return
+    if not result.applied:
+        await callback.answer(Text.admin.POKER_BUYIN_ALREADY_SAVED.value, show_alert=True)
+        return
+
     notify_admins = True
     key = (int(callback.from_user.id), int(player_id))
     if key in TG_BUYIN_NOTIFY_CASHIER_ONLY:

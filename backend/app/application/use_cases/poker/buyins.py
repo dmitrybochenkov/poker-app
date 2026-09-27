@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.buyin_data_repository import BuyinDataRepository
@@ -43,6 +44,7 @@ class BuyinResult:
   total_buyins: int
   big_buyin_count: int
   super_buyin_count: int
+  applied: bool = True
 
 
 @dataclass(frozen=True)
@@ -61,7 +63,12 @@ class AddBuyinUseCase:
     self.session = session
 
   async def execute(
-    self, *, actor_user_id: int | None, target_user_id: int, buyins_count: int
+    self,
+    *,
+    actor_user_id: int | None,
+    target_user_id: int,
+    buyins_count: int,
+    operation_id: str | None = None,
   ) -> BuyinResult:
     if int(buyins_count) <= 0:
       raise InvalidBuyinCountError
@@ -69,6 +76,7 @@ class AddBuyinUseCase:
       users = UserRepository(self.session)
       pokers = PokerRepository(self.session)
       players = PokerDataRepository(self.session)
+      buyins = BuyinDataRepository(self.session)
       actor = await users.get_by_row_id(int(actor_user_id or -1))
       if actor is None or not actor.is_approved:
         raise BuyinNotAuthorizedError
@@ -85,6 +93,35 @@ class AddBuyinUseCase:
       player = await players.get_player(date=poker.date, player_id=int(target_user_id))
       if player is None:
         raise BuyinPlayerNotFoundError
+
+      if operation_id is not None:
+        existing = await buyins.get_by_operation_id(operation_id=operation_id)
+        if existing is not None:
+          return self._result_from_player(
+            poker=poker,
+            player=player,
+            added_buyins=int(existing.buyins_count),
+            applied=False,
+          )
+        try:
+          async with self.session.begin_nested():
+            await buyins.add_buyin(
+              poker_date=poker.date,
+              player_id=int(target_user_id),
+              player_name=player.player_name,
+              buyins_count=int(buyins_count),
+              operation_id=operation_id,
+            )
+        except IntegrityError:
+          existing = await buyins.get_by_operation_id(operation_id=operation_id)
+          if existing is None:
+            raise
+          return self._result_from_player(
+            poker=poker,
+            player=player,
+            added_buyins=int(existing.buyins_count),
+            applied=False,
+          )
 
       big_count, super_count = _special_buyin_counts(
         buyins_count=int(buyins_count),
@@ -105,23 +142,34 @@ class AddBuyinUseCase:
       )
       if updated is None:
         raise BuyinPlayerNotFoundError
-      await BuyinDataRepository(self.session).add_buyin(
-        poker_date=poker.date,
-        player_id=int(target_user_id),
-        player_name=updated.player_name,
-        buyins_count=int(buyins_count),
-      )
-      result = BuyinResult(
-        poker.date,
-        int(poker.cashier_id),
-        int(updated.player_id),
-        updated.player_name,
-        int(buyins_count),
-        int(updated.buyins),
-        int(updated.big_buyin_count),
-        int(updated.super_buyin_count),
+      if operation_id is None:
+        await buyins.add_buyin(
+          poker_date=poker.date,
+          player_id=int(target_user_id),
+          player_name=updated.player_name,
+          buyins_count=int(buyins_count),
+        )
+      result = self._result_from_player(
+        poker=poker,
+        player=updated,
+        added_buyins=int(buyins_count),
+        applied=True,
       )
     return result
+
+  @staticmethod
+  def _result_from_player(*, poker, player, added_buyins: int, applied: bool) -> BuyinResult:
+    return BuyinResult(
+      poker.date,
+      int(poker.cashier_id),
+      int(player.player_id),
+      player.player_name,
+      added_buyins,
+      int(player.buyins),
+      int(player.big_buyin_count),
+      int(player.super_buyin_count),
+      applied,
+    )
 
 
 class CorrectBuyinUseCase:

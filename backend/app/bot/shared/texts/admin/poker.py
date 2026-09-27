@@ -52,6 +52,8 @@ POKER_BUYIN_PROMPT = "Выбери количество закупов:"
 
 POKER_BUYIN_SAVED = "Закуп сохранен."
 
+POKER_BUYIN_ALREADY_SAVED = "Этот закуп уже был сохранен."
+
 POKER_BUYIN_INVALID = "Нужно ввести целое число больше 0."
 
 POKER_CASHOUT_CHOOSE = "Выбери игрока для ввода фишек:"
