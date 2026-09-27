@@ -1,14 +1,13 @@
-from typing import Literal
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.http.webapp_common import _get_user_by_platform
 from app.api.http.webapp_schemas import WebAppBootstrapRead
+from app.api.security.webapp_auth import WebAppIdentity, get_webapp_identity
 from app.db.dependencies import get_db_session
 from app.db.models.poker import Poker
 from app.db.repositories.poll_config_repository import PollConfigRepository
+from app.db.repositories.user_repository import UserRepository
 
 router = APIRouter()
 
@@ -16,10 +15,13 @@ router = APIRouter()
 async def _build_bootstrap_response(
     *,
     session: AsyncSession,
-    platform: Literal["telegram", "vk"],
-    user_id: int,
+    identity: WebAppIdentity,
 ) -> WebAppBootstrapRead:
-    user = await _get_user_by_platform(session=session, platform=platform, user_id=user_id)
+    user = (
+        await UserRepository(session).get_by_row_id(identity.user_row_id)
+        if identity.user_row_id is not None
+        else None
+    )
     has_active_poll = await PollConfigRepository(session).get_active_month() is not None
     active_poker = (
         await session.execute(select(Poker.row_id).where(Poker.is_going.is_(True)).limit(1))
@@ -47,26 +49,9 @@ async def _build_bootstrap_response(
     )
 
 
-@router.get("/bootstrap/{telegram_id}", response_model=WebAppBootstrapRead)
-async def webapp_bootstrap(
-    telegram_id: int,
-    session: AsyncSession = Depends(get_db_session),
-) -> WebAppBootstrapRead:
-    return await _build_bootstrap_response(
-        session=session,
-        platform="telegram",
-        user_id=telegram_id,
-    )
-
-
-@router.get("/bootstrap/{platform}/{user_id}", response_model=WebAppBootstrapRead)
+@router.get("/me/bootstrap", response_model=WebAppBootstrapRead)
 async def webapp_bootstrap_by_platform(
-    platform: Literal["telegram", "vk"],
-    user_id: int,
     session: AsyncSession = Depends(get_db_session),
+    identity: WebAppIdentity = Depends(get_webapp_identity),
 ) -> WebAppBootstrapRead:
-    return await _build_bootstrap_response(
-        session=session,
-        platform=platform,
-        user_id=user_id,
-    )
+    return await _build_bootstrap_response(session=session, identity=identity)

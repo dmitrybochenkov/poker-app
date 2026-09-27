@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.http.webapp_common import _build_photo_url
 from app.api.http.webapp_schemas import WebAppPlayerCardRead
+from app.api.security.webapp_auth import WebAppIdentity, require_authenticated_principal
 from app.db.dependencies import get_db_session
 from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
@@ -15,6 +16,7 @@ router = APIRouter()
 @router.get("/players", response_model=list[WebAppPlayerCardRead])
 async def webapp_players(
     session: AsyncSession = Depends(get_db_session),
+    _principal: WebAppIdentity = Depends(require_authenticated_principal),
 ) -> list[WebAppPlayerCardRead]:
     approved_users = (
         await session.execute(

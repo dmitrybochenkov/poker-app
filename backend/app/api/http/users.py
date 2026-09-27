@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.security.webapp_auth import WebAppIdentity, require_admin_principal
 from app.application.exceptions import (
   UserAlreadyApprovedError,
   UserAlreadyExistsError,
   UserIdentityRequiredError,
   UserLinkConflictError,
   UserNameRequiredError,
-  UserNotificationPlatformUnavailableError,
   UserNotFoundError,
+  UserNotificationPlatformUnavailableError,
 )
 from app.application.use_cases.user.approve_user import ApproveUserUseCase
 from app.application.use_cases.user.correct_user import CorrectUserUseCase
@@ -27,6 +28,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 async def create_user(
   payload: UserCreate,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> UserRead:
   repository = UserRepository(session)
   use_case = RegisterUserUseCase(repository)
@@ -67,6 +69,7 @@ async def create_user(
 @router.get("", response_model=list[UserRead])
 async def list_users(
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> list[UserRead]:
   repository = UserRepository(session)
   users = await repository.list_all()
@@ -77,6 +80,7 @@ async def list_users(
 async def get_user_by_telegram_id(
   telegram_id: int,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> UserRead:
   repository = UserRepository(session)
   user = await repository.get_by_telegram_id(telegram_id=telegram_id)
@@ -92,6 +96,7 @@ async def get_user_by_telegram_id(
 async def approve_user(
   row_id: int,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> UserRead:
   repository = UserRepository(session)
   use_case = ApproveUserUseCase(repository)
@@ -112,6 +117,7 @@ async def correct_user(
   row_id: int,
   payload: UserCorrectionRequest,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> UserRead:
   repository = UserRepository(session)
   use_case = CorrectUserUseCase(repository)
@@ -144,6 +150,7 @@ async def correct_user(
 async def make_admin(
   row_id: int,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> UserRead:
   repository = UserRepository(session)
   use_case = MakeAdminUseCase(repository)
@@ -164,6 +171,7 @@ async def link_pending_user(
   row_id: int,
   existing_row_id: int,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> UserRead:
   repository = UserRepository(session)
   use_case = LinkPendingUserUseCase(repository)
@@ -191,6 +199,7 @@ async def link_pending_user(
 async def reject_user(
   row_id: int,
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> None:
   repository = UserRepository(session)
   use_case = RejectUserUseCase(repository)

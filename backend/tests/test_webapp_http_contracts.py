@@ -18,16 +18,8 @@ from app.api.http import (
 )
 from app.bot.shared.texts.texts import Text
 
-
 EXPECTED_ROUTES = [
-    ("GET", "/api/webapp/bootstrap/{telegram_id}", "webapp_bootstrap", None, "WebAppBootstrapRead"),
-    (
-        "GET",
-        "/api/webapp/bootstrap/{platform}/{user_id}",
-        "webapp_bootstrap_by_platform",
-        None,
-        "WebAppBootstrapRead",
-    ),
+    ("GET", "/api/webapp/me/bootstrap", "webapp_bootstrap_by_platform", None, "WebAppBootstrapRead"),
     ("GET", "/api/webapp/players", "webapp_players", None, "list[WebAppPlayerCardRead]"),
     (
         "GET",
@@ -38,35 +30,21 @@ EXPECTED_ROUTES = [
     ),
     (
         "POST",
-        "/api/webapp/users/{telegram_id}/photo",
-        "upload_webapp_user_photo",
-        201,
-        "WebAppPhotoUploadRead",
-    ),
-    (
-        "POST",
-        "/api/webapp/users/{platform}/{user_id}/photo",
+        "/api/webapp/me/photo",
         "upload_webapp_user_photo_by_platform",
         201,
         "WebAppPhotoUploadRead",
     ),
     (
         "POST",
-        "/api/webapp/users/{telegram_id}/phone",
-        "update_webapp_user_phone",
-        None,
-        "WebAppPhoneUpdateRead",
-    ),
-    (
-        "POST",
-        "/api/webapp/users/{platform}/{user_id}/phone",
+        "/api/webapp/me/phone",
         "update_webapp_user_phone_by_platform",
         None,
         "WebAppPhoneUpdateRead",
     ),
     (
         "POST",
-        "/api/webapp/users/{platform}/{user_id}/bank",
+        "/api/webapp/me/bank",
         "update_webapp_user_bank_by_platform",
         None,
         "WebAppBankUpdateRead",
@@ -198,22 +176,17 @@ async def test_bootstrap_preserves_platform_lookup_and_exact_known_user_flags(mo
         is_approved=False,
         tel_number=" +79990000000 ",
     )
-    repository = SimpleNamespace(
-        get_by_telegram_id=AsyncMock(),
-        get_by_vk_id=AsyncMock(return_value=user),
-    )
+    repository = SimpleNamespace(get_by_row_id=AsyncMock(return_value=user))
     poll_repository = SimpleNamespace(get_active_month=AsyncMock(return_value="2026-09"))
-    monkeypatch.setattr(webapp_common, "UserRepository", lambda session: repository)
+    monkeypatch.setattr(webapp_bootstrap, "UserRepository", lambda session: repository)
     monkeypatch.setattr(webapp_bootstrap, "PollConfigRepository", lambda session: poll_repository)
 
     result = await webapp_bootstrap.webapp_bootstrap_by_platform(
-        platform="vk",
-        user_id=700,
         session=_BootstrapSession(active_poker=9),
+        identity=SimpleNamespace(user_row_id=17),
     )
 
-    repository.get_by_vk_id.assert_awaited_once_with(vk_id=700)
-    repository.get_by_telegram_id.assert_not_awaited()
+    repository.get_by_row_id.assert_awaited_once_with(17)
     assert result.model_dump() == {
         "user_row_id": 17,
         "is_registered": True,
@@ -227,20 +200,17 @@ async def test_bootstrap_preserves_platform_lookup_and_exact_known_user_flags(mo
 
 @pytest.mark.asyncio
 async def test_telegram_bootstrap_unknown_user_preserves_current_flags(monkeypatch):
-    repository = SimpleNamespace(
-        get_by_telegram_id=AsyncMock(return_value=None),
-        get_by_vk_id=AsyncMock(),
-    )
+    repository = SimpleNamespace(get_by_row_id=AsyncMock())
     poll_repository = SimpleNamespace(get_active_month=AsyncMock(return_value=None))
-    monkeypatch.setattr(webapp_common, "UserRepository", lambda session: repository)
+    monkeypatch.setattr(webapp_bootstrap, "UserRepository", lambda session: repository)
     monkeypatch.setattr(webapp_bootstrap, "PollConfigRepository", lambda session: poll_repository)
 
-    result = await webapp_bootstrap.webapp_bootstrap(
-        telegram_id=701,
+    result = await webapp_bootstrap.webapp_bootstrap_by_platform(
         session=_BootstrapSession(active_poker=None),
+        identity=SimpleNamespace(user_row_id=None),
     )
 
-    repository.get_by_telegram_id.assert_awaited_once_with(telegram_id=701)
+    repository.get_by_row_id.assert_not_awaited()
     assert result.model_dump() == {
         "user_row_id": None,
         "is_registered": False,
@@ -315,32 +285,19 @@ async def test_info_unsupported_section_topic_pair_remains_404():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("handler", "kwargs", "platform"),
-    [
-        (webapp_profile.update_webapp_user_phone, {"telegram_id": 42}, "telegram"),
-        (
-            webapp_profile.update_webapp_user_phone_by_platform,
-            {"platform": "vk", "user_id": 42},
-            "vk",
-        ),
-    ],
-)
-async def test_phone_routes_preserve_lookup_normalization_commit_and_response(
-    monkeypatch, handler, kwargs, platform
-):
+async def test_phone_route_uses_principal_normalizes_commits_and_responds(monkeypatch):
     user = SimpleNamespace(row_id=7, tel_number=None)
     lookup = AsyncMock(return_value=user)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", lookup)
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=lookup))
     session = _MutationSession()
 
-    result = await handler(
-        **kwargs,
+    result = await webapp_profile.update_webapp_user_phone_by_platform(
         payload=webapp_schemas.WebAppPhoneUpdateWrite(tel_number="+7 (999) 123-45-67"),
         session=session,
+        principal=SimpleNamespace(user_row_id=7),
     )
 
-    lookup.assert_awaited_once_with(session=session, platform=platform, user_id=42)
+    lookup.assert_awaited_once_with(7)
     assert user.tel_number == "+79991234567"
     assert session.events == ["commit", ("refresh", 7)]
     assert result.model_dump() == {"tel_number": "+79991234567"}
@@ -348,24 +305,24 @@ async def test_phone_routes_preserve_lookup_normalization_commit_and_response(
 
 @pytest.mark.asyncio
 async def test_profile_routes_preserve_not_found_and_validation_errors(monkeypatch):
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", AsyncMock(return_value=None))
+    lookup = AsyncMock(return_value=None)
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=lookup))
     with pytest.raises(HTTPException) as not_found:
-        await webapp_profile.update_webapp_user_phone(
-            telegram_id=1,
+        await webapp_profile.update_webapp_user_phone_by_platform(
             payload=webapp_schemas.WebAppPhoneUpdateWrite(tel_number="79991234567"),
             session=_MutationSession(),
+            principal=SimpleNamespace(user_row_id=7),
         )
     assert (not_found.value.status_code, not_found.value.detail) == (404, "User not found")
 
     user = SimpleNamespace(row_id=7, tel_number=None)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", AsyncMock(return_value=user))
+    lookup.return_value = user
     session = _MutationSession()
     with pytest.raises(HTTPException) as invalid_phone:
         await webapp_profile.update_webapp_user_phone_by_platform(
-            platform="telegram",
-            user_id=1,
             payload=webapp_schemas.WebAppPhoneUpdateWrite(tel_number="89991234567"),
             session=session,
+            principal=SimpleNamespace(user_row_id=7),
         )
     assert (invalid_phone.value.status_code, invalid_phone.value.detail) == (
         400,
@@ -378,14 +335,13 @@ async def test_profile_routes_preserve_not_found_and_validation_errors(monkeypat
 async def test_bank_route_preserves_normalization_commit_and_response(monkeypatch):
     user = SimpleNamespace(row_id=7, bank_name=None)
     lookup = AsyncMock(return_value=user)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", lookup)
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=lookup))
     session = _MutationSession()
 
     result = await webapp_profile.update_webapp_user_bank_by_platform(
-        platform="vk",
-        user_id=42,
         payload=webapp_schemas.WebAppBankUpdateWrite(bank_name="  ТИНЬКОФФ   БАНК "),
         session=session,
+        principal=SimpleNamespace(user_row_id=7),
     )
 
     assert user.bank_name == "Тинькофф банк"
@@ -394,19 +350,8 @@ async def test_bank_route_preserves_normalization_commit_and_response(monkeypatc
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("handler", "kwargs", "platform"),
-    [
-        (webapp_profile.upload_webapp_user_photo, {"telegram_id": 42}, "telegram"),
-        (
-            webapp_profile.upload_webapp_user_photo_by_platform,
-            {"platform": "vk", "user_id": 42},
-            "vk",
-        ),
-    ],
-)
 async def test_photo_routes_preserve_processing_storage_commit_and_response(
-    monkeypatch, tmp_path, handler, kwargs, platform
+    monkeypatch, tmp_path
 ):
     user = SimpleNamespace(row_id=7, photo_path=None, updated_at=None)
     lookup = AsyncMock(return_value=user)
@@ -419,16 +364,18 @@ async def test_photo_routes_preserve_processing_storage_commit_and_response(
         )
     )
     monkeypatch.setattr(webapp_profile, "USER_PHOTOS_DIR", tmp_path)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", lookup)
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=lookup))
     monkeypatch.setattr(webapp_common, "_build_static_url", lambda path: f"/api/static/{path}")
     file = SimpleNamespace(
         content_type="image/jpeg",
         read=AsyncMock(return_value=_image_bytes(size=(2000, 1000))),
     )
 
-    result = await handler(**kwargs, file=file, session=session)
+    result = await webapp_profile.upload_webapp_user_photo_by_platform(
+        file=file, session=session, principal=SimpleNamespace(user_row_id=7)
+    )
 
-    lookup.assert_awaited_once_with(session=session, platform=platform, user_id=42)
+    lookup.assert_awaited_once_with(7)
     assert user.photo_path == "user_photos/7.webp"
     assert isinstance(user.updated_at, datetime)
     assert session.events == ["commit", ("refresh", 7)]
@@ -454,13 +401,13 @@ async def test_photo_validation_preserves_errors_without_commit(
 ):
     user = SimpleNamespace(row_id=7, photo_path=None, updated_at=None)
     monkeypatch.setattr(webapp_profile, "USER_PHOTOS_DIR", tmp_path)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", AsyncMock(return_value=user))
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=AsyncMock(return_value=user)))
     session = _MutationSession()
     file = SimpleNamespace(content_type=content_type, read=AsyncMock(return_value=content))
 
     with pytest.raises(HTTPException) as error:
         await webapp_profile.upload_webapp_user_photo_by_platform(
-            platform="telegram", user_id=42, file=file, session=session
+            file=file, session=session, principal=SimpleNamespace(user_row_id=7)
         )
 
     assert (error.value.status_code, error.value.detail) == (400, detail)
@@ -474,7 +421,7 @@ async def test_photo_filesystem_failure_propagates_before_db_mutation(monkeypatc
     user = SimpleNamespace(row_id=7, photo_path=None, updated_at=None)
     image_bytes = _image_bytes(image_format="PNG")
     monkeypatch.setattr(webapp_profile, "USER_PHOTOS_DIR", tmp_path)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", AsyncMock(return_value=user))
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=AsyncMock(return_value=user)))
     monkeypatch.setattr(
         Image.Image, "save", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk"))
     )
@@ -485,7 +432,9 @@ async def test_photo_filesystem_failure_propagates_before_db_mutation(monkeypatc
     )
 
     with pytest.raises(OSError, match="disk"):
-        await webapp_profile.upload_webapp_user_photo(telegram_id=42, file=file, session=session)
+        await webapp_profile.upload_webapp_user_photo_by_platform(
+            file=file, session=session, principal=SimpleNamespace(user_row_id=7)
+        )
 
     assert user.photo_path is None
     assert session.events == []
@@ -495,7 +444,7 @@ async def test_photo_filesystem_failure_propagates_before_db_mutation(monkeypatc
 async def test_photo_commit_failure_leaves_written_file_and_mutated_user(monkeypatch, tmp_path):
     user = SimpleNamespace(row_id=7, photo_path=None, updated_at=None)
     monkeypatch.setattr(webapp_profile, "USER_PHOTOS_DIR", tmp_path)
-    monkeypatch.setattr(webapp_profile, "_get_user_by_platform", AsyncMock(return_value=user))
+    monkeypatch.setattr(webapp_profile, "UserRepository", lambda session: SimpleNamespace(get_by_row_id=AsyncMock(return_value=user)))
     session = _MutationSession(commit_error=RuntimeError("db commit"))
     file = SimpleNamespace(
         content_type="image/png",
@@ -503,7 +452,9 @@ async def test_photo_commit_failure_leaves_written_file_and_mutated_user(monkeyp
     )
 
     with pytest.raises(RuntimeError, match="db commit"):
-        await webapp_profile.upload_webapp_user_photo(telegram_id=42, file=file, session=session)
+        await webapp_profile.upload_webapp_user_photo_by_platform(
+            file=file, session=session, principal=SimpleNamespace(user_row_id=7)
+        )
 
     assert (tmp_path / "7.webp").is_file()
     assert user.photo_path == "user_photos/7.webp"

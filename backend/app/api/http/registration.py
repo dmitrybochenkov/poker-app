@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.security.webapp_auth import (
+  WebAppIdentity,
+  get_webapp_identity,
+  require_admin_principal,
+)
 from app.application.exceptions import (
   UserAlreadyRegisteredError,
   UserIdentityRequiredError,
@@ -23,6 +28,7 @@ router = APIRouter(prefix="/api/registration", tags=["registration"])
 async def request_registration(
   payload: RegistrationRequest,
   session: AsyncSession = Depends(get_db_session),
+  identity: WebAppIdentity = Depends(get_webapp_identity),
 ) -> RegistrationRead:
   repository = UserRepository(session)
   use_case = RequestRegistrationUseCase(repository)
@@ -30,11 +36,11 @@ async def request_registration(
   try:
     user = await use_case.execute(
       name=payload.name,
-      telegram_id=payload.telegram_id,
-      vk_id=payload.vk_id,
+      telegram_id=identity.external_user_id,
+      vk_id=None,
       tel_number=payload.tel_number,
       bank_name=payload.bank_name,
-      notification_platform=payload.notification_platform,
+      notification_platform="tg",
     )
   except UserIdentityRequiredError as error:
     raise HTTPException(
@@ -68,6 +74,7 @@ async def request_registration(
 @router.get("/pending", response_model=list[RegistrationRead])
 async def list_pending_registrations(
   session: AsyncSession = Depends(get_db_session),
+  _principal: WebAppIdentity = Depends(require_admin_principal),
 ) -> list[RegistrationRead]:
   repository = UserRepository(session)
   use_case = ListPendingRegistrationsUseCase(repository)
