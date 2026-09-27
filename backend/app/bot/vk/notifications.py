@@ -1,7 +1,11 @@
+import logging
+
 from app.bot.shared.texts.inline.vk import notifications as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.vk.api import send_vk_message
 from app.db.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 async def notify_admins_about_registration(
@@ -32,8 +36,14 @@ async def notify_admins_about_registration(
   if linked_to_user is not None:
     text = f'{text}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_02_PART_1}{linked_to_user.name}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_02_PART_2}'
   for admin_id in admin_ids:
-    await send_vk_message(
-      user_id=admin_id,
-      message=text,
-      keyboard=keyboard,
-    )
+    try:
+      await send_vk_message(
+        user_id=admin_id,
+        message=text,
+        keyboard=keyboard,
+      )
+    except Exception:
+      logger.exception(
+        "Registration request delivery failed: platform=vk recipient_id=%s",
+        admin_id,
+      )

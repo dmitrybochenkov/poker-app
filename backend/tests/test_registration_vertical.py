@@ -206,6 +206,39 @@ async def test_current_vk_admin_authorization_stops_approval(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_vk_registration_decision_isolates_user_platform_deliveries(
+    registration_db, monkeypatch, caplog
+):
+    async with registration_db() as session:
+        repository = UserRepository(session)
+        await repository.create(
+            name="Admin", vk_id=77, is_approved=True, is_admin=True
+        )
+        pending = await repository.create(
+            name="Pending", telegram_id=101, vk_id=202, is_approved=False
+        )
+        pending_id = int(pending.row_id)
+
+    monkeypatch.setattr(vk_admin_common, "SessionFactory", registration_db)
+    monkeypatch.setattr(
+        vk_admin_common,
+        "send_vk_message",
+        AsyncMock(side_effect=RuntimeError("VK blocked")),
+    )
+    tg_notify = AsyncMock()
+    monkeypatch.setattr(vk_admin_common, "notify_user_about_approval", tg_notify)
+    caplog.set_level("ERROR")
+
+    result = await vk_admin_common._process_vk_approve(
+        admin_user_id=77, row_id=pending_id
+    )
+
+    tg_notify.assert_awaited_once_with(telegram_id=101, approved=True)
+    assert Text.admin.APPROVE_ACTION.value in result
+    assert "registration decision" in caplog.text.lower()
+
+
+@pytest.mark.asyncio
 async def test_current_telegram_submit_notifies_both_admin_platforms_after_creation(monkeypatch):
     user = SimpleNamespace(row_id=42)
     result = SimpleNamespace(

@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 
 from aiogram.types import CallbackQuery, Message
@@ -13,6 +14,7 @@ from app.bot.telegram.keyboards import (
 )
 from app.bot.vk.api import send_vk_message
 from app.bot.vk.keyboards import main_dynamic_keyboard as vk_main_dynamic_keyboard
+from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.poll_config_repository import PollConfigRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
@@ -25,6 +27,8 @@ from .common import (
     _safe_callback_edit_reply_markup,
     _shift_month,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def create_poll_menu(message: Message) -> None:
@@ -87,6 +91,7 @@ async def create_poll_set_month(callback: CallbackQuery) -> None:
         month = _parse_month_key(str(callback.data).split(":", 1)[1])
         await PollConfigRepository(session).set_active_month(month=month)
         approved_users = await UserRepository(session).list_approved()
+        has_active_poker = await PokerRepository(session).get_started() is not None
         await session.commit()
     notify_text = InlineText.CREATE_POLL_SET_MONTH_TEXT_01
     from app.bot.telegram.runtime import telegram_bot
@@ -98,20 +103,34 @@ async def create_poll_set_month(callback: CallbackQuery) -> None:
                     await telegram_bot.send_message(
                         chat_id=int(user.telegram_id),
                         text=notify_text,
-                        reply_markup=await tg_main_dynamic_keyboard(user),
+                        reply_markup=tg_main_dynamic_keyboard(
+                            is_admin=bool(user.is_admin),
+                            has_active_poker=has_active_poker,
+                            has_active_poll=True,
+                        ),
                     )
                 except Exception:
-                    pass
+                    logger.exception(
+                        "Poll invitation delivery failed: platform=tg recipient_id=%s",
+                        user.telegram_id,
+                    )
     for user in approved_users:
         if user.vk_id is not None:
             try:
                 await send_vk_message(
                     user_id=int(user.vk_id),
                     message=notify_text,
-                    keyboard=await vk_main_dynamic_keyboard(user),
+                    keyboard=vk_main_dynamic_keyboard(
+                        is_admin=bool(user.is_admin),
+                        has_active_poker=has_active_poker,
+                        has_active_poll=True,
+                    ),
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "Poll invitation delivery failed: platform=vk recipient_id=%s",
+                    user.vk_id,
+                )
     if callback.message is not None:
         try:
             await callback.message.delete()

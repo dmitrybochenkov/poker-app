@@ -1,3 +1,4 @@
+import logging
 from html import escape
 
 from aiogram.types import InlineKeyboardMarkup
@@ -5,6 +6,8 @@ from aiogram.types import InlineKeyboardMarkup
 from app.bot.shared.texts.inline.telegram import notifications as InlineText
 from app.bot.shared.texts.texts import Text
 from app.db.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 async def notify_admins_about_registration(
@@ -38,12 +41,18 @@ async def notify_admins_about_registration(
   if linked_to_user is not None:
     text = f'{text}{InlineText.NOTIFY_ADMINS_ABOUT_REGISTRATION_TEXT_02_PART_1}{escape(linked_to_user.name)}'
   for chat_id in admin_chat_ids:
-    await telegram_bot.send_message(
-      chat_id=chat_id,
-      text=text,
-      parse_mode="HTML",
-      reply_markup=reply_markup,
-    )
+    try:
+      await telegram_bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="HTML",
+        reply_markup=reply_markup,
+      )
+    except Exception:
+      logger.exception(
+        "Registration request delivery failed: platform=tg recipient_id=%s",
+        chat_id,
+      )
 
 
 async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> None:
@@ -58,8 +67,14 @@ async def notify_user_about_approval(*, telegram_id: int, approved: bool) -> Non
     if approved
     else Text.user.REGISTRATION_NOT_APPROVED.value
   )
-  await telegram_bot.send_message(
-    chat_id=telegram_id,
-    text=text,
-    reply_markup=main_keyboard if approved else None,
-  )
+  try:
+    await telegram_bot.send_message(
+      chat_id=telegram_id,
+      text=text,
+      reply_markup=main_keyboard if approved else None,
+    )
+  except Exception:
+    logger.exception(
+      "Registration decision delivery failed: platform=tg recipient_id=%s",
+      telegram_id,
+    )

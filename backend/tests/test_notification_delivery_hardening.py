@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -8,13 +7,17 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.bot.telegram import notifications as tg_notifications
 from app.bot.telegram import runtime as telegram_runtime
+from app.bot.telegram.handlers.admin import buyins as tg_buyins
 from app.bot.telegram.handlers.admin import player_notification_helpers as tg_player_notifications
 from app.bot.telegram.handlers.admin import polls as tg_polls
 from app.bot.vk import notifications as vk_notifications
 from app.bot.vk.handlers.admin import player_notification_helpers as vk_player_notifications
 from app.bot.vk.handlers.admin import polls as vk_polls
 from app.db.base import Base
+from app.db.models.buyin_data import BuyinData
+from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
+from app.db.models.poker_param import PokerParam
 from app.db.models.poll_config import PollConfig
 from app.db.models.user import User
 
@@ -25,7 +28,14 @@ async def notification_sessions():
     async with engine.begin() as connection:
         await connection.run_sync(
             Base.metadata.create_all,
-            tables=[User.__table__, PokerData.__table__, PollConfig.__table__],
+            tables=[
+                User.__table__,
+                BuyinData.__table__,
+                PokerParam.__table__,
+                Poker.__table__,
+                PokerData.__table__,
+                PollConfig.__table__,
+            ],
         )
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     yield sessions
@@ -52,33 +62,50 @@ async def _seed_fanout_users(sessions):
         )
         session.add_all([cashier, failing_admin, later_admin, player])
         await session.flush()
+        params = PokerParam(
+            buyin_size_chips=200,
+            buyin_size_kopecks=20_000,
+            bb_size_chips=10,
+            max_buyins=3,
+        )
+        session.add(params)
+        await session.flush()
+        poker = Poker(params_id=int(params.row_id), cashier_id=int(cashier.row_id))
+        session.add(poker)
+        await session.flush()
         for user in (cashier, failing_admin, later_admin, player):
             session.add(
                 PokerData(
-                    date=date(2026, 9, 27),
+                    date=poker.date,
                     player_id=int(user.row_id),
                     player_name=user.name,
                 )
             )
         await session.commit()
-        return cashier, failing_admin, later_admin, player
+        return cashier, failing_admin, later_admin, player, poker
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "module", [tg_player_notifications, vk_player_notifications], ids=["tg", "vk"]
 )
+@pytest.mark.parametrize("failed_role", ["cashier", "admin"])
 async def test_buyin_failure_does_not_stop_later_recipients(
-    notification_sessions, monkeypatch, module, caplog
+    notification_sessions, monkeypatch, module, failed_role, caplog
 ):
-    cashier, failing_admin, later_admin, player = await _seed_fanout_users(
+    cashier, failing_admin, later_admin, player, poker = await _seed_fanout_users(
         notification_sessions
     )
     attempted = []
+    failed_telegram_id = (
+        int(cashier.telegram_id)
+        if failed_role == "cashier"
+        else int(failing_admin.telegram_id)
+    )
 
     async def send_tg(*, chat_id, **kwargs):
         attempted.append(("tg", int(chat_id)))
-        if int(chat_id) == int(failing_admin.telegram_id):
+        if int(chat_id) == failed_telegram_id:
             raise RuntimeError("blocked")
 
     async def send_vk(*, user_id, **kwargs):
@@ -94,7 +121,7 @@ async def test_buyin_failure_does_not_stop_later_recipients(
         await module._notify_about_buyin(
             session=session,
             poker=SimpleNamespace(
-                date=date(2026, 9, 27), cashier_id=int(cashier.row_id)
+                date=poker.date, cashier_id=int(cashier.row_id)
             ),
             updated_player=SimpleNamespace(
                 player_id=int(player.row_id), player_name=player.name, buyins=1
@@ -105,7 +132,7 @@ async def test_buyin_failure_does_not_stop_later_recipients(
     assert ("vk", int(later_admin.vk_id)) in attempted
     assert ("tg", int(player.telegram_id)) in attempted
     assert "buyin" in caplog.text.lower()
-    assert str(failing_admin.telegram_id) in caplog.text
+    assert str(failed_telegram_id) in caplog.text
 
 
 @pytest.mark.asyncio
@@ -115,7 +142,9 @@ async def test_buyin_failure_does_not_stop_later_recipients(
 async def test_removed_player_delivery_and_admin_fanout_are_isolated(
     notification_sessions, monkeypatch, module, caplog
 ):
-    _, failing_admin, later_admin, player = await _seed_fanout_users(notification_sessions)
+    _, failing_admin, later_admin, player, poker = await _seed_fanout_users(
+        notification_sessions
+    )
     attempted = []
 
     async def send_tg(*, chat_id, **kwargs):
@@ -141,7 +170,7 @@ async def test_removed_player_delivery_and_admin_fanout_are_isolated(
     async with notification_sessions() as session:
         await module._notify_admins_about_removed_player(
             session=session,
-            poker_date=date(2026, 9, 27),
+            poker_date=poker.date,
             player_name=player.name,
             buyins=1,
         )
@@ -149,6 +178,40 @@ async def test_removed_player_delivery_and_admin_fanout_are_isolated(
     assert ("vk", 904) in attempted
     assert ("vk", int(later_admin.vk_id)) in attempted
     assert "removed" in caplog.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_buyin_actor_acknowledgement_survives_fanout_failure(
+    notification_sessions, monkeypatch
+):
+    cashier, failing_admin, _, player, _ = await _seed_fanout_users(notification_sessions)
+
+    async def send_tg(*, chat_id, **kwargs):
+        if int(chat_id) == int(failing_admin.telegram_id):
+            raise RuntimeError("blocked")
+
+    monkeypatch.setattr(tg_buyins, "SessionFactory", notification_sessions)
+    monkeypatch.setattr(
+        telegram_runtime, "telegram_bot", SimpleNamespace(send_message=send_tg)
+    )
+    monkeypatch.setitem(
+        tg_player_notifications._notify_about_buyin.__globals__,
+        "send_vk_message",
+        AsyncMock(),
+    )
+    callback = SimpleNamespace(
+        id="callback-fanout-failure",
+        data=f"pokerbuyincount:{int(player.row_id)}:1",
+        from_user=SimpleNamespace(id=int(cashier.telegram_id)),
+        message=None,
+        answer=AsyncMock(),
+    )
+
+    await tg_buyins.buyin_count_callback(callback)
+
+    callback.answer.assert_awaited_once_with(
+        tg_buyins.Text.admin.POKER_BUYIN_SAVED.value
+    )
 
 
 @pytest.mark.asyncio

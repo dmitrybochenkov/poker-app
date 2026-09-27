@@ -1,3 +1,5 @@
+import logging
+
 from app.bot.shared.texts.inline.telegram.admin import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import main_admin_entry_keyboard, main_keyboard
@@ -10,6 +12,33 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
 
 from .poker_helpers import _build_user_chips_text
+
+logger = logging.getLogger(__name__)
+
+
+async def _send_preferred_notification(*, user, text: str, flow: str) -> None:
+    from app.bot.telegram.runtime import telegram_bot
+
+    if user.notification_platform == "tg" and user.telegram_id is not None:
+        if telegram_bot is None:
+            return
+        try:
+            await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
+        except Exception:
+            logger.exception(
+                "%s delivery failed: platform=tg recipient_id=%s",
+                flow,
+                user.telegram_id,
+            )
+    elif user.notification_platform == "vk" and user.vk_id is not None:
+        try:
+            await send_vk_message(user_id=user.vk_id, message=text)
+        except Exception:
+            logger.exception(
+                "%s delivery failed: platform=vk recipient_id=%s",
+                flow,
+                user.vk_id,
+            )
 
 async def _notify_players_about_finish(*, players: list) -> None:
     from app.bot.telegram.runtime import telegram_bot
@@ -55,8 +84,6 @@ async def _notify_about_buyin(
     buyins_count: int,
     notify_admins: bool = True,
 ) -> None:
-    from app.bot.telegram.runtime import telegram_bot
-
     user_repository = UserRepository(session)
     cashier = None
     if poker.cashier_id is not None:
@@ -66,14 +93,7 @@ async def _notify_about_buyin(
         f'{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_1}{updated_player.player_name}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_2}{buyins_count}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_3}{updated_player.buyins}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_01_PART_4}'
     )
     if cashier is not None:
-        if (
-            cashier.notification_platform == "tg"
-            and cashier.telegram_id is not None
-            and telegram_bot is not None
-        ):
-            await telegram_bot.send_message(chat_id=cashier.telegram_id, text=text)
-        elif cashier.notification_platform == "vk" and cashier.vk_id is not None:
-            await send_vk_message(user_id=cashier.vk_id, message=text)
+        await _send_preferred_notification(user=cashier, text=text, flow="Buyin cashier")
 
     if notify_admins:
         recipients: dict[int, object] = {}
@@ -86,32 +106,18 @@ async def _notify_about_buyin(
         if cashier is not None:
             recipients.pop(int(cashier.row_id), None)
         for user in recipients.values():
-            if (
-                user.notification_platform == "tg"
-                and user.telegram_id is not None
-                and telegram_bot is not None
-            ):
-                await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
-            elif user.notification_platform == "vk" and user.vk_id is not None:
-                await send_vk_message(user_id=user.vk_id, message=text)
+            await _send_preferred_notification(user=user, text=text, flow="Buyin admin")
 
     player_user = await user_repository.get_by_row_id(int(updated_player.player_id))
     if player_user is not None and player_user.notification_platform is not None:
         player_text = f'{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_02_PART_1}{buyins_count}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_02_PART_2}{updated_player.buyins}{InlineText.NOTIFY_ABOUT_BUYIN_TEXT_02_PART_3}'
-        if (
-            player_user.notification_platform == "tg"
-            and player_user.telegram_id is not None
-            and telegram_bot is not None
-        ):
-            await telegram_bot.send_message(chat_id=player_user.telegram_id, text=player_text)
-        elif player_user.notification_platform == "vk" and player_user.vk_id is not None:
-            await send_vk_message(user_id=player_user.vk_id, message=player_text)
+        await _send_preferred_notification(
+            user=player_user, text=player_text, flow="Buyin player"
+        )
 
 async def _notify_admins_about_removed_player(
     *, session, poker_date, player_name: str, buyins: int
 ) -> None:
-    from app.bot.telegram.runtime import telegram_bot
-
     user_repository = UserRepository(session)
     players = await PokerDataRepository(session).list_players(date=poker_date)
     player_row_ids = {int(p.player_id) for p in players}
@@ -122,30 +128,35 @@ async def _notify_admins_about_removed_player(
     ]
     text = f'{InlineText.NOTIFY_ADMINS_ABOUT_REMOVED_PLAYER_TEXT_01_PART_1}{player_name}{InlineText.NOTIFY_ADMINS_ABOUT_REMOVED_PLAYER_TEXT_01_PART_2}{int(buyins)}'
     for user in admins:
-        if (
-            user.notification_platform == "tg"
-            and user.telegram_id is not None
-            and telegram_bot is not None
-        ):
-            await telegram_bot.send_message(chat_id=user.telegram_id, text=text)
-        elif user.notification_platform == "vk" and user.vk_id is not None:
-            await send_vk_message(user_id=user.vk_id, message=text)
+        await _send_preferred_notification(user=user, text=text, flow="Removed player admin")
 
 async def _notify_user_removed_from_room(*, user) -> None:
     from app.bot.telegram.runtime import telegram_bot
 
     if user.telegram_id is not None and telegram_bot is not None:
-        await telegram_bot.send_message(
-            chat_id=user.telegram_id,
-            text=Text.user.ROOM_REMOVED_BY_ADMIN.value,
-            reply_markup=main_admin_entry_keyboard if user.is_admin else main_keyboard,
-        )
+        try:
+            await telegram_bot.send_message(
+                chat_id=user.telegram_id,
+                text=Text.user.ROOM_REMOVED_BY_ADMIN.value,
+                reply_markup=main_admin_entry_keyboard if user.is_admin else main_keyboard,
+            )
+        except Exception:
+            logger.exception(
+                "Removed player delivery failed: platform=tg recipient_id=%s",
+                user.telegram_id,
+            )
     if user.vk_id is not None:
-        await send_vk_message(
-            user_id=user.vk_id,
-            message=Text.user.ROOM_REMOVED_BY_ADMIN.value,
-            keyboard=vk_main_keyboard if not user.is_admin else vk_main_keyboard,
-        )
+        try:
+            await send_vk_message(
+                user_id=user.vk_id,
+                message=Text.user.ROOM_REMOVED_BY_ADMIN.value,
+                keyboard=vk_main_keyboard if not user.is_admin else vk_main_keyboard,
+            )
+        except Exception:
+            logger.exception(
+                "Removed player delivery failed: platform=vk recipient_id=%s",
+                user.vk_id,
+            )
 
 async def _notify_user_unbanned_for_room(*, user) -> None:
     from app.bot.telegram.runtime import telegram_bot

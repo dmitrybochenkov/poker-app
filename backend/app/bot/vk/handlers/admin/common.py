@@ -28,13 +28,26 @@ from app.bot.vk.keyboards import (
 )
 from app.db.session import SessionFactory
 
-
 VK_BUYIN_NOTIFY_CASHIER_ONLY: set[tuple[int, int]] = set()
 VK_MANUAL_RECEIPT_SELECTIONS: dict[tuple[int, int], set[int]] = {}
 logger = logging.getLogger(__name__)
 
 
 HANDLER_UNMATCHED = object()
+
+
+async def _notify_vk_registration_decision(*, user_id: int, message: str) -> None:
+    try:
+        await send_vk_message(
+            user_id=user_id,
+            message=message,
+            keyboard=main_keyboard,
+        )
+    except Exception:
+        logger.exception(
+            "Registration decision delivery failed: platform=vk recipient_id=%s",
+            user_id,
+        )
 
 
 def _shift_month(value: date, delta: int) -> date:
@@ -119,10 +132,9 @@ async def _process_vk_approve(*, admin_user_id: int, row_id: int) -> str:
             return Text.admin.REQUEST_NOT_FOUND.value
 
     if approved_user.vk_id is not None:
-        await send_vk_message(
+        await _notify_vk_registration_decision(
             user_id=approved_user.vk_id,
             message=Text.user.REGISTRATION_APPROVED.value,
-            keyboard=main_keyboard,
         )
     if approved_user.telegram_id is not None:
         await notify_user_about_approval(telegram_id=approved_user.telegram_id, approved=True)
@@ -155,10 +167,9 @@ async def _process_vk_reject(*, admin_user_id: int, row_id: int) -> str:
     pending_telegram_id = pending_user.telegram_id
 
     if pending_vk_id is not None:
-        await send_vk_message(
+        await _notify_vk_registration_decision(
             user_id=pending_vk_id,
             message=Text.user.REGISTRATION_NOT_APPROVED.value,
-            keyboard=main_keyboard,
         )
     if pending_telegram_id is not None:
         await notify_user_about_approval(telegram_id=pending_telegram_id, approved=False)
@@ -195,10 +206,9 @@ async def _process_vk_correct(
             return Text.admin.REQUEST_ALREADY_APPROVED.value
 
     if corrected_user.vk_id is not None:
-        await send_vk_message(
+        await _notify_vk_registration_decision(
             user_id=corrected_user.vk_id,
             message=Text.user.REGISTRATION_APPROVED.value,
-            keyboard=main_keyboard,
         )
     if corrected_user.telegram_id is not None:
         await notify_user_about_approval(telegram_id=corrected_user.telegram_id, approved=True)
@@ -235,10 +245,9 @@ async def _process_vk_link(
             return Text.admin.LINK_CONFLICT.value
 
     if linked_user.vk_id is not None:
-        await send_vk_message(
+        await _notify_vk_registration_decision(
             user_id=linked_user.vk_id,
             message=Text.user.REGISTRATION_APPROVED.value,
-            keyboard=main_keyboard,
         )
     if linked_user.telegram_id is not None:
         await notify_user_about_approval(telegram_id=linked_user.telegram_id, approved=True)
