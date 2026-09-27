@@ -68,25 +68,6 @@ class PokerDataRepository:
     )
     return list(result.scalars().all())
 
-  async def add_buyins(
-    self,
-    *,
-    date,
-    player_id: int,
-    buyins_count: int,
-    big_buyin_count: int = 0,
-    super_buyin_count: int = 0,
-  ) -> PokerData | None:
-    item = await self.get_player(date=date, player_id=player_id)
-    if item is None:
-      return None
-    item.buyins = int(item.buyins) + int(buyins_count)
-    item.big_buyin_count = int(item.big_buyin_count) + int(big_buyin_count)
-    item.super_buyin_count = int(item.super_buyin_count) + int(super_buyin_count)
-    await self.session.commit()
-    await self.session.refresh(item)
-    return item
-
   async def add_buyins_without_commit(
     self,
     *,
@@ -105,14 +86,6 @@ class PokerDataRepository:
     await self.session.flush()
     return item
 
-  async def remove_player(self, *, date, player_id: int) -> bool:
-    item = await self.get_player(date=date, player_id=player_id)
-    if item is None:
-      return False
-    await self.session.delete(item)
-    await self.session.commit()
-    return True
-
   async def remove_player_without_commit(self, *, date, player_id: int) -> bool:
     item = await self.get_player(date=date, player_id=player_id)
     if item is None:
@@ -120,15 +93,6 @@ class PokerDataRepository:
     await self.session.delete(item)
     await self.session.flush()
     return True
-
-  async def set_cashout(self, *, date, player_id: int, money_kopecks: int) -> PokerData | None:
-    item = await self.get_player(date=date, player_id=player_id)
-    if item is None:
-      return None
-    item.money_kopecks = int(money_kopecks)
-    await self.session.commit()
-    await self.session.refresh(item)
-    return item
 
   async def set_cashout_without_commit(
     self, *, date, player_id: int, money_kopecks: int
@@ -138,15 +102,6 @@ class PokerDataRepository:
       return None
     item.money_kopecks = int(money_kopecks)
     await self.session.flush()
-    return item
-
-  async def set_chips(self, *, date, player_id: int, chips: int) -> PokerData | None:
-    item = await self.get_player(date=date, player_id=player_id)
-    if item is None:
-      return None
-    item.chips = int(chips)
-    await self.session.commit()
-    await self.session.refresh(item)
     return item
 
   async def set_chips_and_cashout_without_commit(

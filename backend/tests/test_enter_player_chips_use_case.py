@@ -170,5 +170,3 @@ def test_chip_entry_transport_uses_atomic_operation(handler, operation_count):
     source = inspect.getsource(handler)
 
     assert source.count("EnterPlayerChipsUseCase") == operation_count
-    assert ".set_chips(" not in source
-    assert ".set_cashout(" not in source

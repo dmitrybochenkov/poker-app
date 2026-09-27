@@ -55,13 +55,6 @@ class PokerRoomDeniedRepository:
     )
     return list(result.scalars().all())
 
-  async def clear_all(self) -> None:
-    result = await self.session.execute(select(PokerRoomDenied))
-    items = list(result.scalars().all())
-    for item in items:
-      await self.session.delete(item)
-    await self.session.commit()
-
   async def clear_all_without_commit(self) -> None:
     await self.session.execute(delete(PokerRoomDenied))
     await self.session.flush()

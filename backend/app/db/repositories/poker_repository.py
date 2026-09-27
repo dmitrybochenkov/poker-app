@@ -9,13 +9,6 @@ class PokerRepository:
   def __init__(self, session: AsyncSession) -> None:
     self.session = session
 
-  async def create(self, *, params_id: int) -> Poker:
-    poker = Poker(params_id=params_id)
-    self.session.add(poker)
-    await self.session.commit()
-    await self.session.refresh(poker)
-    return poker
-
   async def create_if_none_started(self, *, params_id: int) -> Poker | None:
     active_exists = select(Poker.row_id).where(Poker.is_going.is_(True)).exists()
     statement = (
@@ -40,15 +33,6 @@ class PokerRepository:
       .order_by(Poker.row_id.desc())
     )
     return result.first()
-
-  async def finish(self, poker: Poker) -> Poker:
-    # Move poker to chips-entry stage and close room/betting access.
-    poker.is_going = False
-    poker.is_bettable = False
-    poker.is_ready_for_chips_entering = True
-    await self.session.commit()
-    await self.session.refresh(poker)
-    return poker
 
   async def mark_finished_for_chips(self, *, poker_id: int) -> bool:
     result = await self.session.execute(
@@ -87,15 +71,6 @@ class PokerRepository:
     await self.session.refresh(poker)
     return poker
 
-  async def finish_chips_entering(self, poker: Poker, *, winners: str, loosers: str) -> Poker:
-    poker.is_going = False
-    poker.is_ready_for_chips_entering = False
-    poker.winners = winners
-    poker.loosers = loosers
-    await self.session.commit()
-    await self.session.refresh(poker)
-    return poker
-
   async def finish_chips_entering_without_commit(
     self, *, poker_id: int, winners: str, loosers: str
   ) -> bool:
@@ -112,12 +87,6 @@ class PokerRepository:
     )
     await self.session.flush()
     return result.rowcount == 1
-
-  async def start_betting(self, poker: Poker) -> Poker:
-    poker.is_bettable = True
-    await self.session.commit()
-    await self.session.refresh(poker)
-    return poker
 
   async def mark_betting_started(self, *, poker_id: int) -> bool:
     result = await self.session.execute(

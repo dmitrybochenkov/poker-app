@@ -113,20 +113,21 @@ async def test_current_buyin_correction_changes_total_only_without_history(buyin
     _, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
         repository = PokerDataRepository(session)
-        await repository.add_buyins(
+        await repository.add_buyins_without_commit(
             date=poker_date,
             player_id=player_id,
             buyins_count=10,
             big_buyin_count=1,
             super_buyin_count=1,
         )
-        corrected = await repository.add_buyins(
+        corrected = await repository.add_buyins_without_commit(
             date=poker_date,
             player_id=player_id,
             buyins_count=-7,
             big_buyin_count=0,
             super_buyin_count=0,
         )
+        await session.commit()
     assert corrected is not None
     assert (corrected.buyins, corrected.big_buyin_count, corrected.super_buyin_count) == (3, 1, 1)
     async with buyin_sessions() as session:
@@ -212,13 +213,14 @@ async def test_add_buyin_rolls_back_player_when_history_write_fails(
 async def test_correct_buyin_preserves_special_counts_and_writes_no_history(buyin_sessions):
     admin_id, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
-        await PokerDataRepository(session).add_buyins(
+        await PokerDataRepository(session).add_buyins_without_commit(
             date=poker_date,
             player_id=player_id,
             buyins_count=10,
             big_buyin_count=1,
             super_buyin_count=1,
         )
+        await session.commit()
     async with buyin_sessions() as session:
         result = await CorrectBuyinUseCase(session).execute(
             actor_user_id=admin_id, target_user_id=player_id, total_buyins=3
@@ -256,7 +258,6 @@ async def test_special_buyin_validation_and_counters_are_preserved(buyin_session
 def test_tg_vk_add_buyin_handlers_use_shared_atomic_operation(handler):
     source = inspect.getsource(handler)
     assert "AddBuyinUseCase" in source
-    assert ".add_buyins(" not in source
 
 
 @pytest.mark.parametrize(
@@ -269,7 +270,6 @@ def test_tg_vk_add_buyin_handlers_use_shared_atomic_operation(handler):
 def test_tg_vk_correction_handlers_use_shared_atomic_operation(handler):
     source = inspect.getsource(handler)
     assert "CorrectBuyinUseCase" in source
-    assert ".add_buyins(" not in source
 
 
 @pytest.mark.asyncio
