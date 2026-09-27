@@ -48,6 +48,14 @@ class PokerRoomDeniedRepository:
     await self.session.commit()
     return True
 
+  async def remove_without_commit(self, *, user_row_id: int) -> bool:
+    item = await self.get(user_row_id=user_row_id)
+    if item is None:
+      return False
+    await self.session.delete(item)
+    await self.session.flush()
+    return True
+
   async def list_all(self) -> list[PokerRoomDenied]:
     result = await self.session.execute(
       select(PokerRoomDenied)

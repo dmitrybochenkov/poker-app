@@ -18,6 +18,10 @@ POKER_CASHIER_CHOOSE = "Выбери кассира:"
 
 POKER_CASHIER_SET = "Кассир назначен."
 
+POKER_CASHIER_NOT_PARTICIPANT = (
+    "Выбранный игрок больше не участвует в текущей игре. Выбери кассира снова."
+)
+
 POKER_ADD_PLAYER_CHOOSE = "Выбери игрока для добавления в активный покер:"
 
 POKER_ADD_PLAYER_EMPTY = "Нет доступных игроков для добавления."

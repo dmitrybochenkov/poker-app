@@ -2,7 +2,10 @@ from types import SimpleNamespace
 
 from fastapi.responses import PlainTextResponse
 
-from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.manage_players import (
+    CashierCandidateNotParticipantError,
+    ManagePokerPlayersUseCase,
+)
 from app.application.use_cases.poker.enter_player_chips import EnterPlayerChipsUseCase
 from app.bot.shared.buttons.buttons import Buttons
 from app.bot.shared.chips_runtime import (
@@ -68,16 +71,24 @@ async def handle_poker_set_cashier_select_event(
                     poker_repository=PokerRepository(session),
                     poker_data_repository=PokerDataRepository(session),
                 )
-                updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
-                if updated is None:
-                    result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
-                else:
-                    cashier_user = await user_repository.get_by_row_id(user_row_id)
-                    cashier_name = (
-                        cashier_user.name if cashier_user is not None else f"ID {user_row_id}"
+                try:
+                    updated = await use_case.set_cashier_for_active_poker(
+                        cashier_id=user_row_id
                     )
-                    result_text = f'{cashier_name}{InlineText.EVENT_0_17_TEXT_01_PART_1}'
-                    await _refresh_admin_room_status(session=session)
+                except CashierCandidateNotParticipantError:
+                    result_text = Text.admin.POKER_CASHIER_NOT_PARTICIPANT.value
+                else:
+                    if updated is None:
+                        result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+                    else:
+                        cashier_user = await user_repository.get_by_row_id(user_row_id)
+                        cashier_name = (
+                            cashier_user.name
+                            if cashier_user is not None
+                            else f"ID {user_row_id}"
+                        )
+                        result_text = f'{cashier_name}{InlineText.EVENT_0_17_TEXT_01_PART_1}'
+                        await _refresh_admin_room_status(session=session)
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,
@@ -124,20 +135,24 @@ async def handle_poker_room_set_cashier_select_event(
                             poker_data_repository=PokerDataRepository(session),
                             buyin_data_repository=BuyinDataRepository(session),
                         )
-                        updated = await use_case.set_cashier_for_active_poker(
-                            cashier_id=user_row_id
-                        )
-                        if updated is None:
-                            result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
-                        else:
-                            cashier_user = await user_repository.get_by_row_id(user_row_id)
-                            cashier_name = (
-                                cashier_user.name
-                                if cashier_user is not None
-                                else f"ID {user_row_id}"
+                        try:
+                            updated = await use_case.set_cashier_for_active_poker(
+                                cashier_id=user_row_id
                             )
-                            result_text = f'{cashier_name}{InlineText.EVENT_0_18_TEXT_02_PART_1}'
-                            await _refresh_admin_room_status(session=session)
+                        except CashierCandidateNotParticipantError:
+                            result_text = Text.admin.POKER_CASHIER_NOT_PARTICIPANT.value
+                        else:
+                            if updated is None:
+                                result_text = Text.admin.POKER_ACTIVE_NOT_FOUND.value
+                            else:
+                                cashier_user = await user_repository.get_by_row_id(user_row_id)
+                                cashier_name = (
+                                    cashier_user.name
+                                    if cashier_user is not None
+                                    else f"ID {user_row_id}"
+                                )
+                                result_text = f'{cashier_name}{InlineText.EVENT_0_18_TEXT_02_PART_1}'
+                                await _refresh_admin_room_status(session=session)
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,

@@ -5,6 +5,10 @@ from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 
 
+class CashierCandidateNotParticipantError(Exception):
+  pass
+
+
 class ManagePokerPlayersUseCase:
   def __init__(
     self,
@@ -41,6 +45,40 @@ class ManagePokerPlayersUseCase:
       is_prev_winner=is_prev_winner,
     )
 
+  async def add_player_to_active_poker_and_allow(
+    self,
+    *,
+    player_id: int,
+    player_name: str,
+    is_prev_winner: bool = False,
+  ):
+    session = self.poker_repository.session
+    try:
+      active = await self.poker_repository.get_started()
+      if active is None:
+        return None
+      poker, _ = active
+      participant = await self.poker_data_repository.get_player(
+        date=poker.date,
+        player_id=player_id,
+      )
+      if participant is None:
+        participant = await self.poker_data_repository.add_player_without_commit(
+          date=poker.date,
+          player_id=player_id,
+          player_name=player_name,
+          is_prev_winner=is_prev_winner,
+        )
+      if self.poker_room_denied_repository is not None:
+        await self.poker_room_denied_repository.remove_without_commit(
+          user_row_id=player_id,
+        )
+      await session.commit()
+      return participant
+    except Exception:
+      await session.rollback()
+      raise
+
   async def list_active_poker_players(self):
     active = await self.poker_repository.get_started()
     if active is None:
@@ -49,11 +87,27 @@ class ManagePokerPlayersUseCase:
     return await self.poker_data_repository.list_players(date=poker.date)
 
   async def set_cashier_for_active_poker(self, *, cashier_id: int):
-    active = await self.poker_repository.get_started()
-    if active is None:
-      return None
-    poker, _ = active
-    return await self.poker_repository.set_cashier(poker, cashier_id=cashier_id)
+    session = self.poker_repository.session
+    try:
+      active = await self.poker_repository.get_started()
+      if active is None:
+        return None
+      poker, _ = active
+      participant = await self.poker_data_repository.get_player(
+        date=poker.date,
+        player_id=cashier_id,
+      )
+      if participant is None:
+        raise CashierCandidateNotParticipantError
+      updated = await self.poker_repository.set_cashier_without_commit(
+        poker,
+        cashier_id=cashier_id,
+      )
+      await session.commit()
+      return updated
+    except Exception:
+      await session.rollback()
+      raise
 
   async def remove_player_from_active_poker(self, *, player_id: int) -> bool | None:
     session = self.poker_repository.session

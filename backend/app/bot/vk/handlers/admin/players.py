@@ -70,8 +70,9 @@ async def handle_poker_add_player_select_event(
                     use_case = ManagePokerPlayersUseCase(
                         poker_repository=PokerRepository(session),
                         poker_data_repository=PokerDataRepository(session),
+                        poker_room_denied_repository=PokerRoomDeniedRepository(session),
                     )
-                    created = await use_case.add_player_to_active_poker(
+                    created = await use_case.add_player_to_active_poker_and_allow(
                         player_id=int(user.row_id),
                         player_name=user.name,
                     )
@@ -108,7 +109,6 @@ async def handle_poker_add_player_select_event(
                             current_big_buyin_count=current_big_buyin_count,
                             current_super_buyin_count=current_super_buyin_count,
                         )
-                        await use_case.remove_denied_for_active_poker(user_row_id=int(user.row_id))
         await send_vk_message_event_answer(
             event_id=event_id,
             user_id=admin_user_id,
@@ -254,11 +254,10 @@ async def handle_poker_room_approve_select_event(
                         poker_data_repository=PokerDataRepository(session),
                         poker_room_denied_repository=PokerRoomDeniedRepository(session),
                     )
-                    created = await use_case.add_player_to_active_poker(
+                    created = await use_case.add_player_to_active_poker_and_allow(
                         player_id=int(user.row_id),
                         player_name=user.name,
                     )
-                    await use_case.remove_denied_for_active_poker(user_row_id=int(user.row_id))
                     result_text = (
                         InlineText.EVENT_0_13_TEXT_01
                         if created is not None
@@ -498,11 +497,10 @@ async def handle_admin_new_player_name_text(*, user_id, text):
             created_user.telegram_id = -int(created_user.row_id)
             created_user.notification_platform = None
             await session.commit()
-            created = await use_case.add_player_to_active_poker(
+            created = await use_case.add_player_to_active_poker_and_allow(
                 player_id=int(created_user.row_id),
                 player_name=created_user.name,
             )
-            await use_case.remove_denied_for_active_poker(user_row_id=int(created_user.row_id))
             if created is None:
                 vk_user_states.pop(user_id, None)
                 vk_user_contexts.pop(user_id, None)

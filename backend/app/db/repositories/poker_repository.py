@@ -65,10 +65,9 @@ class PokerRepository:
     )
     return result.first()
 
-  async def set_cashier(self, poker: Poker, *, cashier_id: int) -> Poker:
+  async def set_cashier_without_commit(self, poker: Poker, *, cashier_id: int) -> Poker:
     poker.cashier_id = cashier_id
-    await self.session.commit()
-    await self.session.refresh(poker)
+    await self.session.flush()
     return poker
 
   async def finish_chips_entering_without_commit(

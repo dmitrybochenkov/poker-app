@@ -88,11 +88,10 @@ async def poker_room_approve_callback(callback: CallbackQuery) -> None:
             poker_data_repository=PokerDataRepository(session),
             poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
-        created = await use_case.add_player_to_active_poker(
+        created = await use_case.add_player_to_active_poker_and_allow(
             player_id=int(candidate.row_id),
             player_name=candidate.name,
         )
-        await use_case.remove_denied_for_active_poker(user_row_id=int(candidate.row_id))
         if created is None:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
@@ -191,12 +190,12 @@ async def add_player_callback(callback: CallbackQuery) -> None:
         use_case = ManagePokerPlayersUseCase(
             poker_repository=PokerRepository(session),
             poker_data_repository=PokerDataRepository(session),
+            poker_room_denied_repository=PokerRoomDeniedRepository(session),
         )
-        created = await use_case.add_player_to_active_poker(
+        created = await use_case.add_player_to_active_poker_and_allow(
             player_id=int(user.row_id),
             player_name=user.name,
         )
-        await use_case.remove_denied_for_active_poker(user_row_id=int(user.row_id))
         if created is None:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
@@ -291,11 +290,10 @@ async def add_new_player_name_input(message: Message, state: FSMContext) -> None
         created_user.telegram_id = -int(created_user.row_id)
         created_user.notification_platform = None
         await session.commit()
-        created = await use_case.add_player_to_active_poker(
+        created = await use_case.add_player_to_active_poker_and_allow(
             player_id=int(created_user.row_id),
             player_name=created_user.name,
         )
-        await use_case.remove_denied_for_active_poker(user_row_id=int(created_user.row_id))
         if created is None:
             await message.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value)
             await state.clear()

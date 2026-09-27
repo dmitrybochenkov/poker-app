@@ -2,7 +2,10 @@ from types import SimpleNamespace
 
 from aiogram.types import CallbackQuery, Message
 
-from app.application.use_cases.poker.manage_players import ManagePokerPlayersUseCase
+from app.application.use_cases.poker.manage_players import (
+    CashierCandidateNotParticipantError,
+    ManagePokerPlayersUseCase,
+)
 from app.bot.shared.texts.inline.telegram.admin import poker as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
@@ -103,7 +106,14 @@ async def set_cashier_callback(callback: CallbackQuery) -> None:
             poker_data_repository=PokerDataRepository(session),
             buyin_data_repository=BuyinDataRepository(session),
         )
-        updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
+        try:
+            updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
+        except CashierCandidateNotParticipantError:
+            await callback.answer(
+                Text.admin.POKER_CASHIER_NOT_PARTICIPANT.value,
+                show_alert=True,
+            )
+            return
         if updated is None:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
@@ -143,7 +153,14 @@ async def set_cashier_from_room_callback(callback: CallbackQuery) -> None:
             poker_data_repository=PokerDataRepository(session),
             buyin_data_repository=BuyinDataRepository(session),
         )
-        updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
+        try:
+            updated = await use_case.set_cashier_for_active_poker(cashier_id=user_row_id)
+        except CashierCandidateNotParticipantError:
+            await callback.answer(
+                Text.admin.POKER_CASHIER_NOT_PARTICIPANT.value,
+                show_alert=True,
+            )
+            return
         if updated is None:
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
