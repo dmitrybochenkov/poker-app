@@ -2,11 +2,6 @@ import { getTelegramWebApp, initTelegramWebApp } from "./telegram";
 
 export type WebAppPlatform = "telegram" | "vk" | "web";
 
-export type PlatformBootstrap = {
-  platform: WebAppPlatform;
-  userId: number | null;
-};
-
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
@@ -56,21 +51,6 @@ export function detectPlatform(): WebAppPlatform {
   return "web";
 }
 
-export function getCurrentPlatformUserId(): number | null {
-  const tgUserId = Number((getTelegramWebApp()?.initDataUnsafe?.user as { id?: number } | undefined)?.id);
-  if (Number.isFinite(tgUserId)) {
-    return tgUserId;
-  }
-  return readVkUserIdFromQuery();
-}
-
-export function getPlatformBootstrap(): PlatformBootstrap {
-  return {
-    platform: detectPlatform(),
-    userId: getCurrentPlatformUserId(),
-  };
-}
-
 export function initPlatformWebApp(): void {
   const platform = detectPlatform();
   if (platform === "telegram") {
@@ -87,24 +67,34 @@ export function initPlatformWebApp(): void {
   }
 }
 
-export function buildBootstrapUrl(platform: WebAppPlatform, userId: number): string {
-  return buildApiUrl(`/api/webapp/bootstrap/${platform}/${userId}`);
+export function authenticatedFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const platform = detectPlatform();
+  const headers = new Headers(init.headers);
+  headers.set("X-WebApp-Platform", platform);
+  if (platform === "telegram") {
+    headers.set("X-Telegram-Init-Data", getTelegramWebApp()?.initData ?? "");
+  }
+  return fetch(input, { ...init, headers });
+}
+
+export function buildBootstrapUrl(): string {
+  return buildApiUrl("/api/webapp/me/bootstrap");
 }
 
 export function buildPlayersUrl(): string {
   return buildApiUrl("/api/webapp/players");
 }
 
-export function buildPhotoUploadUrl(platform: WebAppPlatform, userId: number): string {
-  return buildApiUrl(`/api/webapp/users/${platform}/${userId}/photo`);
+export function buildPhotoUploadUrl(): string {
+  return buildApiUrl("/api/webapp/me/photo");
 }
 
-export function buildPhoneUpdateUrl(platform: WebAppPlatform, userId: number): string {
-  return buildApiUrl(`/api/webapp/users/${platform}/${userId}/phone`);
+export function buildPhoneUpdateUrl(): string {
+  return buildApiUrl("/api/webapp/me/phone");
 }
 
-export function buildBankUpdateUrl(platform: WebAppPlatform, userId: number): string {
-  return buildApiUrl(`/api/webapp/users/${platform}/${userId}/bank`);
+export function buildBankUpdateUrl(): string {
+  return buildApiUrl("/api/webapp/me/bank");
 }
 
 export function buildInfoContentUrl(section: "poker" | "bets", topic: "rules" | "achievements" | "metrics" | "root"): string {

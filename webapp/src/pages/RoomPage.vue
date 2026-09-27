@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { buildBootstrapUrl, getPlatformBootstrap } from "../services/platform";
+import { authenticatedFetch, buildBootstrapUrl } from "../services/platform";
 
 interface BootstrapState {
   has_active_poker: boolean;
@@ -20,13 +20,7 @@ const state = ref<BootstrapState | null>(null);
 
 onMounted(async () => {
   try {
-    const { platform, userId } = getPlatformBootstrap();
-    if (userId === null || !Number.isFinite(userId)) {
-      state.value = { has_active_poker: false };
-      return;
-    }
-    const safeUserId = userId;
-    const res = await fetch(buildBootstrapUrl(platform, safeUserId));
+    const res = await authenticatedFetch(buildBootstrapUrl());
     if (res.ok) {
       state.value = (await res.json()) as BootstrapState;
       return;

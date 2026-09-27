@@ -16,17 +16,14 @@
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import AdminConsoleBackground from "../components/AdminConsoleBackground.vue";
-import { buildBootstrapUrl, getPlatformBootstrap } from "../services/platform";
+import { authenticatedFetch, buildBootstrapUrl } from "../services/platform";
 
 const loading = ref(true);
 const isAdmin = ref(false);
 
 onMounted(async () => {
   try {
-    const { platform, userId } = getPlatformBootstrap();
-    if (userId === null || !Number.isFinite(userId)) return;
-    const safeUserId = userId;
-    const res = await fetch(buildBootstrapUrl(platform, safeUserId));
+    const res = await authenticatedFetch(buildBootstrapUrl());
     if (!res.ok) return;
     const data = (await res.json()) as { is_admin?: boolean };
     isAdmin.value = Boolean(data.is_admin);

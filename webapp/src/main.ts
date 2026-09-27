@@ -2,7 +2,7 @@ import { createApp } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 import App from "./App.vue";
 import "./styles.css";
-import { buildBootstrapUrl, getPlatformBootstrap, initPlatformWebApp } from "./services/platform";
+import { authenticatedFetch, buildBootstrapUrl, initPlatformWebApp } from "./services/platform";
 import HomePage from "./pages/HomePage.vue";
 import PokerPage from "./pages/PokerPage.vue";
 import BetsPage from "./pages/BetsPage.vue";
@@ -141,12 +141,8 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.path === "/" || to.path === "/approval-required") return true;
 
-  const { platform, userId } = getPlatformBootstrap();
-  if (userId === null || !Number.isFinite(userId)) return "/approval-required";
-  const safeUserId = userId;
-
   try {
-    const res = await fetch(buildBootstrapUrl(platform, safeUserId));
+    const res = await authenticatedFetch(buildBootstrapUrl());
     if (!res.ok) return "/approval-required";
     const data = (await res.json()) as { is_approved?: boolean };
     if (!data.is_approved) return "/approval-required";

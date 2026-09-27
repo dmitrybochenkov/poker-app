@@ -154,7 +154,7 @@ import {
   buildPlayersUrl,
   buildPhotoUploadUrl,
   buildPhoneUpdateUrl,
-  getPlatformBootstrap,
+  authenticatedFetch,
 } from "../services/platform";
 
 type PlayerCardApi = {
@@ -275,16 +275,12 @@ function profitClass(amount: number): string {
   return "is-neutral";
 }
 
-function currentPlatformUserId(): number | null {
-  return getPlatformBootstrap().userId;
-}
-
 function isOwnCard(player: PlayerCard): boolean {
   return currentUserRowId.value === player.player_id;
 }
 
 function triggerPhotoPicker(): void {
-  if (!currentPlatformUserId() || uploadingPhoto.value) return;
+  if (currentUserRowId.value === null || uploadingPhoto.value) return;
   photoInput.value?.click();
 }
 
@@ -326,16 +322,14 @@ async function copyPhone(phone: string | null): Promise<void> {
 }
 
 async function loadBootstrap(): Promise<void> {
-  const { platform, userId } = getPlatformBootstrap();
-  if (!userId) return;
-  const res = await fetch(buildBootstrapUrl(platform, userId));
+  const res = await authenticatedFetch(buildBootstrapUrl());
   if (!res.ok) return;
   const data = (await res.json()) as WebAppBootstrap;
   currentUserRowId.value = data.user_row_id ?? null;
 }
 
 async function loadPlayers(): Promise<void> {
-  const res = await fetch(buildPlayersUrl());
+  const res = await authenticatedFetch(buildPlayersUrl());
   if (!res.ok) return;
   const data = (await res.json()) as PlayerCardApi[];
   players.value = data.map((item) => ({
@@ -355,15 +349,14 @@ async function loadPlayers(): Promise<void> {
 async function handlePhotoSelected(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
-  const { platform, userId } = getPlatformBootstrap();
-  if (!file || !userId) return;
+  if (!file) return;
 
   try {
     uploadingPhoto.value = true;
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch(buildPhotoUploadUrl(platform, userId), {
+    const res = await authenticatedFetch(buildPhotoUploadUrl(), {
       method: "POST",
       body: formData,
     });
@@ -382,9 +375,7 @@ async function handlePhotoSelected(event: Event): Promise<void> {
 }
 
 async function savePhone(): Promise<void> {
-  const { platform, userId } = getPlatformBootstrap();
   const digits = phoneDraft.value.replace(/\D/g, "");
-  if (!userId) return;
   if (!digits.startsWith("7") || digits.length !== 11) {
     phoneError.value = "Номер должен содержать 11 цифр и начинаться с 7";
     return;
@@ -393,7 +384,7 @@ async function savePhone(): Promise<void> {
   try {
     savingPhone.value = true;
     phoneError.value = "";
-    const res = await fetch(buildPhoneUpdateUrl(platform, userId), {
+    const res = await authenticatedFetch(buildPhoneUpdateUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -413,13 +404,11 @@ async function savePhone(): Promise<void> {
 }
 
 async function saveBank(): Promise<void> {
-  const { platform, userId } = getPlatformBootstrap();
   const normalized = bankDraft.value
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase()
     .replace(/(^|\s|-)([a-zа-яё])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
-  if (!userId) return;
   if (!normalized) {
     bankError.value = "Введи название банка";
     return;
@@ -428,7 +417,7 @@ async function saveBank(): Promise<void> {
   try {
     savingBank.value = true;
     bankError.value = "";
-    const res = await fetch(buildBankUpdateUrl(platform, userId), {
+    const res = await authenticatedFetch(buildBankUpdateUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
