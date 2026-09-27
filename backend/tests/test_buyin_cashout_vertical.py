@@ -109,6 +109,60 @@ async def test_repeated_buyin_adds_again_and_keeps_separate_history(buyin_sessio
 
 
 @pytest.mark.asyncio
+async def test_same_buyin_submission_is_applied_once(buyin_sessions):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
+
+    async with buyin_sessions() as session:
+        first = await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id,
+            target_user_id=player_id,
+            buyins_count=1,
+            operation_id="tg:callback-123",
+        )
+    async with buyin_sessions() as session:
+        replay = await AddBuyinUseCase(session).execute(
+            actor_user_id=admin_id,
+            target_user_id=player_id,
+            buyins_count=1,
+            operation_id="tg:callback-123",
+        )
+
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+        history = (await session.execute(select(BuyinData))).scalars().all()
+    assert first.applied is True
+    assert replay.applied is False
+    assert stored is not None and stored.buyins == 1
+    assert [(row.player_id, row.buyins_count, row.operation_id) for row in history] == [
+        (player_id, 1, "tg:callback-123")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_distinct_submissions_allow_identical_later_buyins(buyin_sessions):
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
+
+    for operation_id in ("vk:event-1", "vk:event-2"):
+        async with buyin_sessions() as session:
+            result = await AddBuyinUseCase(session).execute(
+                actor_user_id=admin_id,
+                target_user_id=player_id,
+                buyins_count=1,
+                operation_id=operation_id,
+            )
+            assert result.applied is True
+
+    async with buyin_sessions() as session:
+        stored = await session.get(PokerData, pdata_id)
+        history = (await session.execute(select(BuyinData).order_by(BuyinData.row_id))).scalars().all()
+    assert stored is not None and stored.buyins == 2
+    assert [(row.player_id, row.buyins_count, row.operation_id) for row in history] == [
+        (player_id, 1, "vk:event-1"),
+        (player_id, 1, "vk:event-2"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_current_buyin_correction_changes_total_only_without_history(buyin_sessions):
     _, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
