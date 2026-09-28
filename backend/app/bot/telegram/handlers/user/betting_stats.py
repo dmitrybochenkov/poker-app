@@ -1,16 +1,20 @@
-from datetime import datetime
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
+from app.application.use_cases.poker.betting_tournament_periods import (
+    default_betting_tournament_period_ids,
+    list_betting_tournament_periods,
+    parse_betting_tournament_period_ids,
+)
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.inline.telegram.user import betting_stats as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     betting_current_keyboard,
     betting_stat_indicators_keyboard,
+    betting_tournament_periods_keyboard,
     stat_sort_keyboard,
-    stat_year_keyboard,
 )
 from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_repository import BetRepository
@@ -67,102 +71,113 @@ async def show_betting_stat_indicators(message: Message, state: FSMContext) -> N
     await _start_betting_stat_flow(message=message, state=state, mode="all")
 
 
-async def betting_stat_year_page(callback: CallbackQuery, state: FSMContext) -> None:
+async def betting_tournament_page(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
-    page = int(callback.data.split(":", 1)[1])
+    page = int(callback.data.rsplit(":", 1)[1])
     data = await state.get_data()
-    selected_years: list[int] = data.get("betstat_years", [])
     async with SessionFactory() as session:
-        bets = await BetRepository(session).list_all()
-    years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
+        periods = list_betting_tournament_periods(
+            await BetTournamentRepository(session).list_active()
+        )
     await callback.message.edit_text(
-        Text.user.STAT_CHOOSE_YEAR.value,
-        reply_markup=stat_year_keyboard(
-            prefix="betstatyear", years=years, selected_years=selected_years, page=page
+        Text.user.STAT_CHOOSE_BETTING_TOURNAMENT.value,
+        reply_markup=betting_tournament_periods_keyboard(
+            periods=periods,
+            selected_period_ids=set(data.get("betstat_period_ids", [])),
+            page=page,
         ),
     )
     await callback.answer()
 
 
-async def betting_stat_year_toggle(callback: CallbackQuery, state: FSMContext) -> None:
+async def betting_tournament_toggle(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
-    _, year_raw, page_raw = callback.data.split(":")
-    year = int(year_raw)
-    page = int(page_raw)
+    _, type_code, start_raw, end_raw, page_raw = callback.data.split(":")
+    period_id = f"{type_code}:{start_raw}:{end_raw}"
     data = await state.get_data()
-    selected_years = set(data.get("betstat_years", []))
-    if year in selected_years:
-        selected_years.remove(year)
+    selected = set(data.get("betstat_period_ids", []))
+    if period_id in selected:
+        selected.remove(period_id)
     else:
-        selected_years.add(year)
-    await state.update_data(betstat_years=sorted(selected_years), betstat_selected_ids=[])
+        selected.add(period_id)
+    await state.update_data(betstat_period_ids=sorted(selected), betstat_selected_ids=[])
     async with SessionFactory() as session:
-        bets = await BetRepository(session).list_all()
-    years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
+        periods = list_betting_tournament_periods(
+            await BetTournamentRepository(session).list_active()
+        )
     await callback.message.edit_text(
-        Text.user.STAT_CHOOSE_YEAR.value,
-        reply_markup=stat_year_keyboard(
-            prefix="betstatyear", years=years, selected_years=sorted(selected_years), page=page
+        Text.user.STAT_CHOOSE_BETTING_TOURNAMENT.value,
+        reply_markup=betting_tournament_periods_keyboard(
+            periods=periods, selected_period_ids=selected, page=int(page_raw)
         ),
     )
     await callback.answer()
 
 
-async def betting_stat_year_cancel(callback: CallbackQuery, state: FSMContext) -> None:
+async def betting_tournament_done(callback: CallbackQuery, state: FSMContext) -> None:
+    if callback.message is None:
+        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+        return
+    if not await _ensure_approved_telegram_callback_user(callback):
+        return
+    data = await state.get_data()
+    selected = set(data.get("betstat_period_ids", []))
+    async with SessionFactory() as session:
+        periods = list_betting_tournament_periods(
+            await BetTournamentRepository(session).list_active()
+        )
+        if not selected:
+            selected = default_betting_tournament_period_ids(periods)
+            await state.update_data(betstat_period_ids=sorted(selected))
+        indicators = await StatIndicatorRepository(session).list_by_type(
+            indicator_type="betting"
+        )
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode="all")
+    await callback.message.edit_text(
+        Text.user.STAT_CHOOSE_PARAMS.value,
+        reply_markup=betting_stat_indicators_keyboard(
+            indicators=indicators, page=0, selected_ids=[]
+        ),
+    )
+    await callback.answer()
+
+
+async def betting_tournament_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
     await state.update_data(
-        betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
+        betstat_period_ids=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
     )
     await callback.message.edit_text(Text.user.STAT_EXPORT_CANCELED.value)
     await callback.answer()
 
 
-async def betting_stat_year_done(callback: CallbackQuery, state: FSMContext) -> None:
+async def betting_open_tournament(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
-    data = await state.get_data()
-    selected_years: list[int] = data.get("betstat_years", [])
-    mode = data.get("betstat_mode", "all")
-    if not selected_years:
-        async with SessionFactory() as session:
-            bets = await BetRepository(session).list_all()
-        years = sorted(
-            {int(item.date.year) for item in bets if item.date is not None}, reverse=True
-        )
-        if not years:
-            await callback.message.edit_text(InlineText.BETTING_STAT_YEAR_DONE_TEXT_01)
-            await callback.answer()
-            return
-        current_year = datetime.now().year
-        selected_years = [current_year] if current_year in years else [years[0]]
-        await state.update_data(betstat_years=selected_years)
-    async with SessionFactory() as session:
-        indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
-    if not indicators:
-        await callback.message.edit_text(Text.user.BETTING_CURRENT_EMPTY.value)
-        await callback.answer()
+    mode = callback.data.split(":", 1)[1]
+    if mode not in {"regular", "year"}:
+        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
-    await callback.message.edit_text(
-        Text.user.STAT_CHOOSE_PARAMS.value,
-        reply_markup=betting_stat_indicators_keyboard(
-            indicators=indicators, page=0, selected_ids=[]
-        ),
+    await _start_betting_stat_flow(
+        message=callback.message,
+        state=state,
+        mode=mode,
+        preserve_period_selection=True,
     )
     await callback.answer()
 
@@ -263,7 +278,9 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
             await state.update_data(betstat_selected_ids=selected_ids)
         selected = [item for item in indicators if int(item.row_id) in set(selected_ids)]
         if len(selected) == 1:
-            selected_years: list[int] = data.get("betstat_years", [])
+            selected_periods = parse_betting_tournament_period_ids(
+                data.get("betstat_period_ids", [])
+            )
             report = await StatUseCases(
                 bet_repository=BetRepository(session),
                 achievement_repository=AchievementRepository(session),
@@ -273,7 +290,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
             ).get_betting_stat(
                 indicators=selected,
                 mode=mode,
-                years=selected_years,
+                tournament_periods=selected_periods if mode == "all" else None,
                 sort_pic=selected[0].pic,
             )
             image_bytes = render_stat_table_png(title="", report=report)
@@ -289,12 +306,12 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
                         else InlineText.BETTING_STAT_DONE_TEXT_03
                     ),
                     indicators=selected,
-                    years=selected_years,
+                    period_labels=[item.label for item in selected_periods],
                     include_period=(mode == "all"),
                 ),
             )
             await state.update_data(
-                betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
+                betstat_period_ids=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
             )
             await callback.answer()
             return
@@ -319,7 +336,7 @@ async def betting_stat_cancel(callback: CallbackQuery, state: FSMContext) -> Non
     if not await _ensure_approved_telegram_callback_user(callback):
         return
     await state.update_data(
-        betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
+        betstat_period_ids=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
     )
     await callback.message.edit_text(Text.user.STAT_EXPORT_CANCELED.value)
     await callback.answer()
@@ -396,7 +413,7 @@ async def betting_stat_sort_cancel(callback: CallbackQuery, state: FSMContext) -
     if not await _ensure_approved_telegram_callback_user(callback):
         return
     await state.update_data(
-        betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
+        betstat_period_ids=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
     )
     await callback.message.edit_text(Text.user.STAT_EXPORT_CANCELED.value)
     await callback.answer()
@@ -411,7 +428,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
     data = await state.get_data()
     selected_ids: list[int] = data.get("betstat_selected_ids", [])
     mode = data.get("betstat_mode", "all")
-    selected_years: list[int] = data.get("betstat_years", [])
+    selected_periods = parse_betting_tournament_period_ids(data.get("betstat_period_ids", []))
     sort_id = data.get("betstat_sort_id")
     async with SessionFactory() as session:
         indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
@@ -431,7 +448,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
         ).get_betting_stat(
             indicators=selected,
             mode=mode,
-            years=selected_years,
+            tournament_periods=selected_periods if mode == "all" else None,
             sort_pic=sort_pic,
         )
     image_bytes = render_stat_table_png(title="", report=report)
@@ -447,11 +464,11 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
                 else InlineText.BETTING_STAT_SORT_DONE_TEXT_03
             ),
             indicators=selected,
-            years=selected_years,
+            period_labels=[item.label for item in selected_periods],
             include_period=(mode == "all"),
         ),
     )
     await state.update_data(
-        betstat_years=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
+        betstat_period_ids=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
     )
     await callback.answer()

@@ -5,6 +5,7 @@ from app.bot.telegram.handlers.handlers_user import router as user_router
 from app.bot.vk.handlers_admin import handle_admin_text_commands, handle_message_event
 from app.bot.vk.handlers_user import handle_user_message_event, handle_user_message_new
 
+
 def test_vk_webhook_exports():
     assert all(
         callable(handler)
@@ -138,10 +139,11 @@ EXPECTED_USER_CALLBACK_QUERY = [
     "poker_stat_sort_toggle",
     "poker_stat_sort_cancel",
     "poker_stat_sort_done",
-    "betting_stat_year_page",
-    "betting_stat_year_toggle",
-    "betting_stat_year_cancel",
-    "betting_stat_year_done",
+    "betting_tournament_page",
+    "betting_tournament_toggle",
+    "betting_tournament_cancel",
+    "betting_tournament_done",
+    "betting_open_tournament",
     "betting_stat_mode_selected",
     "betting_stat_page",
     "betting_stat_indicator_selected",

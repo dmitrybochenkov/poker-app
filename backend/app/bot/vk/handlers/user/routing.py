@@ -1,4 +1,5 @@
 from fastapi.responses import PlainTextResponse
+
 from app.bot.vk.state import durable_vk_workflow
 
 from . import bets, betting_stats, information, navigation, poker, poker_stats, polls, registration
@@ -285,7 +286,17 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await betting_stats.handle_betting_stat_year_actions_event(
+    result = await betting_stats.handle_betstat_open_event(
+        user_id=user_id,
+        peer_id=peer_id,
+        event_id=event_id,
+        conversation_message_id=conversation_message_id,
+        callback_payload=callback_payload,
+        action=action,
+    )
+    if result is not HANDLER_UNMATCHED:
+        return result
+    result = await betting_stats.handle_betting_tournament_actions_event(
         user_id=user_id,
         peer_id=peer_id,
         event_id=event_id,

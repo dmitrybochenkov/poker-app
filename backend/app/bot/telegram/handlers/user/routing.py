@@ -94,12 +94,21 @@ router.message(F.text == Buttons.betting_current.TO_MAIN.value)(
 router.message(F.text == Buttons.betting.BETTING_STAT.value)(
     betting_stats.show_betting_stat_indicators
 )
-router.callback_query(F.data.startswith("betstatyear_page:"))(betting_stats.betting_stat_year_page)
-router.callback_query(F.data.startswith("betstatyear_toggle:"))(
-    betting_stats.betting_stat_year_toggle
+router.callback_query(F.data.startswith("betstattour_page:"))(
+    betting_stats.betting_tournament_page
 )
-router.callback_query(F.data == "betstatyear_cancel")(betting_stats.betting_stat_year_cancel)
-router.callback_query(F.data == "betstatyear_done")(betting_stats.betting_stat_year_done)
+router.callback_query(F.data.startswith("betstattour_toggle:"))(
+    betting_stats.betting_tournament_toggle
+)
+router.callback_query(F.data == "betstattour_cancel")(
+    betting_stats.betting_tournament_cancel
+)
+router.callback_query(F.data == "betstattour_done")(
+    betting_stats.betting_tournament_done
+)
+router.callback_query(F.data.startswith("betstatopen:"))(
+    betting_stats.betting_open_tournament
+)
 router.callback_query(F.data.startswith("betstatmode:"))(betting_stats.betting_stat_mode_selected)
 router.callback_query(F.data.startswith("betstat_page:"))(betting_stats.betting_stat_page)
 router.callback_query(F.data.startswith("betstat_toggle:"))(

@@ -17,7 +17,6 @@ class ReplyBettingKbs(ReplyKeyboardBase):
         buttons.extend(
             [
                 Buttons.betting.PAY_BET,
-                Buttons.betting.CURRENT_TOURS,
                 Buttons.betting.BETTING_STAT,
                 Buttons.betting.TO_MAIN,
             ]
@@ -39,7 +38,6 @@ class ReplyBettingKbs(ReplyKeyboardBase):
         buttons.extend(
             [
                 Buttons.betting.PAY_BET,
-                Buttons.betting.CURRENT_TOURS,
                 Buttons.betting.BETTING_STAT,
                 Buttons.betting.TO_MAIN,
             ]

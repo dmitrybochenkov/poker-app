@@ -8,7 +8,76 @@ from app.bot.shared.texts.inline.shared import keyboards_inline as InlineText
 
 from .inline_base import InlineKeyboardBase
 
+
 class StatisticsInlineKbs(InlineKeyboardBase):
+  BETTING_TOURNAMENT_PAGE_SIZE = 5
+
+  @staticmethod
+  def betting_tournament_periods_tg(
+    *, periods: list, selected_period_ids: set[str] | list[str], page: int = 0
+  ) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    selected = set(selected_period_ids)
+    keyboard.button(text="💰 Открытый регулярный турнир", callback_data="betstatopen:regular")
+    keyboard.button(text="🎄💰 Открытый годовой турнир", callback_data="betstatopen:year")
+    start = page * StatisticsInlineKbs.BETTING_TOURNAMENT_PAGE_SIZE
+    end = start + StatisticsInlineKbs.BETTING_TOURNAMENT_PAGE_SIZE
+    batch = periods[start:end]
+    for period in batch:
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if period.selection_id in selected else ""
+      keyboard.button(
+        text=f"{mark}{period.label}"[:64],
+        callback_data=f"betstattour_toggle:{period.selection_id}:{page}",
+      )
+    if page > 0:
+      keyboard.button(text=InlineText.PAGE_PREVIOUS, callback_data=f"betstattour_page:{page - 1}")
+    if end < len(periods):
+      keyboard.button(text=InlineText.PAGE_NEXT, callback_data=f"betstattour_page:{page + 1}")
+    keyboard.button(text=InlineText.INLINEKBS_STAT_YEAR_TG_TEXT_01, callback_data="betstattour_done")
+    keyboard.button(text=InlineText.INLINEKBS_STAT_YEAR_TG_TEXT_02, callback_data="betstattour_cancel")
+    sizes = [1, 1] + [1] * len(batch)
+    nav_count = int(page > 0) + int(end < len(periods))
+    if nav_count:
+      sizes.append(nav_count)
+    sizes.append(2)
+    keyboard.adjust(*sizes)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def betting_tournament_periods_vk(
+    *, periods: list, selected_period_ids: set[str] | list[str], page: int = 0
+  ) -> str:
+    selected = set(selected_period_ids)
+    rows: list[list[dict]] = [
+      [{"action": {"type": "callback", "label": "💰 Открытый регулярный турнир", "payload": {"action": "betstat_open", "mode": "regular"}}, "color": "primary"}],
+      [{"action": {"type": "callback", "label": "🎄💰 Открытый годовой турнир", "payload": {"action": "betstat_open", "mode": "year"}}, "color": "primary"}],
+    ]
+    start = page * StatisticsInlineKbs.BETTING_TOURNAMENT_PAGE_SIZE
+    end = start + StatisticsInlineKbs.BETTING_TOURNAMENT_PAGE_SIZE
+    batch = periods[start:end]
+    for period in batch:
+      mark = InlineText.BET_RECEIPT_MANUAL_SELECT_TG_MARKER_11 if period.selection_id in selected else ""
+      rows.append([{
+        "action": {
+          "type": "callback",
+          "label": f"{mark}{period.label}"[:40],
+          "payload": {"action": "betstattour_toggle", "period_id": period.selection_id, "page": page},
+        },
+        "color": "primary",
+      }])
+    nav_row = []
+    if page > 0:
+      nav_row.append({"action": {"type": "callback", "label": InlineText.PAGE_PREVIOUS, "payload": {"action": "betstattour_page", "page": page - 1}}, "color": "secondary"})
+    if end < len(periods):
+      nav_row.append({"action": {"type": "callback", "label": InlineText.PAGE_NEXT, "payload": {"action": "betstattour_page", "page": page + 1}}, "color": "secondary"})
+    if nav_row:
+      rows.append(nav_row)
+    rows.append([
+      {"action": {"type": "callback", "label": InlineText.INLINEKBS_STAT_YEAR_VK_TEXT_01, "payload": {"action": "betstattour_done"}}, "color": "positive"},
+      {"action": {"type": "callback", "label": InlineText.INLINEKBS_STAT_YEAR_VK_TEXT_02, "payload": {"action": "betstattour_cancel"}}, "color": "negative"},
+    ])
+    return ReplyKbs.make_vk_callback(rows)
+
   @staticmethod
   def betting_stat_indicators_tg(*, indicators: list, page: int = 0, selected_ids: list[int] | None = None) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()

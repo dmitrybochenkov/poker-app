@@ -3,6 +3,7 @@ from datetime import date
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.inline.vk.user import common as InlineText
 
+
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
     if mode == "all":
         return [item for item in indicators if item.for_current_tournaments in {"yes", "no"}]
@@ -20,12 +21,16 @@ def _format_stat_caption(
     report_type: str,
     indicators: list,
     years: list[int] | None = None,
+    period_labels: list[str] | None = None,
     include_period: bool = False,
 ) -> str:
     lines = [report_type]
     if include_period:
-        year_values = sorted({int(y) for y in (years or [])})
-        period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
+        if period_labels is not None:
+            period = ", ".join(period_labels)
+        else:
+            year_values = sorted({int(y) for y in (years or [])})
+            period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
         lines.append(f'{InlineText.FORMAT_STAT_CAPTION_TEXT_01_PART_1}{period}{InlineText.FORMAT_STAT_CAPTION_TEXT_01_PART_2}')
     pics = [
         str(getattr(item, "pic", "")).strip()

@@ -11,6 +11,8 @@ from app.db.repositories.bet_tournament_repository import BetTournamentRepositor
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 
+from .betting_tournament_periods import BettingTournamentPeriod
+
 
 class StatUseCases:
   @staticmethod
@@ -162,6 +164,7 @@ class StatUseCases:
     mode: str = "all",
     year: int | None = None,
     years: list[int] | None = None,
+    tournament_periods: list[BettingTournamentPeriod] | None = None,
     sort_pic: str | None = None,
   ) -> str:
     if self.bet_tournament_param_repository is not None:
@@ -181,7 +184,20 @@ class StatUseCases:
     elif year is not None:
       bets = [bet for bet in bets if bet.date is not None and int(bet.date.year) == int(year)]
     tournaments = await self._load_finished_tournaments()
-    if year_set:
+    if tournament_periods is not None:
+      selected_periods = {
+        (item.tournament_type, item.start_date, item.end_date)
+        for item in tournament_periods
+      }
+      tournaments = [
+        item for item in tournaments
+        if (item.tournament_type, item.start_date, item.end_date) in selected_periods
+      ]
+      bets = [
+        bet for bet in bets
+        if self._bet_in_any_tournament(bet=bet, tournaments=tournaments)
+      ]
+    elif year_set:
       tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) in year_set]
     elif year is not None:
       tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) == int(year)]

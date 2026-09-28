@@ -3,16 +3,20 @@ from datetime import date
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
+from app.application.use_cases.poker.betting_tournament_periods import (
+    list_betting_tournament_periods,
+)
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.inline.telegram.user import common as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     betting_stat_indicators_keyboard,
-    stat_year_keyboard,
+    betting_tournament_periods_keyboard,
 )
-from app.db.repositories.bet_repository import BetRepository
+from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
 from app.db.session import SessionFactory
+
 
 def _filter_betting_indicators_by_mode(*, indicators, mode: str):
     if mode == "all":
@@ -31,12 +35,16 @@ def _format_stat_caption(
     report_type: str,
     indicators: list,
     years: list[int] | None = None,
+    period_labels: list[str] | None = None,
     include_period: bool = False,
 ) -> str:
     lines = [report_type]
     if include_period:
-        year_values = sorted({int(y) for y in (years or [])})
-        period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
+        if period_labels is not None:
+            period = ", ".join(period_labels)
+        else:
+            year_values = sorted({int(y) for y in (years or [])})
+            period = ", ".join(str(y) for y in year_values) if year_values else str(date.today().year)
         lines.append(f'{InlineText.FORMAT_STAT_CAPTION_TEXT_01_PART_1}{period}{InlineText.FORMAT_STAT_CAPTION_TEXT_01_PART_2}')
     pics = [
         str(getattr(item, "pic", "")).strip()
@@ -87,13 +95,17 @@ def _format_achievement_info_report(
         lines.append("")
     return "\n".join(lines).strip()
 
-async def _start_betting_stat_flow(*, message: Message, state: FSMContext, mode: str) -> None:
-    await state.update_data(
-        betstat_years=[],
-        betstat_selected_ids=[],
-        betstat_mode=mode,
-        betstat_sort_id=None,
-    )
+async def _start_betting_stat_flow(
+    *, message: Message, state: FSMContext, mode: str, preserve_period_selection: bool = False
+) -> None:
+    state_update = {
+        "betstat_selected_ids": [],
+        "betstat_mode": mode,
+        "betstat_sort_id": None,
+    }
+    if not preserve_period_selection:
+        state_update["betstat_period_ids"] = []
+    await state.update_data(**state_update)
     if mode in {"regular", "year"}:
         async with SessionFactory() as session:
             indicators = await StatIndicatorRepository(session).list_by_type(
@@ -111,14 +123,14 @@ async def _start_betting_stat_flow(*, message: Message, state: FSMContext, mode:
         )
         return
     async with SessionFactory() as session:
-        bets = await BetRepository(session).list_all()
-    years = sorted({int(item.date.year) for item in bets if item.date is not None}, reverse=True)
-    if not years:
+        tournaments = await BetTournamentRepository(session).list_active()
+    periods = list_betting_tournament_periods(tournaments)
+    if not periods:
         await message.answer(InlineText.START_BETTING_STAT_FLOW_TEXT_01)
         return
     await message.answer(
-        Text.user.STAT_CHOOSE_YEAR.value,
-        reply_markup=stat_year_keyboard(
-            prefix="betstatyear", years=years, selected_years=[], page=0
+        Text.user.STAT_CHOOSE_BETTING_TOURNAMENT.value,
+        reply_markup=betting_tournament_periods_keyboard(
+            periods=periods, selected_period_ids=set(), page=0
         ),
     )
