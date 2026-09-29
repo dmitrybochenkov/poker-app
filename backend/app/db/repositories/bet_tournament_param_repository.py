@@ -20,11 +20,8 @@ class BetTournamentParamRepository:
     )
     return list(result.scalars().all())
 
-  async def get_for_tournament(self, *, tournament_type: str, bet_param_id: int) -> BetTournamentParam | None:
+  async def get_by_id(self, *, row_id: int) -> BetTournamentParam | None:
     result = await self.session.execute(
-      select(BetTournamentParam).where(
-        BetTournamentParam.tournament_type == tournament_type,
-        BetTournamentParam.bet_param_id == bet_param_id,
-      )
+      select(BetTournamentParam).where(BetTournamentParam.row_id == row_id)
     )
     return result.scalars().first()

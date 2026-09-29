@@ -84,7 +84,7 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
     tournament = SimpleNamespace(
         row_id=1,
         tournament_type="regular",
-        params_id=9,
+        params_id=3,
         start_date=date(2025, 4, 1),
         end_date=date(2025, 8, 31),
         current_bank_kopecks=832_000,
@@ -112,9 +112,27 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
             return True
 
     class Params:
-        async def get_for_tournament(self, **kwargs):
-            assert kwargs == {"tournament_type": "regular", "bet_param_id": 9}
-            return SimpleNamespace(percent_to_first=50, percent_to_second=33, percent_to_third=17)
+        rows = {
+            1: SimpleNamespace(
+                row_id=1,
+                tournament_type="regular",
+                bet_param_id=1,
+                percent_to_first=60,
+                percent_to_second=25,
+                percent_to_third=10,
+            ),
+            3: SimpleNamespace(
+                row_id=3,
+                tournament_type="regular",
+                bet_param_id=1,
+                percent_to_first=50,
+                percent_to_second=33,
+                percent_to_third=17,
+            ),
+        }
+
+        async def get_by_id(self, *, row_id):
+            return self.rows.get(row_id)
 
     class Bets:
         async def list_for_period(self, **kwargs):
@@ -134,9 +152,15 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
         bet_repository=Bets(),
     )
     eligible = await use_case.list_eligible(actor_user_id=1, today=date(2026, 1, 1))
-    await use_case.preview(actor_user_id=1, tournament_id=1, today=date(2026, 1, 1))
+    _, preview = await use_case.preview(
+        actor_user_id=1, tournament_id=1, today=date(2026, 1, 1)
+    )
     assert eligible == [tournament] and tournament.is_paid is False and session.commits == 0
-    await use_case.confirm(actor_user_id=1, tournament_id=1, today=date(2026, 1, 1))
+    assert _amounts(preview) == {"A": 345_280, "B": 345_280, "C": 141_440}
+    _, confirmed = await use_case.confirm(
+        actor_user_id=1, tournament_id=1, today=date(2026, 1, 1)
+    )
+    assert _amounts(confirmed) == _amounts(preview)
     assert tournament.is_paid is True and session.commits == 1 and tournaments.calls == 2
     with pytest.raises(ValueError):
         await use_case.confirm(actor_user_id=1, tournament_id=1, today=date(2026, 1, 1))

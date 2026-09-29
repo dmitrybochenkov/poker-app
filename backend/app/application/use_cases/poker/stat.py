@@ -171,7 +171,7 @@ class StatUseCases:
     if self.bet_tournament_param_repository is not None:
       params = await self.bet_tournament_param_repository.list_all()
       self._tournament_percents_cache = {
-        (str(item.tournament_type), int(item.bet_param_id)): (
+        int(item.row_id): (
           int(item.percent_to_first),
           int(item.percent_to_second),
           int(item.percent_to_third),
@@ -631,8 +631,7 @@ class StatUseCases:
     if cache is None:
       cache = {}
       setattr(self, "_tournament_percents_cache", cache)
-    key = (str(tournament.tournament_type), int(tournament.params_id))
-    return cache.get(key)
+    return cache.get(int(tournament.params_id))
 
   def _format_current_tournament_money_block(self, *, tournament) -> str:
     bank_kopecks = int(tournament.current_bank_kopecks or 0)

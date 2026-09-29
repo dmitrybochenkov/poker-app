@@ -150,9 +150,7 @@ class CloseBettingTournamentUseCase:
         return tournament
 
     async def _calculate(self, tournament):
-        params = await self.params.get_for_tournament(
-            tournament_type=str(tournament.tournament_type), bet_param_id=int(tournament.params_id)
-        )
+        params = await self.params.get_by_id(row_id=int(tournament.params_id))
         if params is None:
             raise ValueError("Tournament prize parameters are missing")
         bets = await self.bets.list_for_period(

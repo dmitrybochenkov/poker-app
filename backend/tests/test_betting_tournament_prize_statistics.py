@@ -32,8 +32,9 @@ def _tournament(*, bank_kopecks, params_id, first, second, third):
     )
 
 
-def _params(*, bet_param_id, percents):
+def _params(*, row_id, bet_param_id, percents):
     return SimpleNamespace(
+        row_id=row_id,
         tournament_type="regular",
         bet_param_id=bet_param_id,
         percent_to_first=percents[0],
@@ -57,7 +58,7 @@ def _bet(name, score):
 async def test_historical_prizes_use_tournament_params_and_authoritative_tie_math():
     tournament = _tournament(
         bank_kopecks=832_000,
-        params_id=9,
+        params_id=3,
         first="A, B",
         second="A, B",
         third="C",
@@ -67,8 +68,8 @@ async def test_historical_prizes_use_tournament_params_and_authoritative_tie_mat
         bet_tournament_repository=_Rows([tournament]),
         bet_tournament_param_repository=_Rows(
             [
-                _params(bet_param_id=9, percents=(50, 33, 17)),
-                _params(bet_param_id=10, percents=(60, 25, 10)),
+                _params(row_id=1, bet_param_id=1, percents=(60, 25, 10)),
+                _params(row_id=3, bet_param_id=1, percents=(50, 33, 17)),
             ]
         ),
     )
@@ -91,7 +92,7 @@ async def test_historical_prizes_use_tournament_params_and_authoritative_tie_mat
 async def test_historical_three_way_tie_preserves_kopeck_floor_remainder():
     tournament = _tournament(
         bank_kopecks=784_000,
-        params_id=9,
+        params_id=3,
         first="A, B, C",
         second="A, B, C",
         third="A, B, C",
@@ -99,7 +100,12 @@ async def test_historical_three_way_tie_preserves_kopeck_floor_remainder():
     use_case = StatUseCases(
         bet_repository=_Rows([_bet("A", 2), _bet("B", 2), _bet("C", 2)]),
         bet_tournament_repository=_Rows([tournament]),
-        bet_tournament_param_repository=_Rows([_params(bet_param_id=9, percents=(50, 33, 17))]),
+        bet_tournament_param_repository=_Rows(
+            [
+                _params(row_id=1, bet_param_id=1, percents=(60, 25, 10)),
+                _params(row_id=3, bet_param_id=1, percents=(50, 33, 17)),
+            ]
+        ),
     )
 
     report = await use_case.get_betting_stat(
@@ -115,13 +121,16 @@ async def test_historical_three_way_tie_preserves_kopeck_floor_remainder():
 def test_open_projection_uses_integer_kopeck_floor_and_associated_params():
     tournament = _tournament(
         bank_kopecks=101,
-        params_id=9,
+        params_id=3,
         first="",
         second="",
         third="",
     )
     use_case = StatUseCases(bet_repository=_Rows([]), bet_tournament_param_repository=_Rows([]))
-    use_case._tournament_percents_cache = {("regular", 9): (60, 25, 10)}
+    use_case._tournament_percents_cache = {
+        1: (50, 30, 20),
+        3: (60, 25, 10),
+    }
 
     assert use_case._format_current_tournament_money_block(tournament=tournament) == (
         "💰: 1.01 ₽\n"
