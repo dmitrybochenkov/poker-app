@@ -1,5 +1,7 @@
+import ast
 import json
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.bot.telegram import keyboards as tg
@@ -82,16 +84,26 @@ def test_buyin_count_preserves_integer_encoding_and_layout():
 def test_betting_and_receipt_contracts():
     assert _tg_callbacks(
         tg.betting_player_keyboard(
-            action="winner", players=["Alice", "Bob"], player_marks={"Alice": "✅"}
+            action="winner",
+            players=[
+                SimpleNamespace(player_id=11, player_name="Alice"),
+                SimpleNamespace(player_id=22, player_name="Alice"),
+            ],
+            player_marks={"Alice": "✅"},
         )
-    ) == [["bet_winner:Alice"], ["bet_winner:Bob"]]
+    ) == [["bet_winner:11"], ["bet_winner:22"]]
     assert _vk_payloads(
         vk.betting_player_keyboard(
-            action="winner", players=["Alice", "Bob"], player_marks={"Alice": "✅"}
+            action="winner",
+            players=[
+                SimpleNamespace(player_id=11, player_name="Alice"),
+                SimpleNamespace(player_id=22, player_name="Alice"),
+            ],
+            player_marks={"Alice": "✅"},
         )
     ) == [
-        [{"action": "bet_winner", "player_name": "Alice"}],
-        [{"action": "bet_winner", "player_name": "Bob"}],
+        [{"action": "bet_winner", "player_id": 11}],
+        [{"action": "bet_winner", "player_id": 22}],
     ]
     assert _tg_callbacks(tg.bet_receipt_manual_keyboard(receipt_row_id=9)) == [
         ["betreceipt:done:9", "betreceipt:cancel:9"]
@@ -171,3 +183,24 @@ def test_poll_contract_preserves_rows_and_parameter_formats():
         [{"action": "poll_suggest", "month": "2026-09"}],
         [{"action": "poll_done"}, {"action": "poll_cancel"}],
     ]
+
+
+def test_tg_and_vk_confirmation_transport_passes_canonical_outcome_ids():
+    root = Path(__file__).parents[1]
+    paths = [
+        root / "app/bot/telegram/handlers/user/bets.py",
+        root / "app/bot/vk/handlers/user/bets.py",
+    ]
+    for path in paths:
+        tree = ast.parse(path.read_text())
+        calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "create_bet"
+        ]
+        assert len(calls) == 1
+        keywords = {item.arg for item in calls[0].keywords}
+        assert {"winner_id", "loser_id"} <= keywords
+        assert "winner_name" not in keywords
+        assert "loser_name" not in keywords

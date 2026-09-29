@@ -70,8 +70,8 @@ class BetUseCases:
     actor_user_id: int,
     tournament_type: str,
     amount_kopecks: int,
-    winner_name: str | None = None,
-    loser_name: str | None = None,
+    winner_id: int,
+    loser_id: int,
   ) -> tuple[Bet | None, str]:
     if amount_kopecks <= 0:
       return None, "invalid_amount"
@@ -113,6 +113,12 @@ class BetUseCases:
 
     poker_date = poker.date
     poker_row_id = int(poker.row_id)
+    participants = await self.poker_data_repository.list_players(poker_id=poker_row_id)
+    participants_by_id = {int(item.player_id): item for item in participants}
+    winner = participants_by_id.get(int(winner_id))
+    loser = participants_by_id.get(int(loser_id))
+    if winner is None or loser is None or int(winner_id) == int(loser_id):
+      return None, "invalid_outcome"
     try:
       created = await self.bet_repository.create(
         poker_id=poker_row_id,
@@ -122,8 +128,10 @@ class BetUseCases:
         tournament_type=tournament_type,
         amount_kopecks=amount_kopecks,
         params_id=params_id,
-        winner_name=winner_name,
-        loser_name=loser_name,
+        winner_id=int(winner.player_id),
+        winner_name=winner.player_name,
+        loser_id=int(loser.player_id),
+        loser_name=loser.player_name,
         is_paid=(better_row_id == 1),
       )
       await self._add_bet_to_current_tournament_banks(

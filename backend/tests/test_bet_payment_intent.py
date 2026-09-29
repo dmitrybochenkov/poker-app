@@ -86,6 +86,10 @@ async def _seed(sessions):
                 better_name="Player",
                 better_id=user.row_id,
                 amount_kopecks=amount,
+                winner_id=user.row_id,
+                winner_name=user.name,
+                loser_id=user.row_id,
+                loser_name=user.name,
             )
             for poker, amount in zip(pokers, (10_000, 20_000, 30_000), strict=True)
         ]

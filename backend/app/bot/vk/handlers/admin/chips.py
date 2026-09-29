@@ -164,9 +164,19 @@ async def handle_admin_room_calculate_poker_text(*, user_id, text):
                 transfer_lines.append(f"{line}{extra}")
 
             bet_lines: list[str] = []
+            max_money = max(int(player.money_kopecks) for player in players)
+            min_money = min(int(player.money_kopecks) for player in players)
+            winner_ids = {
+                int(player.player_id) for player in players
+                if int(player.money_kopecks) == max_money
+            }
+            loser_ids = {
+                int(player.player_id) for player in players
+                if int(player.money_kopecks) == min_money
+            }
             for bet in sorted(bets, key=lambda x: int(x.row_id)):
-                guessed_winner = bool(bet.winner_name) and bet.winner_name in winners
-                guessed_loser = bool(bet.loser_name) and bet.loser_name in loosers
+                guessed_winner = int(bet.winner_id) in winner_ids
+                guessed_loser = int(bet.loser_id) in loser_ids
                 if not guessed_winner and not guessed_loser:
                     continue
                 mark = _bet_mark(

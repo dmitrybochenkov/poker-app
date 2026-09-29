@@ -202,8 +202,7 @@ class StatUseCases:
       tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) in year_set]
     elif year is not None:
       tournaments = [t for t in tournaments if t.end_date is not None and int(t.end_date.year) == int(year)]
-    pokers_by_id = await self._load_pokers_by_id()
-    pokers_by_date = await self._load_pokers_by_date()
+    pokers_by_id = await self._load_poker_outcomes_by_id()
     ongoing_poker_dates = await self._load_ongoing_poker_dates()
 
     if mode == "all":
@@ -221,7 +220,10 @@ class StatUseCases:
     if not bets:
       return "Нет данных по ставкам."
 
-    users = sorted({bet.better_name for bet in bets})
+    users = {
+      int(bet.better_id): bet.better_name
+      for bet in sorted(bets, key=lambda item: int(item.row_id))
+    }
     if not users:
       return "Нет данных по ставкам."
 
@@ -233,17 +235,17 @@ class StatUseCases:
       selected_pics = ["🚨"] + [pic for pic in selected_pics if pic != "🚨"]
 
     rows: list[dict[str, str | int | float]] = []
-    for user in users:
-      user_bets = [bet for bet in bets if bet.better_name == user]
-      row: dict[str, str | int | float] = {"👨": user}
+    for user_id, user_name in sorted(users.items(), key=lambda item: (item[1], item[0])):
+      user_bets = [bet for bet in bets if int(bet.better_id) == user_id]
+      row: dict[str, str | int | float] = {"👨": user_name}
       for pic in selected_pics:
         row[pic] = self._calc_metric(
           pic=pic,
-          user=user,
+          user_id=user_id,
+          user_name=user_name,
           user_bets=user_bets,
           all_bets=bets,
           pokers_by_id=pokers_by_id,
-          pokers_by_date=pokers_by_date,
           tournaments=tournaments,
         )
       if mode in {"regular", "year"}:
@@ -459,26 +461,19 @@ class StatUseCases:
     items = await self.bet_tournament_repository.list_active()
     return [item for item in items if item.start_date is not None and item.end_date is not None]
 
-  async def _load_pokers_by_id(self) -> dict[int, tuple[set[str], set[str]]]:
-    if self.poker_repository is None:
+  async def _load_poker_outcomes_by_id(self) -> dict[int, tuple[set[int], set[int]]]:
+    if self.poker_data_repository is None:
       return {}
-    data: dict[int, tuple[set[str], set[str]]] = {}
-    pokers = await self.poker_repository.list_all()
-    for poker in pokers:
-      winners = {item.strip() for item in str(poker.winners or "").split(",") if item.strip()}
-      losers = {item.strip() for item in str(poker.loosers or "").split(",") if item.strip()}
-      data[int(poker.row_id)] = (winners, losers)
-    return data
-
-  async def _load_pokers_by_date(self) -> dict:
-    if self.poker_repository is None:
-      return {}
-    data = {}
-    pokers = await self.poker_repository.list_all()
-    for poker in pokers:
-      winners = {item.strip() for item in str(poker.winners or "").split(",") if item.strip()}
-      losers = {item.strip() for item in str(poker.loosers or "").split(",") if item.strip()}
-      data[poker.date] = (winners, losers)
+    grouped: dict[int, list[PokerData]] = {}
+    for row in await self.poker_data_repository.list_all():
+      grouped.setdefault(int(row.poker_id), []).append(row)
+    data: dict[int, tuple[set[int], set[int]]] = {}
+    for poker_id, rows in grouped.items():
+      max_money = max(int(row.money_kopecks) for row in rows)
+      min_money = min(int(row.money_kopecks) for row in rows)
+      winners = {int(row.player_id) for row in rows if int(row.money_kopecks) == max_money}
+      losers = {int(row.player_id) for row in rows if int(row.money_kopecks) == min_money}
+      data[poker_id] = (winners, losers)
     return data
 
   async def _load_ongoing_poker_dates(self) -> set:
@@ -514,11 +509,11 @@ class StatUseCases:
     self,
     *,
     pic: str,
-    user: str,
+    user_id: int,
+    user_name: str,
     user_bets: list[Bet],
     all_bets: list[Bet],
-    pokers_by_id: dict[int, tuple[set[str], set[str]]],
-    pokers_by_date: dict,
+    pokers_by_id: dict[int, tuple[set[int], set[int]]],
     tournaments: list,
   ) -> int | float:
     if pic == "💯":
@@ -533,66 +528,62 @@ class StatUseCases:
       wins = len([bet for bet in user_bets if int(bet.score or 0) > 0])
       return round(100 * wins / len(user_bets), 2)
     if pic == "👍":
-      return len([bet for bet in user_bets if bet.winner_name == bet.better_name])
+      return len([bet for bet in user_bets if int(bet.winner_id) == int(bet.better_id)])
     if pic == "👎":
-      return len([bet for bet in user_bets if bet.loser_name == bet.better_name])
+      return len([bet for bet in user_bets if int(bet.loser_id) == int(bet.better_id)])
     if pic == "-💲":
       return int(sum(int(bet.amount_kopecks or 0) for bet in user_bets) // 100)
     if pic == "+💲":
-      return self._calc_money_prizes_kopecks(user=user, tournaments=tournaments) / 100
+      return self._calc_money_prizes_kopecks(user=user_name, tournaments=tournaments) / 100
     if pic == "+💲/-💲":
       spent_kopecks = sum(int(bet.amount_kopecks or 0) for bet in user_bets)
       if spent_kopecks == 0:
         return 0.0
-      won_kopecks = self._calc_money_prizes_kopecks(user=user, tournaments=tournaments)
+      won_kopecks = self._calc_money_prizes_kopecks(user=user_name, tournaments=tournaments)
       return round(won_kopecks / spent_kopecks, 2)
     if pic == "👎/💍":
       return len([
         bet for bet in all_bets
-        if bet.loser_name == user
-        and user in self._resolve_poker_fact(
+        if int(bet.loser_id) == user_id
+        and user_id in self._resolve_poker_fact(
           bet=bet,
           pokers_by_id=pokers_by_id,
-          pokers_by_date=pokers_by_date,
         )[0]
       ])
     if pic == "👍/❌":
       return len([
         bet for bet in all_bets
-        if bet.winner_name == user
-        and bet.better_name != user
-        and user in self._resolve_poker_fact(
+        if int(bet.winner_id) == user_id
+        and int(bet.better_id) != user_id
+        and user_id in self._resolve_poker_fact(
           bet=bet,
           pokers_by_id=pokers_by_id,
-          pokers_by_date=pokers_by_date,
         )[1]
       ])
     if pic == "❌➡️💲":
       return self._calc_money_from_role(
-        user=user,
+        user_id=user_id,
         all_bets=all_bets,
         tournaments=tournaments,
         pokers_by_id=pokers_by_id,
-        pokers_by_date=pokers_by_date,
         role="loser",
       )
     if pic == "💍➡️💲":
       return self._calc_money_from_role(
-        user=user,
+        user_id=user_id,
         all_bets=all_bets,
         tournaments=tournaments,
         pokers_by_id=pokers_by_id,
-        pokers_by_date=pokers_by_date,
         role="winner",
       )
     if pic == "🏆":
-      return self._count_tournament_titles(user=user, tournaments=tournaments, tournament_type="regular")
+      return self._count_tournament_titles(user=user_name, tournaments=tournaments, tournament_type="regular")
     if pic == "🎄🏆":
-      return self._count_tournament_titles(user=user, tournaments=tournaments, tournament_type="year")
+      return self._count_tournament_titles(user=user_name, tournaments=tournaments, tournament_type="year")
     if pic == "🚨":
       return len([bet for bet in user_bets if not bool(bet.is_paid)])
     if pic == "🍆✊💦":
-      return len([bet for bet in user_bets if bet.winner_name == bet.better_name])
+      return len([bet for bet in user_bets if int(bet.winner_id) == int(bet.better_id)])
     return 0
 
   @staticmethod
@@ -673,11 +664,10 @@ class StatUseCases:
   def _calc_money_from_role(
     self,
     *,
-    user: str,
+    user_id: int,
     all_bets: list[Bet],
     tournaments: list,
-    pokers_by_id: dict[int, tuple[set[str], set[str]]],
-    pokers_by_date: dict,
+    pokers_by_id: dict[int, tuple[set[int], set[int]]],
     role: str,
   ) -> float:
     total = 0.0
@@ -685,10 +675,11 @@ class StatUseCases:
       relevant_bets = [bet for bet in all_bets if self._bet_in_tournament(bet=bet, tournament=tournament)]
       if not relevant_bets:
         continue
-      by_better: dict[str, list[Bet]] = {}
+      by_better: dict[int, list[Bet]] = {}
       for bet in relevant_bets:
-        by_better.setdefault(bet.better_name, []).append(bet)
-      for better_name, better_bets in by_better.items():
+        by_better.setdefault(int(bet.better_id), []).append(bet)
+      for better_bets in by_better.values():
+        better_name = str(better_bets[0].better_name)
         better_prize_kopecks = self._calc_money_prizes_kopecks(
           user=better_name, tournaments=[tournament]
         )
@@ -697,8 +688,8 @@ class StatUseCases:
           continue
         rel_score = 0.0
         for bet in better_bets:
-          target = bet.loser_name if role == "loser" else bet.winner_name
-          if target != user:
+          target_id = int(bet.loser_id) if role == "loser" else int(bet.winner_id)
+          if target_id != user_id:
             continue
           if int(bet.score or 0) <= 0:
             continue
@@ -706,23 +697,22 @@ class StatUseCases:
           winners, losers = self._resolve_poker_fact(
             bet=bet,
             pokers_by_id=pokers_by_id,
-            pokers_by_date=pokers_by_date,
           )
           if not winners and not losers:
             continue
-          if role == "loser" and user not in losers:
+          if role == "loser" and user_id not in losers:
             continue
-          if role == "winner" and user not in winners:
+          if role == "winner" and user_id not in winners:
             continue
-          if role == "winner" and bet.better_name == user and bet.winner_name == user:
+          if role == "winner" and int(bet.better_id) == user_id and int(bet.winner_id) == user_id:
             # Do not count money won via bets on own victory for this metric.
             continue
 
           # If both winner and loser were guessed correctly, split combo score in half
           # so role-specific metrics get only their own contribution.
           score_value = float(int(bet.score or 0))
-          winner_hit = bet.winner_name in winners
-          loser_hit = bet.loser_name in losers
+          winner_hit = int(bet.winner_id) in winners
+          loser_hit = int(bet.loser_id) in losers
           if winner_hit and loser_hit:
             rel_score += score_value / 2.0
           else:
@@ -732,9 +722,9 @@ class StatUseCases:
     return round(total / 100, 1)
 
   @staticmethod
-  def _resolve_poker_fact(*, bet: Bet, pokers_by_id: dict[int, tuple[set[str], set[str]]], pokers_by_date: dict) -> tuple[set[str], set[str]]:
-    if bet.poker_id is not None and int(bet.poker_id) in pokers_by_id:
-      return pokers_by_id[int(bet.poker_id)]
-    if bet.date is not None and bet.date in pokers_by_date:
-      return pokers_by_date[bet.date]
-    return (set(), set())
+  def _resolve_poker_fact(
+    *,
+    bet: Bet,
+    pokers_by_id: dict[int, tuple[set[int], set[int]]],
+  ) -> tuple[set[int], set[int]]:
+    return pokers_by_id.get(int(bet.poker_id), (set(), set()))

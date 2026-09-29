@@ -45,13 +45,18 @@ BACKUP_MODELS: list[type] = [
 
 def _column_bindings(model: type) -> list[tuple[str, str]]:
   mapper = sa_inspect(model)
-  return [
+  bindings = [
     (
       str(attr.columns[0].name),
       str(attr.key),
     )
     for attr in mapper.column_attrs
   ]
+  if model is Bet:
+    # Existing Bet sheets have a persistent legacy header. Omitting relational
+    # outcome IDs keeps every exported value under its established heading.
+    return [item for item in bindings if item[0] not in {"winner_id", "loser_id"}]
+  return bindings
 
 
 def _normalize_value(value: Any) -> Any:

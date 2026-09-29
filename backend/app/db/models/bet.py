@@ -27,7 +27,13 @@ class Bet(Base):
     ForeignKey("users.row_id", ondelete="RESTRICT"), nullable=False
   )
   amount_kopecks: Mapped[int] = mapped_column("size_kopecks", Integer, nullable=False)
+  winner_id: Mapped[int] = mapped_column(
+    ForeignKey("users.row_id", ondelete="RESTRICT"), nullable=False
+  )
   winner_name: Mapped[str | None] = mapped_column("winner", String(255), nullable=True)
+  loser_id: Mapped[int] = mapped_column(
+    ForeignKey("users.row_id", ondelete="RESTRICT"), nullable=False
+  )
   loser_name: Mapped[str | None] = mapped_column("looser", String(255), nullable=True)
   score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
   is_paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

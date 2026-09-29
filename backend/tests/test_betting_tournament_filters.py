@@ -210,6 +210,7 @@ class _ListRepository:
 @pytest.mark.asyncio
 async def test_overlapping_selected_periods_do_not_count_the_same_bet_twice():
     bet = SimpleNamespace(
+        row_id=1,
         date=date(2026, 3, 10),
         better_name="Alice",
         better_id=7,
@@ -234,6 +235,66 @@ async def test_overlapping_selected_periods_do_not_count_the_same_bet_twice():
 
     assert "11" in report
     assert "22" not in report
+
+
+@pytest.mark.asyncio
+async def test_same_name_bettors_remain_separate_statistics_identities():
+    tournament = _tournament(1, "regular", date(2026, 1, 1), date(2026, 4, 30))
+    bets = [
+        SimpleNamespace(
+            row_id=1, date=date(2026, 3, 10), better_name="Alice", better_id=11,
+            winner_id=11, loser_id=22, score=1, is_paid=True,
+        ),
+        SimpleNamespace(
+            row_id=2, date=date(2026, 3, 10), better_name="Alice", better_id=22,
+            winner_id=22, loser_id=11, score=1, is_paid=True,
+        ),
+    ]
+    report = await StatUseCases(
+        bet_repository=_ListRepository(bets),
+        bet_tournament_repository=_ListRepository([tournament]),
+    ).get_betting_stat(indicators=[SimpleNamespace(row_id=1, pic="👍")])
+
+    assert [line.split("|")[0].strip() for line in report.splitlines()[2:]] == [
+        "Alice",
+        "Alice",
+    ]
+
+
+def test_identity_sensitive_role_metrics_compare_ids_not_duplicate_names():
+    use_case = StatUseCases(bet_repository=_ListRepository([]))
+    bet = SimpleNamespace(
+        poker_id=9,
+        better_id=33,
+        better_name="Bettor",
+        winner_id=11,
+        winner_name="Same Name",
+        loser_id=22,
+        loser_name="Same Name",
+        score=2,
+    )
+
+    winner_loss = use_case._calc_metric(
+        pic="👍/❌",
+        user_id=11,
+        user_name="Same Name",
+        user_bets=[],
+        all_bets=[bet],
+        pokers_by_id={9: ({22}, {11})},
+        tournaments=[],
+    )
+    loser_win = use_case._calc_metric(
+        pic="👎/💍",
+        user_id=22,
+        user_name="Same Name",
+        user_bets=[],
+        all_bets=[bet],
+        pokers_by_id={9: ({22}, {11})},
+        tournaments=[],
+    )
+
+    assert winner_loss == 1
+    assert loser_win == 1
 
 
 class _SessionContext:

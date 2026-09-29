@@ -115,9 +115,12 @@ def _clear_vk_bet_draft_state(user_id: int) -> None:
     for key in (
         "bet_tournament_type",
         "bet_players",
+        "bet_better_id",
         "bet_better_name",
         "bet_amount_kopecks",
+        "bet_winner_id",
         "bet_winner_name",
+        "bet_loser_id",
         "bet_loser_name",
     ):
         ctx.pop(key, None)

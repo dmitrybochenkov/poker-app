@@ -44,10 +44,12 @@ def _params(*, row_id, bet_param_id, percents):
 
 
 def _bet(name, score):
+    player_id = ord(name) - ord("A") + 1
     return SimpleNamespace(
+        row_id=player_id,
         date=date(2026, 3, 1),
         better_name=name,
-        better_id=1,
+        better_id=player_id,
         score=score,
         is_paid=True,
         amount_kopecks=10_000,

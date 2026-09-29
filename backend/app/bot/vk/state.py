@@ -8,7 +8,7 @@ from app.db.repositories.vk_conversation_state_repository import (
 from app.db.session import SessionFactory
 
 vk_user_states: dict[int, str] = {}
-vk_user_contexts: dict[int, dict[str, str]] = {}
+vk_user_contexts: dict[int, dict] = {}
 
 WAITING_FOR_PLAYED_BEFORE = "waiting_for_played_before"
 WAITING_FOR_NEW_NAME = "waiting_for_new_name"

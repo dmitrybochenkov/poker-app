@@ -18,6 +18,8 @@ class BetRepository:
     better_name: str,
     tournament_type: str | None = None,
     amount_kopecks: int,
+    winner_id: int,
+    loser_id: int,
     params_id: int | None = None,
     winner_name: str | None = None,
     loser_name: str | None = None,
@@ -39,7 +41,9 @@ class BetRepository:
       better_id=better_id,
       better_name=better_name,
       amount_kopecks=amount_kopecks,
+      winner_id=winner_id,
       winner_name=winner_name,
+      loser_id=loser_id,
       loser_name=loser_name,
       is_paid=is_paid,
     )

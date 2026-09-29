@@ -35,8 +35,8 @@ class CalculateBetScoresUseCase:
 
     max_cashout = max(int(p.money_kopecks) for p in players)
     min_cashout = min(int(p.money_kopecks) for p in players)
-    winners = {p.player_name for p in players if int(p.money_kopecks) == max_cashout}
-    losers = {p.player_name for p in players if int(p.money_kopecks) == min_cashout}
+    winners = {int(p.player_id) for p in players if int(p.money_kopecks) == max_cashout}
+    losers = {int(p.player_id) for p in players if int(p.money_kopecks) == min_cashout}
 
     updated = 0
     for bet in bets:
@@ -50,16 +50,14 @@ class CalculateBetScoresUseCase:
 
     return updated
 
-  async def _calculate_score_for_bet(self, *, bet: Bet, winners: set[str], losers: set[str]) -> int:
-    if not bet.winner_name or not bet.loser_name:
-      return 0
+  async def _calculate_score_for_bet(self, *, bet: Bet, winners: set[int], losers: set[int]) -> int:
     params = await self._resolve_bet_params(bet=bet)
     if params is None:
       return 0
 
     is_big = int(bet.amount_kopecks) >= int(params.big_size_kopecks)
-    guessed_winner = bet.winner_name in winners
-    guessed_loser = bet.loser_name in losers
+    guessed_winner = int(bet.winner_id) in winners
+    guessed_loser = int(bet.loser_id) in losers
 
     if guessed_winner and guessed_loser:
       return int(params.big_score_combo if is_big else params.small_score_combo)

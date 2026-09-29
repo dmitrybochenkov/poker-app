@@ -57,7 +57,8 @@ async def _setup(*, first_chips=0, second_chips=400):
                       buyins=1, chips=second_chips, money_kopecks=222),
             Bet(poker_id=poker.row_id, date=poker.date, better_id=admin.row_id, better_name=admin.name,
                 amount_kopecks=10_000, params_id=bet_params.row_id,
-                winner_name=second.name, loser_name=first.name, score=0),
+                winner_id=second.row_id, winner_name=second.name,
+                loser_id=first.row_id, loser_name=first.name, score=0),
         ])
         await session.commit()
         return engine, sessions, admin.row_id, poker.row_id

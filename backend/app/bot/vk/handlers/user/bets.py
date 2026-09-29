@@ -123,7 +123,11 @@ async def handle_bet_tournament_event(
             return PlainTextResponse("ok")
         context = vk_user_contexts.setdefault(user_id, {})
         context["bet_tournament_type"] = tournament_type
-        context["bet_players"] = "|".join([p.player_name for p in players])
+        context["bet_players"] = [
+            {"player_id": int(p.player_id), "player_name": p.player_name}
+            for p in players
+        ]
+        context["bet_better_id"] = int(user.row_id)
         context["bet_better_name"] = user.name
         vk_user_states[user_id] = WAITING_FOR_BET_AMOUNT
         await send_vk_message_event_answer(
@@ -163,9 +167,8 @@ async def handle_bet_size_event(
         if not isinstance(amount_kopecks, int):
             return PlainTextResponse("ok")
         context = vk_user_contexts.setdefault(user_id, {})
-        players_str = context.get("bet_players", "")
-        players = [p for p in players_str.split("|") if p]
-        if not players:
+        players = context.get("bet_players", [])
+        if not isinstance(players, list) or not players:
             await send_vk_message_event_answer(
                 event_id=event_id,
                 user_id=user_id,
@@ -175,7 +178,8 @@ async def handle_bet_size_event(
             return PlainTextResponse("ok")
         async with SessionFactory() as session:
             marks_map, winners_text, losers_text = await _build_bet_last_five_hints(
-                session=session, players=players
+                session=session,
+                players=[str(player["player_name"]) for player in players],
             )
         context["bet_amount_kopecks"] = str(amount_kopecks)
         context["bet_player_marks"] = marks_map
@@ -213,12 +217,20 @@ async def handle_bet_winner_event(
                 text=Text.user.STATUS_PENDING.value,
             )
             return PlainTextResponse("ok")
-        winner_name = callback_payload.get("player_name")
-        if not isinstance(winner_name, str):
+        winner_id = callback_payload.get("player_id")
+        if not isinstance(winner_id, int):
             return PlainTextResponse("ok")
         context = vk_user_contexts.setdefault(user_id, {})
-        players = [p for p in context.get("bet_players", "").split("|") if p]
-        if winner_name not in players:
+        players = context.get("bet_players", [])
+        winner = next(
+            (
+                player
+                for player in players
+                if int(player.get("player_id", -1)) == winner_id
+            ),
+            None,
+        ) if isinstance(players, list) else None
+        if winner is None:
             await send_vk_message_event_answer(
                 event_id=event_id,
                 user_id=user_id,
@@ -226,11 +238,17 @@ async def handle_bet_winner_event(
                 text=Text.user.REGISTRATION_READ_ERROR.value,
             )
             return PlainTextResponse("ok")
+        winner_name = str(winner["player_name"])
+        context["bet_winner_id"] = winner_id
         context["bet_winner_name"] = winner_name
-        better_name = context.get("bet_better_name")
+        better_id = int(context.get("bet_better_id", -1))
         marks_map = context.get("bet_player_marks", {})
         losers_text = context.get("bet_last_losers_text", "")
-        losers = [p for p in players if p != winner_name and p != better_name]
+        losers = [
+            player
+            for player in players
+            if int(player["player_id"]) not in {winner_id, better_id}
+        ]
         if not losers:
             await send_vk_message_event_answer(
                 event_id=event_id,
@@ -249,7 +267,12 @@ async def handle_bet_winner_event(
             peer_id=peer_id, conversation_message_id=conversation_message_id
         )
         loser_marks = (
-            {name: marks_map.get(name, "") for name in losers}
+            {
+                str(player["player_name"]): marks_map.get(
+                    str(player["player_name"]), ""
+                )
+                for player in losers
+            }
             if isinstance(marks_map, dict)
             else None
         )
@@ -276,12 +299,14 @@ async def handle_bet_loser_event(
                 text=Text.user.STATUS_PENDING.value,
             )
             return PlainTextResponse("ok")
-        loser_name = callback_payload.get("player_name")
-        if not isinstance(loser_name, str):
+        loser_id = callback_payload.get("player_id")
+        if not isinstance(loser_id, int):
             return PlainTextResponse("ok")
         context = vk_user_contexts.setdefault(user_id, {})
+        players = context.get("bet_players", [])
+        winner_id = context.get("bet_winner_id")
         winner_name = context.get("bet_winner_name")
-        if not winner_name or winner_name == loser_name:
+        if not winner_name or not isinstance(winner_id, int) or winner_id == loser_id:
             await send_vk_message_event_answer(
                 event_id=event_id,
                 user_id=user_id,
@@ -289,6 +314,24 @@ async def handle_bet_loser_event(
                 text=Text.user.REGISTRATION_READ_ERROR.value,
             )
             return PlainTextResponse("ok")
+        loser = next(
+            (
+                player
+                for player in players
+                if int(player.get("player_id", -1)) == loser_id
+            ),
+            None,
+        ) if isinstance(players, list) else None
+        if loser is None:
+            await send_vk_message_event_answer(
+                event_id=event_id,
+                user_id=user_id,
+                peer_id=peer_id,
+                text=Text.user.REGISTRATION_READ_ERROR.value,
+            )
+            return PlainTextResponse("ok")
+        loser_name = str(loser["player_name"])
+        context["bet_loser_id"] = loser_id
         context["bet_loser_name"] = loser_name
         tournament_type = context.get("bet_tournament_type", "regular")
         amount_kopecks = int(context.get("bet_amount_kopecks", "0"))
@@ -350,7 +393,16 @@ async def handle_bet_confirmation_event(
         winner_name = context.get("bet_winner_name")
         loser_name = context.get("bet_loser_name")
         amount_kopecks = int(context.get("bet_amount_kopecks", "0"))
-        if not tournament_type or not winner_name or not loser_name or amount_kopecks <= 0:
+        winner_id = context.get("bet_winner_id")
+        loser_id = context.get("bet_loser_id")
+        if (
+            not tournament_type
+            or not winner_name
+            or not loser_name
+            or not isinstance(winner_id, int)
+            or not isinstance(loser_id, int)
+            or amount_kopecks <= 0
+        ):
             await send_vk_message_event_answer(
                 event_id=event_id,
                 user_id=user_id,
@@ -377,8 +429,8 @@ async def handle_bet_confirmation_event(
                     actor_user_id=actor_user_id or -1,
                     tournament_type=tournament_type,
                     amount_kopecks=amount_kopecks,
-                    winner_name=winner_name,
-                    loser_name=loser_name,
+                    winner_id=int(winner_id),
+                    loser_id=int(loser_id),
                 )
         except Exception:
             vk_user_states.pop(user_id, None)
@@ -462,7 +514,11 @@ async def handle_make_bet_text(*, user_id, text, raw_message):
             return PlainTextResponse("ok")
         context = vk_user_contexts.setdefault(user_id, {})
         context["bet_tournament_type"] = "single"
-        context["bet_players"] = "|".join([p.player_name for p in players])
+        context["bet_players"] = [
+            {"player_id": int(p.player_id), "player_name": p.player_name}
+            for p in players
+        ]
+        context["bet_better_id"] = int(user.row_id)
         context["bet_better_name"] = user.name
         vk_user_states[user_id] = WAITING_FOR_BET_AMOUNT
         await send_vk_message(

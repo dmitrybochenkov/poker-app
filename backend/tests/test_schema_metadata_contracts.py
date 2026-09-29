@@ -21,6 +21,8 @@ def test_bet_metadata_matches_accepted_legacy_schema():
         for constraint in Bet.__table__.constraints
         if isinstance(constraint, UniqueConstraint)
     } == {"uq_bets_date_better_id", "uq_bets_poker_better_id"}
+    assert Bet.__table__.c.winner_id.nullable is False
+    assert Bet.__table__.c.loser_id.nullable is False
 
 
 def test_buyin_metadata_preserves_historical_index_names():

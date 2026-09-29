@@ -202,7 +202,11 @@ async def start_make_bet(message: Message, state: FSMContext) -> None:
     await state.set_state(RegistrationState.waiting_for_bet_amount)
     await state.update_data(
         bet_tournament_type="single",
-        bet_players=[p.player_name for p in players],
+        bet_players=[
+            {"player_id": int(p.player_id), "player_name": p.player_name}
+            for p in players
+        ],
+        bet_better_id=int(user.row_id),
         bet_better_name=user.name,
     )
     await message.answer(
@@ -255,7 +259,11 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
     await state.set_state(RegistrationState.waiting_for_bet_amount)
     await state.update_data(
         bet_tournament_type=tournament_type,
-        bet_players=[p.player_name for p in players],
+        bet_players=[
+            {"player_id": int(p.player_id), "player_name": p.player_name}
+            for p in players
+        ],
+        bet_better_id=int(user.row_id),
         bet_better_name=user.name,
     )
     await callback.message.answer(
@@ -283,7 +291,8 @@ async def choose_bet_size(callback: CallbackQuery, state: FSMContext) -> None:
     amount_kopecks = int(callback.data.split(":", 1)[1])
     async with SessionFactory() as session:
         marks_map, winners_text, losers_text = await _build_bet_last_five_hints(
-            session=session, players=players
+            session=session,
+            players=[str(player["player_name"]) for player in players],
         )
     await _delete_message_if_possible(callback)
     await state.update_data(
@@ -309,25 +318,44 @@ async def choose_bet_winner(callback: CallbackQuery, state: FSMContext) -> None:
         return
     data = await state.get_data()
     players = data.get("bet_players")
-    better_name = data.get("bet_better_name")
+    better_id = data.get("bet_better_id")
     marks_map = data.get("bet_player_marks", {})
     losers_text = data.get("bet_last_losers_text", "")
-    winner_name = callback.data.split(":", 1)[1]
-    if not isinstance(players, list) or winner_name not in players:
+    winner_id_raw = callback.data.split(":", 1)[1]
+    if not winner_id_raw.isdigit():
+        await state.clear()
+        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+        return
+    winner_id = int(winner_id_raw)
+    winner = next(
+        (
+            player
+            for player in players
+            if int(player.get("player_id", -1)) == winner_id
+        ),
+        None,
+    ) if isinstance(players, list) else None
+    if winner is None:
         await state.clear()
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     loser_candidates = [
-        player for player in players if player != winner_name and player != better_name
+        player
+        for player in players
+        if int(player["player_id"]) not in {winner_id, int(better_id or -1)}
     ]
     if not loser_candidates:
         await state.clear()
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     await _delete_message_if_possible(callback)
-    await state.update_data(bet_winner_name=winner_name)
+    winner_name = str(winner["player_name"])
+    await state.update_data(bet_winner_id=winner_id, bet_winner_name=winner_name)
     loser_marks = (
-        {name: marks_map.get(name, "") for name in loser_candidates}
+        {
+            str(player["player_name"]): marks_map.get(str(player["player_name"]), "")
+            for player in loser_candidates
+        }
         if isinstance(marks_map, dict)
         else None
     )
@@ -346,22 +374,44 @@ async def choose_bet_loser(callback: CallbackQuery, state: FSMContext) -> None:
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
-    loser_name = callback.data.split(":", 1)[1]
+    loser_id_raw = callback.data.split(":", 1)[1]
+    if not loser_id_raw.isdigit():
+        await state.clear()
+        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+        return
+    loser_id = int(loser_id_raw)
     data = await state.get_data()
+    players = data.get("bet_players")
+    winner_id = data.get("bet_winner_id")
     winner_name = data.get("bet_winner_name")
     tournament_type = data.get("bet_tournament_type")
     amount_kopecks = data.get("bet_amount_kopecks")
     if (
         not winner_name
+        or not isinstance(players, list)
+        or not isinstance(winner_id, int)
         or not tournament_type
         or not isinstance(amount_kopecks, int)
-        or loser_name == winner_name
+        or loser_id == winner_id
     ):
         await state.clear()
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
+    loser = next(
+        (
+            player
+            for player in players
+            if int(player.get("player_id", -1)) == loser_id
+        ),
+        None,
+    )
+    if loser is None:
+        await state.clear()
+        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+        return
+    loser_name = str(loser["player_name"])
     await _delete_message_if_possible(callback)
-    await state.update_data(bet_loser_name=loser_name)
+    await state.update_data(bet_loser_id=loser_id, bet_loser_name=loser_name)
     await callback.message.answer(
         Text.user.BETTING_CONFIRM.value.format(
             tournament=_format_tournament_name(tournament_type),
@@ -392,11 +442,15 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     tournament_type = data.get("bet_tournament_type")
     amount_kopecks = data.get("bet_amount_kopecks")
+    winner_id = data.get("bet_winner_id")
+    loser_id = data.get("bet_loser_id")
     winner_name = data.get("bet_winner_name")
     loser_name = data.get("bet_loser_name")
     if (
         not tournament_type
         or not isinstance(amount_kopecks, int)
+        or not isinstance(winner_id, int)
+        or not isinstance(loser_id, int)
         or not winner_name
         or not loser_name
     ):
@@ -423,8 +477,8 @@ async def confirm_bet(callback: CallbackQuery, state: FSMContext) -> None:
                 actor_user_id=actor_user_id or -1,
                 tournament_type=tournament_type,
                 amount_kopecks=amount_kopecks,
-                winner_name=winner_name,
-                loser_name=loser_name,
+                winner_id=winner_id,
+                loser_id=loser_id,
             )
     except Exception:
         await callback.message.answer(

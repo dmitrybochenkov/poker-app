@@ -84,14 +84,15 @@ async def _seed(sessions):
         )
         session.add_all([linked, other, poker_params, bet_params])
         await session.flush()
+        poker = Poker(
+            params_id=int(poker_params.row_id),
+            date=game_date,
+            is_going=True,
+            is_bettable=True,
+        )
         session.add_all(
             [
-                Poker(
-                    params_id=int(poker_params.row_id),
-                    date=game_date,
-                    is_going=True,
-                    is_bettable=True,
-                ),
+                poker,
                 BetTournamentParam(
                     tournament_type="regular",
                     bet_param_id=int(bet_params.row_id),
@@ -105,6 +106,17 @@ async def _seed(sessions):
                 ),
             ]
         )
+        await session.flush()
+        session.add_all([
+            PokerData(
+                poker_id=poker.row_id, date=game_date, player_id=linked.row_id,
+                player_name=linked.name, buyins=1,
+            ),
+            PokerData(
+                poker_id=poker.row_id, date=game_date, player_id=other.row_id,
+                player_name=other.name, buyins=1,
+            ),
+        ])
         await session.commit()
         return int(linked.row_id), int(other.row_id), game_date
 
@@ -131,8 +143,8 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
                 actor_user_id=linked_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
-                winner_name="Winner",
-                loser_name="Loser",
+                winner_id=linked_id,
+                loser_id=other_id,
             )
         async with sessions() as session:
             linked = await session.get(User, linked_id)
@@ -143,15 +155,15 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
                 actor_user_id=linked_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
-                winner_name="Winner",
-                loser_name="Loser",
+                winner_id=linked_id,
+                loser_id=other_id,
             )
             other_same_name = await _use_case(session).create_bet(
                 actor_user_id=other_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
-                winner_name="Winner",
-                loser_name="Loser",
+                winner_id=linked_id,
+                loser_id=other_id,
             )
         async with sessions() as session:
             rows = (await session.execute(select(Bet).order_by(Bet.row_id))).scalars().all()
@@ -165,6 +177,45 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
             (other_id, "Same Name", game_date),
         ]
         assert {row.poker_id for row in rows} == {poker_id}
+        assert [(row.winner_id, row.loser_id) for row in rows] == [
+            (linked_id, other_id),
+            (linked_id, other_id),
+        ]
+        assert [(row.winner_name, row.loser_name) for row in rows] == [
+            ("Same Name", "Same Name"),
+            ("Same Name", "Same Name"),
+        ]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_create_bet_rejects_nonparticipant_and_same_participant_outcomes(tmp_path):
+    engine, sessions = await _store(tmp_path, "invalid-outcome.db")
+    linked_id, other_id, _ = await _seed(sessions)
+    try:
+        async with sessions() as session:
+            outsider = User(name="Outsider", telegram_id=404, is_approved=True)
+            session.add(outsider)
+            await session.commit()
+            outsider_id = int(outsider.row_id)
+        async with sessions() as session:
+            same = await _use_case(session).create_bet(
+                actor_user_id=linked_id,
+                tournament_type="single",
+                amount_kopecks=10_000,
+                winner_id=other_id,
+                loser_id=other_id,
+            )
+            missing = await _use_case(session).create_bet(
+                actor_user_id=linked_id,
+                tournament_type="single",
+                amount_kopecks=10_000,
+                winner_id=other_id,
+                loser_id=outsider_id,
+            )
+        assert same == (None, "invalid_outcome")
+        assert missing == (None, "invalid_outcome")
     finally:
         await engine.dispose()
 
@@ -184,6 +235,8 @@ async def test_repository_rejects_poker_id_date_mismatch(tmp_path):
                     better_id=linked_id,
                     better_name="Same Name",
                     amount_kopecks=10_000,
+                    winner_id=linked_id,
+                    loser_id=linked_id,
                     params_id=int(params.row_id),
                 )
     finally:
@@ -193,7 +246,7 @@ async def test_repository_rejects_poker_id_date_mismatch(tmp_path):
 @pytest.mark.asyncio
 async def test_canonical_actor_prevents_platform_id_collision(tmp_path):
     engine, sessions = await _store(tmp_path, "platform-id-collision.db")
-    await _seed(sessions)
+    linked_id, other_id, _ = await _seed(sessions)
     try:
         async with sessions() as session:
             telegram_user = User(
@@ -210,8 +263,8 @@ async def test_canonical_actor_prevents_platform_id_collision(tmp_path):
                 actor_user_id=vk_user_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
-                winner_name="Winner",
-                loser_name="Loser",
+                winner_id=linked_id,
+                loser_id=other_id,
             )
 
         assert status == "ok" and created is not None
@@ -235,7 +288,7 @@ async def test_concurrent_duplicate_checks_create_one_bet_and_increment_bank_onc
     tmp_path, monkeypatch, case_name
 ):
     engine, sessions = await _store(tmp_path, f"concurrent-{case_name}.db")
-    linked_id, _, game_date = await _seed(sessions)
+    linked_id, other_id, game_date = await _seed(sessions)
     original = BetRepository.get_by_poker_user_and_tournament
     calls_by_session = {}
     both_second_checks_complete = asyncio.Event()
@@ -267,8 +320,8 @@ async def test_concurrent_duplicate_checks_create_one_bet_and_increment_bank_onc
                 actor_user_id=linked_id,
                 tournament_type="single",
                 amount_kopecks=10_000,
-                winner_name="Winner",
-                loser_name="Loser",
+                winner_id=linked_id,
+                loser_id=other_id,
             )
 
     try:

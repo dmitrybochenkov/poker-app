@@ -108,9 +108,11 @@ def test_current_head_foreign_keys_are_enforced_with_existing_delete_semantics(t
     ).fetchone()[0]
     bet_id = connection.execute(
       "INSERT INTO bets "
-      "(poker_id, params_id, date, better_name, better_id, size_kopecks, score, is_paid) "
-      "VALUES (?, ?, '2026-09-29', 'Player', ?, 10000, 0, 0) RETURNING row_id",
-      (poker_id, bet_params_id, bettor_id),
+      "(poker_id, params_id, date, better_name, better_id, size_kopecks, "
+      "winner_id, winner, loser_id, looser, score, is_paid) "
+      "VALUES (?, ?, '2026-09-29', 'Player', ?, 10000, ?, 'Player', ?, 'Player', 0, 0) "
+      "RETURNING row_id",
+      (poker_id, bet_params_id, bettor_id, bettor_id, bettor_id),
     ).fetchone()[0]
     receipt_id = connection.execute(
       "INSERT INTO bet_payment_receipts (user_row_id, platform, status) "

@@ -70,15 +70,21 @@ class BettingInlineKbs(InlineKeyboardBase):
   def betting_player_tg(
     *,
     action: str,
-    players: list[str],
+    players: list,
     player_marks: dict[str, str] | None = None,
   ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     for player in players:
+      player_id = int(player["player_id"] if isinstance(player, dict) else player.player_id)
+      player_name = str(
+        player["player_name"] if isinstance(player, dict) else player.player_name
+      )
       mark = ""
       if player_marks:
-        mark = player_marks.get(player, "")
-      keyboard.button(text=f"{player}{mark}", callback_data=f"bet_{action}:{player}")
+        mark = player_marks.get(player_name, "")
+      keyboard.button(
+        text=f"{player_name}{mark}", callback_data=f"bet_{action}:{player_id}"
+      )
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -136,17 +142,21 @@ class BettingInlineKbs(InlineKeyboardBase):
   def betting_player_vk(
     *,
     action: str,
-    players: list[str],
+    players: list,
     player_marks: dict[str, str] | None = None,
   ) -> str:
     rows: list[list[dict[str, str | dict[str, int | str]]]] = []
     for player in players:
+      player_id = int(player["player_id"] if isinstance(player, dict) else player.player_id)
+      player_name = str(
+        player["player_name"] if isinstance(player, dict) else player.player_name
+      )
       mark = ""
       if player_marks:
-        mark = player_marks.get(player, "")
-      label = f"{player}{mark}"[:40]
+        mark = player_marks.get(player_name, "")
+      label = f"{player_name}{mark}"[:40]
       rows.append([{
-        "action": {"type": "callback", "label": label, "payload": {"action": f"bet_{action}", "player_name": player}},
+        "action": {"type": "callback", "label": label, "payload": {"action": f"bet_{action}", "player_id": player_id}},
         "color": "primary",
       }])
     return ReplyKbs.make_vk_callback(rows)

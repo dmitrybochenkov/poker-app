@@ -20,15 +20,26 @@ def _run(db, *args, check=True):
 
 def _relations(c):
   user = c.execute("INSERT INTO users(telegram_id,name,is_admin,is_approved) VALUES(501,'Bettor',0,1) RETURNING row_id").fetchone()[0]
+  winner = c.execute("INSERT INTO users(telegram_id,name,is_admin,is_approved) VALUES(502,'Winner',0,1) RETURNING row_id").fetchone()[0]
+  loser = c.execute("INSERT INTO users(telegram_id,name,is_admin,is_approved) VALUES(503,'Loser',0,1) RETURNING row_id").fetchone()[0]
   pp = c.execute("INSERT INTO poker_params(buyin_size_chips,buyin_size_kopecks,bb_size_chips,max_buyins) VALUES(200,20000,10,3) RETURNING row_id").fetchone()[0]
   poker = c.execute("INSERT INTO pokers(params_id,date) VALUES(?,'2026-09-29') RETURNING row_id", (pp,)).fetchone()[0]
+  c.execute("INSERT INTO poker_data(poker_id,date,player_id,player_name,buyins,money_kopecks) VALUES(?, '2026-09-29', ?, 'Winner', 1, 10000)", (poker, winner))
+  c.execute("INSERT INTO poker_data(poker_id,date,player_id,player_name,buyins,money_kopecks) VALUES(?, '2026-09-29', ?, 'Loser', 1, -10000)", (poker, loser))
   bp = c.execute("INSERT INTO bet_params(small_size_kopecks,small_score,small_score_combo,big_size_kopecks,big_score,big_score_combo) VALUES(10000,1,2,20000,2,4) RETURNING row_id").fetchone()[0]
   return poker, user, bp
 
 
 def _bet(c, poker, user, params, *, operation="normal"):
-  has = "poker_id" in {r[1] for r in c.execute("PRAGMA table_info('bets')")}
+  table_columns = {r[1] for r in c.execute("PRAGMA table_info('bets')")}
+  has = "poker_id" in table_columns
   columns, values, prefix = ("poker_id,", "?,", (poker,)) if has else ("", "", ())
+  if "winner_id" in table_columns:
+    winner = c.execute("SELECT row_id FROM users WHERE name='Winner'").fetchone()[0]
+    loser = c.execute("SELECT row_id FROM users WHERE name='Loser'").fetchone()[0]
+    columns += "winner_id,loser_id,"
+    values += "?,?,"
+    prefix += (winner, loser)
   date = "2026-09-30" if operation == "bad-date" else "2026-09-29"
   better = 999999 if operation == "bad-user" else user
   param = 999999 if operation == "bad-param" else params

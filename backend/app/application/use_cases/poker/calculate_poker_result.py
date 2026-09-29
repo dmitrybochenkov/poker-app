@@ -36,7 +36,9 @@ class CalculatedBet:
   better_id: int
   better_name: str
   amount_kopecks: int
+  winner_id: int
   winner_name: str | None
+  loser_id: int
   loser_name: str | None
   score: int
 
@@ -148,7 +150,8 @@ class CalculatePokerResultUseCase:
       bet_rows = await self.bet_repository.list_for_poker(poker_id=int(poker.row_id))
       bets = tuple(
         CalculatedBet(int(b.row_id), int(b.better_id), b.better_name, int(b.amount_kopecks),
-                      b.winner_name, b.loser_name, int(b.score))
+                      int(b.winner_id), b.winner_name, int(b.loser_id), b.loser_name,
+                      int(b.score))
         for b in bet_rows
       )
       all_pokers = await self.poker_repository.list_all()
