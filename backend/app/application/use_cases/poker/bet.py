@@ -85,7 +85,7 @@ class BetUseCases:
     if started is not None:
       started_poker, _ = started
       existing_before_check = await self.bet_repository.get_by_poker_user_and_tournament(
-        date=started_poker.date,
+        poker_id=int(started_poker.row_id),
         better_id=better_row_id,
         tournament_type=tournament_type,
       )
@@ -97,7 +97,7 @@ class BetUseCases:
       return None, "betting_closed"
 
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
-      date=poker.date,
+      poker_id=int(poker.row_id),
       better_id=better_row_id,
       tournament_type=tournament_type,
     )
@@ -112,9 +112,10 @@ class BetUseCases:
       return None, "missing_params"
 
     poker_date = poker.date
+    poker_row_id = int(poker.row_id)
     try:
       created = await self.bet_repository.create(
-        poker_id=poker.row_id,
+        poker_id=poker_row_id,
         date=poker_date,
         better_id=better_row_id,
         better_name=user.name,
@@ -134,7 +135,7 @@ class BetUseCases:
     except IntegrityError:
       await self.bet_repository.session.rollback()
       existing = await self.bet_repository.get_by_poker_user_and_tournament(
-        date=poker_date,
+        poker_id=poker_row_id,
         better_id=better_row_id,
         tournament_type=tournament_type,
       )
@@ -200,7 +201,7 @@ class BetUseCases:
     if started is not None:
       started_poker, _ = started
       existing_before_check = await self.bet_repository.get_by_poker_user_and_tournament(
-        date=started_poker.date,
+        poker_id=int(started_poker.row_id),
         better_id=better_row_id,
         tournament_type=tournament_type,
       )
@@ -212,7 +213,7 @@ class BetUseCases:
       return None, [], "betting_closed"
 
     existing = await self.bet_repository.get_by_poker_user_and_tournament(
-      date=poker.date,
+      poker_id=int(poker.row_id),
       better_id=better_row_id,
       tournament_type=tournament_type,
     )
@@ -239,7 +240,7 @@ class BetUseCases:
     if user is None:
       return []
     return await self.bet_repository.list_for_user_in_poker(
-      date=poker.date,
+      poker_id=int(poker.row_id),
       better_id=int(user.row_id),
     )
 

@@ -12,7 +12,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.db.base import Base
 from app.db.models.bet import Bet
+from app.db.models.bet_param import BetParam
 from app.db.models.bet_payment_receipt import BetPaymentReceipt, BetPaymentReceiptBet
+from app.db.models.poker import Poker
+from app.db.models.poker_param import PokerParam
+from app.db.models.user import User
 from app.db.repositories.bet_payment_receipt_repository import BetPaymentReceiptRepository
 from app.services.bet_payment import (
     apply_exact_receipt_payment,
@@ -36,16 +40,54 @@ async def _store(tmp_path, name="receipts.db"):
     async with engine.begin() as connection:
         await connection.run_sync(
             Base.metadata.create_all,
-            tables=[Bet.__table__, BetPaymentReceipt.__table__, BetPaymentReceiptBet.__table__],
+            tables=[
+                User.__table__,
+                PokerParam.__table__,
+                Poker.__table__,
+                BetParam.__table__,
+                Bet.__table__,
+                BetPaymentReceipt.__table__,
+                BetPaymentReceiptBet.__table__,
+            ],
         )
     return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def _seed(sessions):
     async with sessions() as session:
+        user = User(row_id=7, telegram_id=7, name="Player", is_approved=True)
+        poker_params = PokerParam(
+            buyin_size_chips=200,
+            buyin_size_kopecks=20_000,
+            bb_size_chips=10,
+            max_buyins=3,
+        )
+        bet_params = BetParam(
+            small_size_kopecks=10_000,
+            small_score=1,
+            small_score_combo=2,
+            big_size_kopecks=20_000,
+            big_score=2,
+            big_score_combo=4,
+        )
+        session.add_all([user, poker_params, bet_params])
+        await session.flush()
+        pokers = [
+            Poker(params_id=poker_params.row_id, date=date(2026, 9, day))
+            for day in (1, 2, 3)
+        ]
+        session.add_all(pokers)
+        await session.flush()
         bets = [
-            Bet(date=date(2026, 9, day), better_name="Player", better_id=7, amount_kopecks=amount)
-            for day, amount in [(1, 10_000), (2, 20_000), (3, 30_000)]
+            Bet(
+                poker_id=poker.row_id,
+                params_id=bet_params.row_id,
+                date=poker.date,
+                better_name="Player",
+                better_id=user.row_id,
+                amount_kopecks=amount,
+            )
+            for poker, amount in zip(pokers, (10_000, 20_000, 30_000), strict=True)
         ]
         session.add_all(bets)
         await session.commit()

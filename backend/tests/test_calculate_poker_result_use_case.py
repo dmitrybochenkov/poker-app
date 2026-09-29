@@ -55,7 +55,7 @@ async def _setup(*, first_chips=0, second_chips=400):
                       buyins=1, chips=first_chips, money_kopecks=111),
             PokerData(poker_id=poker.row_id, date=poker.date, player_id=second.row_id, player_name=second.name,
                       buyins=1, chips=second_chips, money_kopecks=222),
-            Bet(date=poker.date, better_id=admin.row_id, better_name=admin.name,
+            Bet(poker_id=poker.row_id, date=poker.date, better_id=admin.row_id, better_name=admin.name,
                 amount_kopecks=10_000, params_id=bet_params.row_id,
                 winner_name=second.name, loser_name=first.name, score=0),
         ])

@@ -96,9 +96,21 @@ def test_current_head_foreign_keys_are_enforced_with_existing_delete_semantics(t
       "SELECT COUNT(*) FROM vk_conversation_states WHERE vk_user_id = 2001"
     ).fetchone() == (0,)
 
+    bettor_id = connection.execute(
+      "INSERT INTO users (telegram_id, name, is_admin, is_approved) "
+      "VALUES (1002, 'Player', 0, 1) RETURNING row_id"
+    ).fetchone()[0]
+    bet_params_id = connection.execute(
+      "INSERT INTO bet_params "
+      "(small_size_kopecks, small_score, small_score_combo, "
+      "big_size_kopecks, big_score, big_score_combo) "
+      "VALUES (10000, 1, 2, 20000, 2, 4) RETURNING row_id"
+    ).fetchone()[0]
     bet_id = connection.execute(
-      "INSERT INTO bets (date, better_name, better_id, size_kopecks, score, is_paid) "
-      "VALUES ('2026-09-29', 'Player', 7, 10000, 0, 0) RETURNING row_id"
+      "INSERT INTO bets "
+      "(poker_id, params_id, date, better_name, better_id, size_kopecks, score, is_paid) "
+      "VALUES (?, ?, '2026-09-29', 'Player', ?, 10000, 0, 0) RETURNING row_id",
+      (poker_id, bet_params_id, bettor_id),
     ).fetchone()[0]
     receipt_id = connection.execute(
       "INSERT INTO bet_payment_receipts (user_row_id, platform, status) "

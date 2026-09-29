@@ -2,6 +2,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.bet import Bet
+from app.db.models.poker import Poker
 
 
 class BetRepository:
@@ -11,7 +12,7 @@ class BetRepository:
   async def create(
     self,
     *,
-    poker_id: int | None = None,
+    poker_id: int,
     date=None,
     better_id: int,
     better_name: str,
@@ -24,7 +25,15 @@ class BetRepository:
   ) -> Bet:
     if not tournament_type:
       tournament_type = "regular"
+    poker = await self.session.get(Poker, int(poker_id))
+    if poker is None:
+      raise ValueError(f"Poker {poker_id} does not exist")
+    if poker.date != date:
+      raise ValueError(
+        f"Bet date {date} does not match Poker {poker_id} date {poker.date}"
+      )
     bet = Bet(
+      poker_id=poker_id,
       params_id=params_id,
       date=date,
       better_id=better_id,
@@ -46,30 +55,33 @@ class BetRepository:
     better_id: int,
     tournament_type: str | None = None,
   ) -> Bet | None:
-    if date is None:
+    if poker_id is None and date is None:
       return None
+    identity = Bet.poker_id == poker_id if poker_id is not None else Bet.date == date
     result = await self.session.execute(
       select(Bet).where(
-        Bet.date == date,
+        identity,
         Bet.better_id == better_id,
       )
     )
     return result.scalars().first()
 
   async def list_for_poker(self, *, poker_id: int | None = None, date=None) -> list[Bet]:
-    if date is None:
+    if poker_id is None and date is None:
       return []
+    identity = Bet.poker_id == poker_id if poker_id is not None else Bet.date == date
     result = await self.session.execute(
-      select(Bet).where(Bet.date == date).order_by(Bet.row_id.desc())
+      select(Bet).where(identity).order_by(Bet.row_id.desc())
     )
     return list(result.scalars().all())
 
   async def list_for_user_in_poker(self, *, poker_id: int | None = None, date=None, better_id: int) -> list[Bet]:
-    if date is None:
+    if poker_id is None and date is None:
       return []
+    identity = Bet.poker_id == poker_id if poker_id is not None else Bet.date == date
     result = await self.session.execute(
       select(Bet)
-      .where(Bet.date == date, Bet.better_id == better_id)
+      .where(identity, Bet.better_id == better_id)
       .order_by(Bet.row_id.desc())
     )
     return list(result.scalars().all())

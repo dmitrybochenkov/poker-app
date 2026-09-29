@@ -145,7 +145,7 @@ class CalculatePokerResultUseCase:
       winners = tuple(row.player_name for row in players if row.money_kopecks == max_money)
       losers = tuple(row.player_name for row in players if row.money_kopecks == min_money)
       await self.bet_scores.execute_without_commit(poker_id=poker.row_id, poker_date=poker.date)
-      bet_rows = await self.bet_repository.list_for_poker(date=poker.date)
+      bet_rows = await self.bet_repository.list_for_poker(poker_id=int(poker.row_id))
       bets = tuple(
         CalculatedBet(int(b.row_id), int(b.better_id), b.better_name, int(b.amount_kopecks),
                       b.winner_name, b.loser_name, int(b.score))

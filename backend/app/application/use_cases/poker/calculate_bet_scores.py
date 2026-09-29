@@ -25,7 +25,7 @@ class CalculateBetScoresUseCase:
     return updated
 
   async def execute_without_commit(self, *, poker_id: int, poker_date) -> int:
-    bets = await self.bet_repository.list_for_poker(date=poker_date)
+    bets = await self.bet_repository.list_for_poker(poker_id=int(poker_id))
     if not bets:
       return 0
 

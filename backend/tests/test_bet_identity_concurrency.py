@@ -155,6 +155,7 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
             )
         async with sessions() as session:
             rows = (await session.execute(select(Bet).order_by(Bet.row_id))).scalars().all()
+            poker_id = int((await session.execute(select(Poker))).scalar_one().row_id)
 
         assert first[1] == "ok"
         assert linked_through_vk == (None, "already_bet")
@@ -163,6 +164,28 @@ async def test_sequential_duplicate_checks_use_canonical_user_id(tmp_path):
             (linked_id, "Same Name", game_date),
             (other_id, "Same Name", game_date),
         ]
+        assert {row.poker_id for row in rows} == {poker_id}
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_repository_rejects_poker_id_date_mismatch(tmp_path):
+    engine, sessions = await _store(tmp_path, "date-mismatch.db")
+    linked_id, _, game_date = await _seed(sessions)
+    try:
+        async with sessions() as session:
+            poker = (await session.execute(select(Poker))).scalar_one()
+            params = (await session.execute(select(BetParam))).scalar_one()
+            with pytest.raises(ValueError, match="does not match"):
+                await BetRepository(session).create(
+                    poker_id=int(poker.row_id),
+                    date=game_date.replace(day=game_date.day + 1),
+                    better_id=linked_id,
+                    better_name="Same Name",
+                    amount_kopecks=10_000,
+                    params_id=int(params.row_id),
+                )
     finally:
         await engine.dispose()
 
