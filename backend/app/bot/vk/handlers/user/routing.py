@@ -276,27 +276,17 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     )
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await betting_stats.handle_betstat_mode_event(
-        user_id=user_id,
-        peer_id=peer_id,
-        event_id=event_id,
-        conversation_message_id=conversation_message_id,
-        callback_payload=callback_payload,
-        action=action,
-    )
-    if result is not HANDLER_UNMATCHED:
-        return result
-    result = await betting_stats.handle_betstat_open_event(
-        user_id=user_id,
-        peer_id=peer_id,
-        event_id=event_id,
-        conversation_message_id=conversation_message_id,
-        callback_payload=callback_payload,
-        action=action,
-    )
-    if result is not HANDLER_UNMATCHED:
-        return result
     result = await betting_stats.handle_betting_tournament_actions_event(
+        user_id=user_id,
+        peer_id=peer_id,
+        event_id=event_id,
+        conversation_message_id=conversation_message_id,
+        callback_payload=callback_payload,
+        action=action,
+    )
+    if result is not HANDLER_UNMATCHED:
+        return result
+    result = await betting_stats.handle_betstat_back_event(
         user_id=user_id,
         peer_id=peer_id,
         event_id=event_id,
@@ -436,6 +426,16 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     )
     if result is not HANDLER_UNMATCHED:
         return result
+    result = await betting_stats.handle_betstat_sort_back_event(
+        user_id=user_id,
+        peer_id=peer_id,
+        event_id=event_id,
+        conversation_message_id=conversation_message_id,
+        callback_payload=callback_payload,
+        action=action,
+    )
+    if result is not HANDLER_UNMATCHED:
+        return result
     result = await betting_stats.handle_betstat_sort_cancel_event(
         user_id=user_id,
         peer_id=peer_id,
@@ -529,16 +529,7 @@ async def handle_user_message_new(
     result = await poker_stats.handle_poker_poker_stat_text(user_id=user_id, text=text, raw_message=raw_message)
     if result is not HANDLER_UNMATCHED:
         return result
-    result = await betting_stats.handle_betting_current_tours_text(user_id=user_id, text=text, raw_message=raw_message)
-    if result is not HANDLER_UNMATCHED:
-        return result
     result = await betting_stats.handle_betting_betting_stat_text(user_id=user_id, text=text, raw_message=raw_message)
-    if result is not HANDLER_UNMATCHED:
-        return result
-    result = await betting_stats.handle_current_tournament_stat_text(user_id=user_id, text=text, raw_message=raw_message)
-    if result is not HANDLER_UNMATCHED:
-        return result
-    result = await betting_stats.handle_betting_current_to_main_text(user_id=user_id, text=text, raw_message=raw_message)
     if result is not HANDLER_UNMATCHED:
         return result
     result = await bets.handle_make_bet_text(user_id=user_id, text=text, raw_message=raw_message)

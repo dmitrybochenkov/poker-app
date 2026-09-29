@@ -1,5 +1,5 @@
-import secrets
 import json
+import secrets
 
 import aiohttp
 
@@ -77,6 +77,19 @@ async def edit_vk_message_by_id(*, peer_id: int, message_id: int, message: str, 
   params = {
     "peer_id": peer_id,
     "message_id": message_id,
+    "message": message,
+  }
+  if keyboard is not None:
+    params["keyboard"] = keyboard
+  await vk_api_call("messages.edit", **params)
+
+
+async def edit_vk_message(
+  *, peer_id: int, conversation_message_id: int, message: str, keyboard: str | None = None
+) -> None:
+  params = {
+    "peer_id": peer_id,
+    "conversation_message_id": conversation_message_id,
     "message": message,
   }
   if keyboard is not None:

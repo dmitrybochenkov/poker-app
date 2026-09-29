@@ -110,14 +110,18 @@ def test_statistics_contracts():
         tg.betting_stat_indicators_keyboard(
             indicators=[indicator], page=0, selected_ids=[3]
         )
-    ) == [["betstat_toggle:3:0"], ["betstat_done", "betstat_cancel"]]
+    ) == [["betstat_toggle:3:0"], ["betstat_back", "betstat_done", "betstat_cancel"]]
     assert _vk_payloads(
         vk.betting_stat_indicators_keyboard(
             indicators=[indicator], page=0, selected_ids=[3]
         )
     ) == [
         [{"action": "betstat_toggle", "indicator_id": 3, "page": 0}],
-        [{"action": "betstat_done"}, {"action": "betstat_cancel"}],
+        [
+            {"action": "betstat_back"},
+            {"action": "betstat_done"},
+            {"action": "betstat_cancel"},
+        ],
     ]
 
 

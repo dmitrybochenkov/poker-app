@@ -102,6 +102,7 @@ async def _start_betting_stat_flow(
         "betstat_selected_ids": [],
         "betstat_mode": mode,
         "betstat_sort_id": None,
+        "betstat_page": 0,
     }
     if not preserve_period_selection:
         state_update["betstat_period_ids"] = []

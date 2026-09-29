@@ -1,6 +1,7 @@
 import json
 from datetime import date
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -13,6 +14,7 @@ from app.application.use_cases.poker.betting_tournament_periods import (
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram import keyboards as tg
+from app.bot.telegram.handlers.user import betting_stats as tg_betting_stats
 from app.bot.vk import keyboards as vk
 
 
@@ -72,7 +74,8 @@ def test_open_and_closed_selection_modes_are_mutually_exclusive():
         ]
     )
 
-    regular, annual = periods
+    regular = next(period for period in periods if period.tournament_type == "regular")
+    annual = next(period for period in periods if period.tournament_type == "year")
     today = date(2026, 3, 10)
     selected = toggle_betting_tournament_selection(
         periods=periods,
@@ -231,3 +234,103 @@ async def test_overlapping_selected_periods_do_not_count_the_same_bet_twice():
 
     assert "11" in report
     assert "22" not in report
+
+
+class _SessionContext:
+    async def __aenter__(self):
+        return object()
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tournament", "today", "expected_mode", "indicator_scope"),
+    [
+        (
+            _tournament(1, "year", date(2026, 1, 1), date(2026, 12, 31)),
+            date(2026, 6, 1),
+            "year",
+            "only",
+        ),
+        (
+            _tournament(2, "regular", date(2025, 1, 1), date(2025, 4, 30)),
+            date(2026, 6, 1),
+            "all",
+            "no",
+        ),
+    ],
+)
+async def test_telegram_done_uses_open_or_historical_indicator_mode(
+    monkeypatch, tournament, today, expected_mode, indicator_scope
+):
+    period = list_betting_tournament_periods([tournament])[0]
+    indicator = SimpleNamespace(
+        row_id=1,
+        for_current_tournaments=indicator_scope,
+        pic="💯",
+        description="Баллы",
+    )
+    state = SimpleNamespace(
+        get_data=AsyncMock(return_value={"betstat_period_ids": [period.selection_id]}),
+        update_data=AsyncMock(),
+    )
+    message = SimpleNamespace(edit_text=AsyncMock())
+    callback = SimpleNamespace(message=message, answer=AsyncMock())
+    monkeypatch.setattr(tg_betting_stats, "SessionFactory", _SessionContext)
+    monkeypatch.setattr(
+        tg_betting_stats,
+        "BetTournamentRepository",
+        lambda session: SimpleNamespace(list_active=AsyncMock(return_value=[tournament])),
+    )
+    monkeypatch.setattr(
+        tg_betting_stats,
+        "StatIndicatorRepository",
+        lambda session: SimpleNamespace(list_by_type=AsyncMock(return_value=[indicator])),
+    )
+    monkeypatch.setattr(
+        tg_betting_stats,
+        "_ensure_approved_telegram_callback_user",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        tg_betting_stats,
+        "betting_tournament_statistics_mode",
+        lambda periods, selected: expected_mode,
+    )
+
+    await tg_betting_stats.betting_tournament_done(callback, state)
+
+    state.update_data.assert_awaited_with(
+        betstat_mode=expected_mode, betstat_selected_ids=[]
+    )
+    message.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_telegram_done_without_selection_stays_on_selector(monkeypatch):
+    state = SimpleNamespace(
+        get_data=AsyncMock(return_value={"betstat_period_ids": []}),
+        update_data=AsyncMock(),
+    )
+    message = SimpleNamespace(edit_text=AsyncMock())
+    callback = SimpleNamespace(message=message, answer=AsyncMock())
+    monkeypatch.setattr(tg_betting_stats, "SessionFactory", _SessionContext)
+    monkeypatch.setattr(
+        tg_betting_stats,
+        "BetTournamentRepository",
+        lambda session: SimpleNamespace(list_active=AsyncMock(return_value=[])),
+    )
+    monkeypatch.setattr(
+        tg_betting_stats,
+        "_ensure_approved_telegram_callback_user",
+        AsyncMock(return_value=True),
+    )
+
+    await tg_betting_stats.betting_tournament_done(callback, state)
+
+    message.edit_text.assert_not_awaited()
+    callback.answer.assert_awaited_once_with(
+        Text.user.BETTING_TOURNAMENT_NOT_SELECTED.value, show_alert=True
+    )

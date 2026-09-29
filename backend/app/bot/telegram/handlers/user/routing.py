@@ -79,18 +79,6 @@ router.callback_query(F.data.startswith("pokerstatsort_toggle:"))(
 )
 router.callback_query(F.data == "pokerstatsort_cancel")(poker_stats.poker_stat_sort_cancel)
 router.callback_query(F.data == "pokerstatsort_done")(poker_stats.poker_stat_sort_done)
-router.message(F.text == Buttons.betting.CURRENT_TOURS.value)(
-    betting_stats.show_current_betting_tournaments
-)
-router.message(F.text == Buttons.betting_current.REG_TOURNAMENT.value)(
-    betting_stats.show_regular_betting_tournament_stat
-)
-router.message(F.text == Buttons.betting_current.YEAR_TOURNAMENT.value)(
-    betting_stats.show_year_betting_tournament_stat
-)
-router.message(F.text == Buttons.betting_current.TO_MAIN.value)(
-    betting_stats.back_to_betting_from_current_tournaments
-)
 router.message(F.text == Buttons.betting.BETTING_STAT.value)(
     betting_stats.show_betting_stat_indicators
 )
@@ -106,10 +94,8 @@ router.callback_query(F.data == "betstattour_cancel")(
 router.callback_query(F.data == "betstattour_done")(
     betting_stats.betting_tournament_done
 )
-router.callback_query(F.data.startswith("betstatopen:"))(
-    betting_stats.betting_open_tournament
-)
-router.callback_query(F.data.startswith("betstatmode:"))(betting_stats.betting_stat_mode_selected)
+router.callback_query(F.data == "betstattour_back")(betting_stats.betting_tournament_back)
+router.callback_query(F.data == "betstat_back")(betting_stats.betting_stat_back)
 router.callback_query(F.data.startswith("betstat_page:"))(betting_stats.betting_stat_page)
 router.callback_query(F.data.startswith("betstat_toggle:"))(
     betting_stats.betting_stat_indicator_selected
@@ -121,6 +107,7 @@ router.callback_query(F.data.startswith("betstatsort_toggle:"))(
     betting_stats.betting_stat_sort_toggle
 )
 router.callback_query(F.data == "betstatsort_cancel")(betting_stats.betting_stat_sort_cancel)
+router.callback_query(F.data == "betstatsort_back")(betting_stats.betting_stat_sort_back)
 router.callback_query(F.data == "betstatsort_done")(betting_stats.betting_stat_sort_done)
 router.message(F.text == Buttons.betting.PAY_BET.value)(bets.start_pay_bet)
 router.message(F.text == Buttons.betting.MAKE_BET.value)(bets.start_make_bet)

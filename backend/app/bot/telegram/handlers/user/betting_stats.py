@@ -3,15 +3,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from app.application.use_cases.poker.betting_tournament_periods import (
-    default_betting_tournament_period_ids,
+    betting_tournament_statistics_mode,
     list_betting_tournament_periods,
     parse_betting_tournament_period_ids,
+    toggle_betting_tournament_selection,
 )
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.inline.telegram.user import betting_stats as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
-    betting_current_keyboard,
     betting_stat_indicators_keyboard,
     betting_tournament_periods_keyboard,
     stat_sort_keyboard,
@@ -26,7 +26,6 @@ from app.db.session import SessionFactory
 from app.services.stat_image import render_stat_table_png
 
 from .common import (
-    _betting_tg_keyboard,
     _delete_message_if_possible,
     _ensure_approved_telegram_callback_user,
     _ensure_approved_telegram_user,
@@ -37,32 +36,6 @@ from .stat_helpers import (
     _format_stat_caption,
     _start_betting_stat_flow,
 )
-
-
-async def show_current_betting_tournaments(message: Message) -> None:
-    if not await _ensure_approved_telegram_user(message):
-        return
-    await message.answer(
-        Text.user.BETTING_CURRENT_MENU.value, reply_markup=betting_current_keyboard
-    )
-
-
-async def show_regular_betting_tournament_stat(message: Message, state: FSMContext) -> None:
-    if not await _ensure_approved_telegram_user(message):
-        return
-    await _start_betting_stat_flow(message=message, state=state, mode="regular")
-
-
-async def show_year_betting_tournament_stat(message: Message, state: FSMContext) -> None:
-    if not await _ensure_approved_telegram_user(message):
-        return
-    await _start_betting_stat_flow(message=message, state=state, mode="year")
-
-
-async def back_to_betting_from_current_tournaments(message: Message) -> None:
-    if not await _ensure_approved_telegram_user(message):
-        return
-    await message.answer(Text.user.BETTING_MENU.value, reply_markup=await _betting_tg_keyboard())
 
 
 async def show_betting_stat_indicators(message: Message, state: FSMContext) -> None:
@@ -79,6 +52,7 @@ async def betting_tournament_page(callback: CallbackQuery, state: FSMContext) ->
         return
     page = int(callback.data.rsplit(":", 1)[1])
     data = await state.get_data()
+    await state.update_data(betstat_page=page)
     async with SessionFactory() as session:
         periods = list_betting_tournament_periods(
             await BetTournamentRepository(session).list_active()
@@ -103,16 +77,20 @@ async def betting_tournament_toggle(callback: CallbackQuery, state: FSMContext) 
     _, type_code, start_raw, end_raw, page_raw = callback.data.split(":")
     period_id = f"{type_code}:{start_raw}:{end_raw}"
     data = await state.get_data()
-    selected = set(data.get("betstat_period_ids", []))
-    if period_id in selected:
-        selected.remove(period_id)
-    else:
-        selected.add(period_id)
-    await state.update_data(betstat_period_ids=sorted(selected), betstat_selected_ids=[])
     async with SessionFactory() as session:
         periods = list_betting_tournament_periods(
             await BetTournamentRepository(session).list_active()
         )
+    selected = toggle_betting_tournament_selection(
+        periods,
+        set(data.get("betstat_period_ids", [])),
+        period_id,
+    )
+    await state.update_data(
+        betstat_period_ids=sorted(selected),
+        betstat_selected_ids=[],
+        betstat_page=int(page_raw),
+    )
     await callback.message.edit_text(
         Text.user.STAT_CHOOSE_BETTING_TOURNAMENT.value,
         reply_markup=betting_tournament_periods_keyboard(
@@ -134,13 +112,17 @@ async def betting_tournament_done(callback: CallbackQuery, state: FSMContext) ->
         periods = list_betting_tournament_periods(
             await BetTournamentRepository(session).list_active()
         )
-        if not selected:
-            selected = default_betting_tournament_period_ids(periods)
-            await state.update_data(betstat_period_ids=sorted(selected))
+        mode = betting_tournament_statistics_mode(periods, selected)
+        if mode is None:
+            await callback.answer(
+                Text.user.BETTING_TOURNAMENT_NOT_SELECTED.value, show_alert=True
+            )
+            return
         indicators = await StatIndicatorRepository(session).list_by_type(
             indicator_type="betting"
         )
-    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode="all")
+    await state.update_data(betstat_mode=mode, betstat_selected_ids=[])
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
     await callback.message.edit_text(
         Text.user.STAT_CHOOSE_PARAMS.value,
         reply_markup=betting_stat_indicators_keyboard(
@@ -163,47 +145,36 @@ async def betting_tournament_cancel(callback: CallbackQuery, state: FSMContext) 
     await callback.answer()
 
 
-async def betting_open_tournament(callback: CallbackQuery, state: FSMContext) -> None:
+async def betting_tournament_back(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
-    mode = callback.data.split(":", 1)[1]
-    if mode not in {"regular", "year"}:
-        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
-        return
-    await _start_betting_stat_flow(
-        message=callback.message,
-        state=state,
-        mode=mode,
-        preserve_period_selection=True,
+    await state.update_data(
+        betstat_period_ids=[], betstat_selected_ids=[], betstat_mode="all", betstat_sort_id=None
     )
+    await callback.message.edit_text(Text.user.BETTING_MENU.value)
     await callback.answer()
 
 
-async def betting_stat_mode_selected(callback: CallbackQuery, state: FSMContext) -> None:
+async def betting_stat_back(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
         return
     if not await _ensure_approved_telegram_callback_user(callback):
         return
-    mode = callback.data.split(":", 1)[1]
-    if mode not in {"all", "regular", "year"}:
-        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
-        return
-    await state.update_data(betstat_mode=mode, betstat_selected_ids=[])
+    data = await state.get_data()
     async with SessionFactory() as session:
-        indicators = await StatIndicatorRepository(session).list_by_type(indicator_type="betting")
-    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
-    if not indicators:
-        await callback.message.edit_text(Text.user.BETTING_CURRENT_EMPTY.value)
-        await callback.answer()
-        return
+        periods = list_betting_tournament_periods(
+            await BetTournamentRepository(session).list_active()
+        )
     await callback.message.edit_text(
-        Text.user.STAT_CHOOSE_PARAMS.value,
-        reply_markup=betting_stat_indicators_keyboard(
-            indicators=indicators, page=0, selected_ids=[]
+        Text.user.STAT_CHOOSE_BETTING_TOURNAMENT.value,
+        reply_markup=betting_tournament_periods_keyboard(
+            periods=periods,
+            selected_period_ids=set(data.get("betstat_period_ids", [])),
+            page=int(data.get("betstat_page", 0)),
         ),
     )
     await callback.answer()
@@ -290,7 +261,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
             ).get_betting_stat(
                 indicators=selected,
                 mode=mode,
-                tournament_periods=selected_periods if mode == "all" else None,
+                tournament_periods=selected_periods,
                 sort_pic=selected[0].pic,
             )
             image_bytes = render_stat_table_png(title="", report=report)
@@ -419,6 +390,29 @@ async def betting_stat_sort_cancel(callback: CallbackQuery, state: FSMContext) -
     await callback.answer()
 
 
+async def betting_stat_sort_back(callback: CallbackQuery, state: FSMContext) -> None:
+    if callback.message is None:
+        await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
+        return
+    if not await _ensure_approved_telegram_callback_user(callback):
+        return
+    data = await state.get_data()
+    selected_ids: list[int] = data.get("betstat_selected_ids", [])
+    mode = data.get("betstat_mode", "all")
+    async with SessionFactory() as session:
+        indicators = await StatIndicatorRepository(session).list_by_type(
+            indicator_type="betting"
+        )
+    indicators = _filter_betting_indicators_by_mode(indicators=indicators, mode=mode)
+    await callback.message.edit_text(
+        Text.user.STAT_CHOOSE_PARAMS.value,
+        reply_markup=betting_stat_indicators_keyboard(
+            indicators=indicators, page=0, selected_ids=selected_ids
+        ),
+    )
+    await callback.answer()
+
+
 async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> None:
     if callback.message is None:
         await callback.answer(Text.user.REGISTRATION_READ_ERROR.value, show_alert=True)
@@ -448,7 +442,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
         ).get_betting_stat(
             indicators=selected,
             mode=mode,
-            tournament_periods=selected_periods if mode == "all" else None,
+            tournament_periods=selected_periods,
             sort_pic=sort_pic,
         )
     image_bytes = render_stat_table_png(title="", report=report)
