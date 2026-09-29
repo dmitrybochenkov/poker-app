@@ -6,8 +6,9 @@ import pytest
 
 from app.application.use_cases.poker.betting_tournament_periods import (
     BettingTournamentPeriod,
-    default_betting_tournament_period_ids,
+    betting_tournament_statistics_mode,
     list_betting_tournament_periods,
+    toggle_betting_tournament_selection,
 )
 from app.application.use_cases.poker.stat import StatUseCases
 from app.bot.shared.texts.texts import Text
@@ -41,7 +42,7 @@ def _vk_rows(keyboard):
     ]
 
 
-def test_periods_have_date_specific_identity_labels_and_shared_chronology():
+def test_periods_have_date_specific_identity_status_labels_and_shared_chronology():
     periods = list_betting_tournament_periods(
         [
             _tournament(1, "regular", date(2025, 1, 1), date(2025, 4, 30)),
@@ -52,18 +53,18 @@ def test_periods_have_date_specific_identity_labels_and_shared_chronology():
         ]
     )
 
-    assert [period.label for period in periods] == [
-        "Регулярный май – авг",
-        "Регулярный янв – апр",
-        "Годовой 2026",
-        "Регулярный янв – апр",
-        "Годовой 2025",
+    assert [period.display_label(today=date(2026, 6, 1)) for period in periods] == [
+        "🎄💰 Годовой 2026",
+        "💰 Регулярный май – авг 2026",
+        "🏁💰 Регулярный янв – апр 2026",
+        "🏁🎄💰 Годовой 2025",
+        "🏁💰 Регулярный янв – апр 2025",
     ]
     assert periods[1].selection_id != periods[3].selection_id
     assert BettingTournamentPeriod.from_selection_id(periods[1].selection_id) == periods[1]
 
 
-def test_default_selects_all_periods_active_on_current_date_then_latest_fallback():
+def test_open_and_closed_selection_modes_are_mutually_exclusive():
     periods = list_betting_tournament_periods(
         [
             _tournament(1, "regular", date(2026, 1, 1), date(2026, 4, 30)),
@@ -71,12 +72,57 @@ def test_default_selects_all_periods_active_on_current_date_then_latest_fallback
         ]
     )
 
-    assert default_betting_tournament_period_ids(
-        periods, today=date(2026, 3, 10)
-    ) == {period.selection_id for period in periods}
-    assert default_betting_tournament_period_ids(
-        periods, today=date(2027, 1, 1)
-    ) == {periods[0].selection_id}
+    regular, annual = periods
+    today = date(2026, 3, 10)
+    selected = toggle_betting_tournament_selection(
+        periods=periods,
+        selected_period_ids=set(),
+        toggled_period_id=regular.selection_id,
+        today=today,
+    )
+    assert selected == {regular.selection_id}
+    selected = toggle_betting_tournament_selection(
+        periods=periods,
+        selected_period_ids=selected,
+        toggled_period_id=annual.selection_id,
+        today=today,
+    )
+    assert selected == {annual.selection_id}
+    assert betting_tournament_statistics_mode(periods, selected, today=today) == "year"
+
+
+def test_open_closed_transition_and_closed_multi_select_rules():
+    periods = list_betting_tournament_periods(
+        [
+            _tournament(1, "regular", date(2025, 1, 1), date(2025, 4, 30)),
+            _tournament(2, "year", date(2025, 1, 1), date(2025, 12, 31)),
+            _tournament(3, "year", date(2026, 1, 1), date(2026, 12, 31)),
+        ]
+    )
+    open_period, closed_annual, closed_regular = periods
+    today = date(2026, 6, 1)
+
+    selected = toggle_betting_tournament_selection(
+        periods, {open_period.selection_id}, closed_annual.selection_id, today=today
+    )
+    assert selected == {closed_annual.selection_id}
+    selected = toggle_betting_tournament_selection(
+        periods, selected, closed_regular.selection_id, today=today
+    )
+    assert selected == {closed_annual.selection_id, closed_regular.selection_id}
+    selected = toggle_betting_tournament_selection(
+        periods, selected, closed_annual.selection_id, today=today
+    )
+    assert selected == {closed_regular.selection_id}
+    assert betting_tournament_statistics_mode(periods, selected, today=today) == "all"
+    selected = toggle_betting_tournament_selection(
+        periods, selected, open_period.selection_id, today=today
+    )
+    assert selected == {open_period.selection_id}
+
+
+def test_no_selection_has_no_statistics_mode():
+    assert betting_tournament_statistics_mode([], set(), today=date(2026, 6, 1)) is None
 
 
 def test_tg_vk_tournament_filter_keyboards_are_equivalent_and_page_at_five():
@@ -88,53 +134,48 @@ def test_tg_vk_tournament_filter_keyboards_are_equivalent_and_page_at_five():
         )
         for month in range(6, 0, -1)
     ]
-    selected = {periods[0].selection_id, periods[5].selection_id}
+    selected = {periods[1].selection_id, periods[5].selection_id}
+    today = date(2026, 7, 1)
 
     tg_rows = _tg_rows(
         tg.betting_tournament_periods_keyboard(
-            periods=periods, selected_period_ids=selected, page=0
+            periods=periods, selected_period_ids=selected, page=0, today=today
         )
     )
     vk_rows = _vk_rows(
         vk.betting_tournament_periods_keyboard(
-            periods=periods, selected_period_ids=selected, page=0
+            periods=periods, selected_period_ids=selected, page=0, today=today
         )
     )
 
-    assert [row[0][0] for row in tg_rows[:2]] == [
-        "💰 Открытый регулярный турнир",
-        "🎄💰 Открытый годовой турнир",
-    ]
-    assert [row[0][0] for row in vk_rows[:2]] == [
-        "💰 Открытый регулярный турнир",
-        "🎄💰 Открытый годовой турнир",
-    ]
-    assert len(tg_rows[2:7]) == 5
-    assert len(vk_rows[2:7]) == 5
-    assert [row[0][0] for row in tg_rows[2:7]] == [row[0][0] for row in vk_rows[2:7]]
-    assert tg_rows[0][0][1] == "betstatopen:regular"
-    assert vk_rows[0][0][1] == {"action": "betstat_open", "mode": "regular"}
+    assert len(tg_rows[:5]) == 5
+    assert len(vk_rows[:5]) == 5
+    assert [row[0][0] for row in tg_rows[:5]] == [row[0][0] for row in vk_rows[:5]]
+    assert tg_rows[0][0][1].startswith("betstattour_toggle:")
+    assert vk_rows[0][0][1]["action"] == "betstattour_toggle"
     assert tg_rows[-2][0][1] == "betstattour_page:1"
     assert vk_rows[-2][0][1] == {"action": "betstattour_page", "page": 1}
 
     tg_second_page = _tg_rows(
         tg.betting_tournament_periods_keyboard(
-            periods=periods, selected_period_ids=selected, page=1
+            periods=periods, selected_period_ids=selected, page=1, today=today
         )
     )
     vk_second_page = _vk_rows(
         vk.betting_tournament_periods_keyboard(
-            periods=periods, selected_period_ids=selected, page=1
+            periods=periods, selected_period_ids=selected, page=1, today=today
         )
     )
-    assert tg_second_page[2][0][0].startswith("✔ ")
-    assert vk_second_page[2][0][0].startswith("✔ ")
+    assert tg_second_page[0][0][0].startswith("✅ ")
+    assert vk_second_page[0][0][0].startswith("✅ ")
+    assert tg_rows[-1][0][1] == "betstattour_back"
+    assert vk_rows[-1][0][1] == {"action": "betstattour_back"}
 
 
 def test_betting_statistics_instruction_mentions_tournaments_not_years():
     assert (
         Text.user.STAT_CHOOSE_BETTING_TOURNAMENT.value
-        == "Выбери турнир(ы) для статистики и нажми 'Готово'."
+        == "Выбери один открытый или любое количество закрытых турниров и нажми «Готово»."
     )
 
 
