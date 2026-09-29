@@ -57,6 +57,7 @@ class StartPokerUseCase:
         raise PokerAlreadyStartedError
 
       await self.poker_data_repository.add_player_without_commit(
+        poker_id=int(poker.row_id),
         date=poker.date,
         player_id=int(actor.row_id),
         player_name=actor.name,

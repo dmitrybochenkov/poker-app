@@ -43,7 +43,9 @@ class FinishPokerUseCase:
             if active is None:
                 raise ActivePokerNotFoundError
             poker, _ = active
-            players = await self.poker_data_repository.list_players(date=poker.date)
+            players = await self.poker_data_repository.list_players(
+                poker_id=int(poker.row_id)
+            )
 
             changed = await self.poker_repository.mark_finished_for_chips(
                 poker_id=int(poker.row_id)

@@ -47,7 +47,7 @@ async def _seed(sessions):
         session.add(poker)
         await session.flush()
         session.add_all([
-            PokerData(date=poker.date, player_id=int(user.row_id), player_name=user.name),
+            PokerData(poker_id=int(poker.row_id), date=poker.date, player_id=int(user.row_id), player_name=user.name),
             BuyinData(
                 poker_date=poker.date, player_id=int(user.row_id),
                 player_name=user.name, buyins_count=2,

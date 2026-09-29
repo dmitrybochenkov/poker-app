@@ -29,7 +29,7 @@ class CalculateBetScoresUseCase:
     if not bets:
       return 0
 
-    players = await self.poker_data_repository.list_players(date=poker_date)
+    players = await self.poker_data_repository.list_players(poker_id=int(poker_id))
     if not players:
       return 0
 

@@ -45,6 +45,7 @@ async def _seed(session_factory):
         session.add(poker)
         await session.flush()
         poker_data = PokerData(
+            poker_id=int(poker.row_id),
             date=poker.date,
             player_id=int(player.row_id),
             player_name=player.name,
@@ -109,7 +110,7 @@ async def test_enter_player_chips_rolls_back_both_values_when_atomic_mutation_fa
 
         async def fail_after_chips(**kwargs):
             player = await use_case.poker_data_repository.get_player(
-                date=kwargs["date"], player_id=kwargs["player_id"]
+                poker_id=kwargs["poker_id"], player_id=kwargs["player_id"]
             )
             assert player is not None
             player.chips = int(kwargs["chips"])

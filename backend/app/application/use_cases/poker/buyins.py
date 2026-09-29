@@ -90,7 +90,9 @@ class AddBuyinUseCase:
         raise PokerReadyForChipsError
       if poker.cashier_id is None:
         raise PokerCashierRequiredError
-      player = await players.get_player(date=poker.date, player_id=int(target_user_id))
+      player = await players.get_player(
+        poker_id=int(poker.row_id), player_id=int(target_user_id)
+      )
       if player is None:
         raise BuyinPlayerNotFoundError
 
@@ -134,7 +136,7 @@ class AddBuyinUseCase:
         current_super_count=int(player.super_buyin_count),
       )
       updated = await players.add_buyins_without_commit(
-        date=poker.date,
+        poker_id=int(poker.row_id),
         player_id=int(target_user_id),
         buyins_count=int(buyins_count),
         big_buyin_count=big_count,
@@ -192,13 +194,15 @@ class CorrectBuyinUseCase:
       if active is None:
         raise ActivePokerNotFoundError
       poker, _ = active
-      player = await players.get_player(date=poker.date, player_id=int(target_user_id))
+      player = await players.get_player(
+        poker_id=int(poker.row_id), player_id=int(target_user_id)
+      )
       if player is None:
         raise BuyinPlayerNotFoundError
       previous = int(player.buyins)
       if int(total_buyins) != previous:
         updated = await players.add_buyins_without_commit(
-          date=poker.date,
+          poker_id=int(poker.row_id),
           player_id=int(target_user_id),
           buyins_count=int(total_buyins) - previous,
         )

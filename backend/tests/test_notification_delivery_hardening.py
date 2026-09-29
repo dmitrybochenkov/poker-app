@@ -76,6 +76,7 @@ async def _seed_fanout_users(sessions):
         for user in (cashier, failing_admin, later_admin, player):
             session.add(
                 PokerData(
+                    poker_id=int(poker.row_id),
                     date=poker.date,
                     player_id=int(user.row_id),
                     player_name=user.name,

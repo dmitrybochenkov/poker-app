@@ -112,7 +112,9 @@ class CalculatePokerResultUseCase:
       if ready is None:
         raise PokerNotReadyForCalculationError
       poker, params = ready
-      participants = await self.poker_data_repository.list_players(date=poker.date)
+      participants = await self.poker_data_repository.list_players(
+        poker_id=int(poker.row_id)
+      )
       if not participants:
         raise PokerNotReadyForCalculationError
       missing = tuple(row.player_name for row in participants if row.chips is None)
@@ -130,7 +132,9 @@ class CalculatePokerResultUseCase:
           * int(params.buyin_size_kopecks)
         ) // int(params.buyin_size_chips)
         updated = await self.poker_data_repository.set_cashout_without_commit(
-          date=poker.date, player_id=int(participant.player_id), money_kopecks=money
+          poker_id=int(poker.row_id),
+          player_id=int(participant.player_id),
+          money_kopecks=money,
         )
         if updated is None:
           raise PokerNotReadyForCalculationError

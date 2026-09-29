@@ -66,7 +66,7 @@ class EnterPlayerChipsUseCase:
         raise InvalidChipStepError(step=step)
 
       player = await self.poker_data_repository.get_player(
-        date=poker.date,
+        poker_id=int(poker.row_id),
         player_id=int(player_user_id),
       )
       if player is None:
@@ -77,7 +77,7 @@ class EnterPlayerChipsUseCase:
         * int(params.buyin_size_kopecks)
       ) // int(params.buyin_size_chips)
       updated = await self.poker_data_repository.set_chips_and_cashout_without_commit(
-        date=poker.date,
+        poker_id=int(poker.row_id),
         player_id=int(player_user_id),
         chips=int(chips),
         money_kopecks=int(money_kopecks),

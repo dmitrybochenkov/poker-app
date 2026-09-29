@@ -226,7 +226,7 @@ class BetUseCases:
     bet_params = await self.bet_param_repository.get_by_id(row_id=int(tournament_params.bet_param_id))
     if bet_params is None:
       return None, [], "missing_params"
-    players = await self.poker_data_repository.list_players(date=poker.date)
+    players = await self.poker_data_repository.list_players(poker_id=int(poker.row_id))
     if not players:
       return None, [], "no_players"
     return bet_params, players, "ok"

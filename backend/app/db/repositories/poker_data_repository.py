@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
 
 
@@ -8,15 +9,29 @@ class PokerDataRepository:
   def __init__(self, session: AsyncSession) -> None:
     self.session = session
 
+  async def _validate_poker_date(self, *, poker_id: int, date) -> None:
+    poker_date = await self.session.scalar(
+      select(Poker.date).where(Poker.row_id == int(poker_id))
+    )
+    if poker_date is None:
+      raise ValueError(f"Poker {poker_id} does not exist")
+    if poker_date != date:
+      raise ValueError(
+        f"PokerData date {date} does not match Poker {poker_id} date {poker_date}"
+      )
+
   async def add_player(
     self,
     *,
+    poker_id: int,
     date,
     player_id: int,
     player_name: str,
     is_prev_winner: bool = False,
   ) -> PokerData:
+    await self._validate_poker_date(poker_id=poker_id, date=date)
     item = PokerData(
+      poker_id=poker_id,
       date=date,
       player_id=player_id,
       player_name=player_name,
@@ -30,12 +45,15 @@ class PokerDataRepository:
   async def add_player_without_commit(
     self,
     *,
+    poker_id: int,
     date,
     player_id: int,
     player_name: str,
     is_prev_winner: bool = False,
   ) -> PokerData:
+    await self._validate_poker_date(poker_id=poker_id, date=date)
     item = PokerData(
+      poker_id=poker_id,
       date=date,
       player_id=player_id,
       player_name=player_name,
@@ -45,20 +63,30 @@ class PokerDataRepository:
     await self.session.flush()
     return item
 
-  async def get_player(self, *, date, player_id: int) -> PokerData | None:
-    result = await self.session.execute(
-      select(PokerData)
-      .where(PokerData.date == date)
-      .where(PokerData.player_id == player_id)
-    )
+  async def get_player(
+    self, *, player_id: int, poker_id: int | None = None, date=None
+  ) -> PokerData | None:
+    statement = select(PokerData).where(PokerData.player_id == player_id)
+    if poker_id is not None:
+      statement = statement.where(PokerData.poker_id == poker_id)
+    elif date is not None:
+      statement = statement.where(PokerData.date == date)
+    else:
+      raise ValueError("poker_id or date is required")
+    result = await self.session.execute(statement)
     return result.scalar_one_or_none()
 
-  async def list_players(self, *, date) -> list[PokerData]:
-    result = await self.session.execute(
-      select(PokerData)
-      .where(PokerData.date == date)
-      .order_by(PokerData.row_id)
-    )
+  async def list_players(
+    self, *, poker_id: int | None = None, date=None
+  ) -> list[PokerData]:
+    statement = select(PokerData)
+    if poker_id is not None:
+      statement = statement.where(PokerData.poker_id == poker_id)
+    elif date is not None:
+      statement = statement.where(PokerData.date == date)
+    else:
+      raise ValueError("poker_id or date is required")
+    result = await self.session.execute(statement.order_by(PokerData.row_id))
     return list(result.scalars().all())
 
   async def list_all(self) -> list[PokerData]:
@@ -71,13 +99,14 @@ class PokerDataRepository:
   async def add_buyins_without_commit(
     self,
     *,
-    date,
+    poker_id: int | None = None,
+    date=None,
     player_id: int,
     buyins_count: int,
     big_buyin_count: int = 0,
     super_buyin_count: int = 0,
   ) -> PokerData | None:
-    item = await self.get_player(date=date, player_id=player_id)
+    item = await self.get_player(poker_id=poker_id, date=date, player_id=player_id)
     if item is None:
       return None
     item.buyins = int(item.buyins) + int(buyins_count)
@@ -86,8 +115,10 @@ class PokerDataRepository:
     await self.session.flush()
     return item
 
-  async def remove_player_without_commit(self, *, date, player_id: int) -> bool:
-    item = await self.get_player(date=date, player_id=player_id)
+  async def remove_player_without_commit(
+    self, *, player_id: int, poker_id: int | None = None, date=None
+  ) -> bool:
+    item = await self.get_player(poker_id=poker_id, date=date, player_id=player_id)
     if item is None:
       return False
     await self.session.delete(item)
@@ -95,9 +126,14 @@ class PokerDataRepository:
     return True
 
   async def set_cashout_without_commit(
-    self, *, date, player_id: int, money_kopecks: int
+    self,
+    *,
+    player_id: int,
+    money_kopecks: int,
+    poker_id: int | None = None,
+    date=None,
   ) -> PokerData | None:
-    item = await self.get_player(date=date, player_id=player_id)
+    item = await self.get_player(poker_id=poker_id, date=date, player_id=player_id)
     if item is None:
       return None
     item.money_kopecks = int(money_kopecks)
@@ -107,12 +143,13 @@ class PokerDataRepository:
   async def set_chips_and_cashout_without_commit(
     self,
     *,
-    date,
     player_id: int,
     chips: int,
     money_kopecks: int,
+    poker_id: int | None = None,
+    date=None,
   ) -> PokerData | None:
-    item = await self.get_player(date=date, player_id=player_id)
+    item = await self.get_player(poker_id=poker_id, date=date, player_id=player_id)
     if item is None:
       return None
     item.chips = int(chips)

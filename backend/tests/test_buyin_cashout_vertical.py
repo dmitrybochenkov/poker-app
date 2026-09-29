@@ -64,6 +64,7 @@ async def _seed(sessions, *, max_buyins=3, previous_winner=False):
         session.add(poker)
         await session.flush()
         pdata = PokerData(
+            poker_id=int(poker.row_id),
             date=poker.date,
             player_id=int(player.row_id),
             player_name=player.name,

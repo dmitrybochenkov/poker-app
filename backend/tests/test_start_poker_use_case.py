@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.application.use_cases.poker.start_poker import (
@@ -15,6 +16,7 @@ from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
 from app.db.models.poker_param import PokerParam
 from app.db.models.user import User
+from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.services.start_poker_flow import StartPokerFlow
 
 
@@ -75,6 +77,7 @@ async def test_start_poker_commits_game_starter_and_all_approved_recipients() ->
     )
     assert poker is not None and poker.is_going is True
     assert starter is not None
+    assert starter.poker_id == poker.row_id
     assert starter.date == poker.date
     assert starter.player_name == "Admin"
   await engine.dispose()
@@ -126,6 +129,57 @@ async def test_start_poker_repeated_execution_creates_only_one_active_game() -> 
   async with session_factory() as session:
     assert await session.scalar(select(func.count()).select_from(Poker)) == 1
     assert await session.scalar(select(func.count()).select_from(PokerData)) == 1
+  await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_poker_data_repository_rejects_mismatched_poker_date() -> None:
+  engine, session_factory = await _session_factory()
+  actor_id, params_id, _ = await _seed(session_factory)
+  async with session_factory() as session:
+    result = await StartPokerUseCase(session).execute(
+      actor_user_id=actor_id, params_id=params_id
+    )
+  async with session_factory() as session:
+    poker = await session.get(Poker, result.poker_id)
+    with pytest.raises(ValueError, match="does not match"):
+      await PokerDataRepository(session).add_player_without_commit(
+        poker_id=int(poker.row_id),
+        date=poker.date.replace(day=poker.date.day + 1),
+        player_id=actor_id,
+        player_name="Wrong date",
+      )
+  await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_participant_insert_has_one_database_winner(tmp_path) -> None:
+  engine, session_factory = await _session_factory(
+    f"sqlite+aiosqlite:///{tmp_path / 'participant-race.db'}"
+  )
+  actor_id, params_id, recipients = await _seed(session_factory)
+  target_id = next(item for item in recipients if item != actor_id)
+  async with session_factory() as session:
+    started = await StartPokerUseCase(session).execute(
+      actor_user_id=actor_id, params_id=params_id
+    )
+    poker = await session.get(Poker, started.poker_id)
+    poker_date = poker.date
+
+  async def add_participant():
+    async with session_factory() as session:
+      row = await PokerDataRepository(session).add_player_without_commit(
+        poker_id=started.poker_id,
+        date=poker_date,
+        player_id=target_id,
+        player_name="Dual",
+      )
+      await session.commit()
+      return int(row.row_id)
+
+  results = await asyncio.gather(add_participant(), add_participant(), return_exceptions=True)
+  assert sum(not isinstance(result, Exception) for result in results) == 1
+  assert sum(isinstance(result, IntegrityError) for result in results) == 1
   await engine.dispose()
 
 

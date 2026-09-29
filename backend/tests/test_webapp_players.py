@@ -26,21 +26,30 @@ async def test_webapp_players_preserves_or_matching_for_duplicate_names() -> Non
         boris = User(name="Борис", telegram_id=13, is_approved=True)
         session.add_all([first_alex, second_alex, boris])
         await session.flush()
+        pokers = [
+            Poker(params_id=1, date=date(2026, 9, day), is_going=False)
+            for day in (1, 2, 3)
+        ]
+        session.add_all(pokers)
+        await session.flush()
         session.add_all(
             [
                 PokerData(
+                    poker_id=pokers[0].row_id,
                     date=date(2026, 9, 1),
                     player_id=999,
                     player_name="Алекс",
                     money_kopecks=10_000,
                 ),
                 PokerData(
+                    poker_id=pokers[1].row_id,
                     date=date(2026, 9, 2),
                     player_id=first_alex.row_id,
                     player_name="Алекс",
                     money_kopecks=20_000,
                 ),
                 PokerData(
+                    poker_id=pokers[2].row_id,
                     date=date(2026, 9, 3),
                     player_id=boris.row_id,
                     player_name="Борис",

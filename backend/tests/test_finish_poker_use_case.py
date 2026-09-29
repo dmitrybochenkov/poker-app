@@ -63,11 +63,13 @@ async def _seed(session_factory, *, actor_approved=True, actor_admin=True):
         session.add_all(
             [
                 PokerData(
+                    poker_id=int(poker.row_id),
                     date=poker.date,
                     player_id=int(actor.row_id),
                     player_name=actor.name,
                 ),
                 PokerData(
+                    poker_id=int(poker.row_id),
                     date=poker.date,
                     player_id=int(player.row_id),
                     player_name=player.name,

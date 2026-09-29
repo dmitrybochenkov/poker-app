@@ -155,6 +155,7 @@ async def test_admin_add_existing_participant_still_reconciles_denied_state(room
         poker = await session.get(Poker, ids["poker"])
         session.add(
             PokerData(
+                poker_id=int(poker.row_id),
                 date=poker.date,
                 player_id=ids["target"],
                 player_name="Target",
@@ -185,8 +186,9 @@ async def test_cashier_requires_current_participant_and_preserves_previous(room_
         poker = await session.get(Poker, ids["poker"])
         session.add_all(
             [
-                PokerData(date=poker.date, player_id=ids["target"], player_name="Target"),
+                PokerData(poker_id=int(poker.row_id), date=poker.date, player_id=ids["target"], player_name="Target"),
                 PokerData(
+                    poker_id=int(poker.row_id),
                     date=poker.date,
                     player_id=ids["replacement"],
                     player_name="Replacement",
@@ -227,6 +229,7 @@ async def test_removed_participant_is_rejected_as_stale_cashier_target(room_stor
     async with sessions() as session:
         poker = await session.get(Poker, ids["poker"])
         participant = PokerData(
+            poker_id=int(poker.row_id),
             date=poker.date,
             player_id=ids["target"],
             player_name="Target",

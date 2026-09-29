@@ -1,7 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, Integer, String, UniqueConstraint
-from sqlalchemy import DateTime
+from sqlalchemy import (
+  BigInteger,
+  Boolean,
+  Date,
+  DateTime,
+  ForeignKey,
+  Integer,
+  String,
+  UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -11,9 +19,14 @@ class PokerData(Base):
   __tablename__ = "poker_data"
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+  poker_id: Mapped[int] = mapped_column(
+    ForeignKey("pokers.row_id", ondelete="RESTRICT"), nullable=False
+  )
   date: Mapped[Date] = mapped_column(Date, nullable=False, index=True)
   player_name: Mapped[str] = mapped_column(String(255), nullable=False)
-  player_id: Mapped[int] = mapped_column(Integer, nullable=False)
+  player_id: Mapped[int] = mapped_column(
+    ForeignKey("users.row_id", ondelete="RESTRICT"), nullable=False
+  )
 
   is_prev_winner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
   buyins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -26,4 +39,5 @@ class PokerData(Base):
 
   __table_args__ = (
     UniqueConstraint("date", "player_id", name="uq_poker_data_date_player"),
+    UniqueConstraint("poker_id", "player_id", name="uq_poker_data_poker_player"),
   )

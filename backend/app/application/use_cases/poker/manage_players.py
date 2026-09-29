@@ -35,10 +35,13 @@ class ManagePokerPlayersUseCase:
     if active is None:
       return None
     poker, _ = active
-    existing = await self.poker_data_repository.get_player(date=poker.date, player_id=player_id)
+    existing = await self.poker_data_repository.get_player(
+      poker_id=int(poker.row_id), player_id=player_id
+    )
     if existing is not None:
       return existing
     return await self.poker_data_repository.add_player(
+      poker_id=int(poker.row_id),
       date=poker.date,
       player_id=player_id,
       player_name=player_name,
@@ -59,11 +62,12 @@ class ManagePokerPlayersUseCase:
         return None
       poker, _ = active
       participant = await self.poker_data_repository.get_player(
-        date=poker.date,
+        poker_id=int(poker.row_id),
         player_id=player_id,
       )
       if participant is None:
         participant = await self.poker_data_repository.add_player_without_commit(
+          poker_id=int(poker.row_id),
           date=poker.date,
           player_id=player_id,
           player_name=player_name,
@@ -84,7 +88,7 @@ class ManagePokerPlayersUseCase:
     if active is None:
       return []
     poker, _ = active
-    return await self.poker_data_repository.list_players(date=poker.date)
+    return await self.poker_data_repository.list_players(poker_id=int(poker.row_id))
 
   async def set_cashier_for_active_poker(self, *, cashier_id: int):
     session = self.poker_repository.session
@@ -94,7 +98,7 @@ class ManagePokerPlayersUseCase:
         return None
       poker, _ = active
       participant = await self.poker_data_repository.get_player(
-        date=poker.date,
+        poker_id=int(poker.row_id),
         player_id=cashier_id,
       )
       if participant is None:
@@ -117,7 +121,7 @@ class ManagePokerPlayersUseCase:
         return None
       poker, _ = active
       player = await self.poker_data_repository.get_player(
-        date=poker.date, player_id=player_id
+        poker_id=int(poker.row_id), player_id=player_id
       )
       if player is None:
         return False
@@ -128,7 +132,7 @@ class ManagePokerPlayersUseCase:
           player_id=player_id,
         )
       removed = await self.poker_data_repository.remove_player_without_commit(
-        date=poker.date, player_id=player_id
+        poker_id=int(poker.row_id), player_id=player_id
       )
       if removed and self.poker_room_denied_repository is not None:
         user = None
@@ -167,4 +171,4 @@ class ManagePokerPlayersUseCase:
     poker = await self.poker_repository.get_latest_ready_for_chips()
     if poker is None:
       return []
-    return await self.poker_data_repository.list_players(date=poker.date)
+    return await self.poker_data_repository.list_players(poker_id=int(poker.row_id))
