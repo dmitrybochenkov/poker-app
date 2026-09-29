@@ -51,6 +51,9 @@ poker_buyin_correct_confirm_keyboard = InlineKbs.poker_buyin_correct_confirm_tg
 poker_cashout_candidates_keyboard = InlineKbs.poker_cashout_candidates_tg
 poker_calc_keyboard = InlineKbs.poker_calc_tg
 bet_receipt_manual_keyboard = InlineKbs.bet_receipt_manual_tg
+bet_payment_choice_keyboard = InlineKbs.bet_payment_choice_tg
+bet_payment_select_keyboard = InlineKbs.bet_payment_select_tg
+bet_receipt_review_keyboard = InlineKbs.bet_receipt_review_tg
 registration_candidates_keyboard = InlineKbs.registration_candidates_tg
 registration_candidates_page_keyboard = InlineKbs.registration_candidates_tg_page
 

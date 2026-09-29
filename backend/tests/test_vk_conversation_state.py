@@ -4,16 +4,16 @@ import pytest
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.api.http import vk_webhook as vk_webhook_module
+from app.bot.vk import state as vk_state
+from app.bot.vk.handlers.admin import buyins as vk_buyins
+from app.bot.vk.handlers.admin import routing as vk_admin_routing
 from app.db.base import Base
 from app.db.models.user import User
 from app.db.models.vk_conversation_state import VkConversationState
 from app.db.repositories.vk_conversation_state_repository import (
     VkConversationStateRepository,
 )
-from app.bot.vk import state as vk_state
-from app.bot.vk.handlers.admin import buyins as vk_buyins
-from app.bot.vk.handlers.admin import routing as vk_admin_routing
-from app.api.http import vk_webhook as vk_webhook_module
 
 
 @pytest.fixture
@@ -155,7 +155,6 @@ async def test_legacy_registration_state_is_hydrated_and_persisted_between_worke
 @pytest.mark.parametrize(
     ("local_state", "local_context"),
     [
-        (vk_state.WAITING_FOR_BET_PAYMENT_RECEIPT, {}),
         (None, {"betstat_mode": "personal", "betstat_selected_ids": "7"}),
     ],
 )
@@ -187,6 +186,32 @@ async def test_routing_preserves_ephemeral_vk_state_without_durable_row(
     assert response is not None and response.body == b"consumed"
     async with state_sessions() as session:
         assert await VkConversationStateRepository(session).get(vk_user_id=user_id) is None
+
+
+@pytest.mark.asyncio
+async def test_pending_bet_payment_selection_survives_vk_worker_restart(
+    state_sessions, monkeypatch
+):
+    monkeypatch.setattr(vk_state, "SessionFactory", state_sessions)
+
+    @vk_state.durable_vk_workflow
+    async def select_payment(*, user_id: int):
+        vk_state.vk_user_states[user_id] = vk_state.WAITING_FOR_BET_PAYMENT_RECEIPT
+        vk_state.vk_user_contexts[user_id] = {
+            "bet_payment_selected_ids": "11,12",
+            "bet_payment_expected_kopecks": "30000",
+        }
+
+    await select_payment(user_id=101)
+    vk_state.vk_user_states.clear()
+    vk_state.vk_user_contexts.clear()
+
+    @vk_state.durable_vk_workflow
+    async def receive_receipt(*, user_id: int):
+        assert vk_state.vk_user_states[user_id] == vk_state.WAITING_FOR_BET_PAYMENT_RECEIPT
+        assert vk_state.vk_user_contexts[user_id]["bet_payment_selected_ids"] == "11,12"
+
+    await receive_receipt(user_id=101)
 
 
 @pytest.mark.asyncio

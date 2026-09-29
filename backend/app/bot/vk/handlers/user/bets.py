@@ -7,14 +7,16 @@ from app.bot.shared.texts.inline.shared import receipt_ocr as ReceiptText
 from app.bot.shared.texts.inline.vk.user import bets as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
-    bet_receipt_manual_keyboard as tg_bet_receipt_manual_keyboard,
+    bet_receipt_review_keyboard as tg_bet_receipt_review_keyboard,
 )
 from app.bot.vk.api import (
     send_vk_message,
     send_vk_message_event_answer,
 )
 from app.bot.vk.keyboards import (
-    bet_receipt_manual_keyboard,
+    bet_payment_choice_keyboard,
+    bet_payment_select_keyboard,
+    bet_receipt_review_keyboard,
     betting_confirm_keyboard,
     betting_player_keyboard,
     betting_size_keyboard,
@@ -35,6 +37,7 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
+from app.services.bet_payment import apply_exact_receipt_payment, validate_intended_bets
 from app.services.google_backup import backup_tables_to_google
 from app.services.receipt_ocr import (
     extract_amount_rub,
@@ -57,7 +60,6 @@ from .common import (
     _format_unpaid_bets_lines,
     _get_vk_user,
     _is_vk_user_approved,
-    _pick_fifo_bets_to_close,
     _post_bet_vk_keyboard_for_user,
     _vk_button_matches,
     logger,
@@ -498,19 +500,72 @@ async def handle_betting_pay_bet_text(*, user_id, text, raw_message):
                 vk_user_states.pop(user_id, None)
                 return PlainTextResponse("ok")
             total_kopecks = sum(int(item.amount_kopecks) for item in unpaid)
-            owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
-            vk_user_states[user_id] = WAITING_FOR_BET_PAYMENT_RECEIPT
+            vk_user_contexts[user_id] = {
+                "bet_payment_available_ids": ",".join(str(item.row_id) for item in unpaid),
+                "bet_payment_selected_ids": "",
+            }
             await send_vk_message(
                 user_id=user_id,
-                message=Text.user.BETTING_PAY_LIST.value.format(
+                message=Text.user.BETTING_PAY_CHOOSE.value.format(
                     lines=_format_unpaid_bets_lines(unpaid),
                     total_rub=_format_rub_from_kopecks(total_kopecks),
-                    payment_requisites=_format_payment_requisites(owner),
                 ),
-                keyboard=await _betting_vk_keyboard(),
+                keyboard=bet_payment_choice_keyboard(
+                    total_rub=_format_rub_from_kopecks(total_kopecks)
+                ),
             )
             return PlainTextResponse("ok")
     return HANDLER_UNMATCHED
+
+
+async def handle_bet_payment_selection_event(
+    *, user_id, peer_id, event_id, conversation_message_id, callback_payload, action
+):
+    if action not in {"bet_pay_all", "bet_pay_select", "bet_pay_toggle", "bet_pay_done", "bet_pay_cancel"}:
+        return HANDLER_UNMATCHED
+    if action == "bet_pay_cancel":
+        vk_user_states.pop(user_id, None)
+        vk_user_contexts.pop(user_id, None)
+        await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Отменено")
+        return PlainTextResponse("ok")
+    async with SessionFactory() as session:
+        user = await UserRepository(session).get_by_vk_id(user_id)
+        if user is None:
+            return PlainTextResponse("ok")
+        unpaid = await BetRepository(session).list_unpaid_for_user(better_id=int(user.row_id))
+        available = {int(item.row_id) for item in unpaid}
+        context = vk_user_contexts.setdefault(user_id, {})
+        original = {int(x) for x in context.get("bet_payment_available_ids", "").split(",") if x}
+        if available != original:
+            vk_user_contexts.pop(user_id, None)
+            await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text=Text.user.BETTING_PAY_SELECTION_INVALID.value)
+            return PlainTextResponse("ok")
+        selected = {int(x) for x in context.get("bet_payment_selected_ids", "").split(",") if x}
+        if action == "bet_pay_all":
+            selected = available
+        elif action == "bet_pay_select":
+            await send_vk_message(user_id=user_id, message="Выбери ставки:", keyboard=bet_payment_select_keyboard(bets=unpaid, selected_ids=[]))
+            return PlainTextResponse("ok")
+        elif action == "bet_pay_toggle":
+            bet_id = callback_payload.get("bet_row_id")
+            if isinstance(bet_id, int) and bet_id in available:
+                selected.symmetric_difference_update({bet_id})
+            context["bet_payment_selected_ids"] = ",".join(map(str, sorted(selected)))
+            await send_vk_message(user_id=user_id, message="Выбери ставки:", keyboard=bet_payment_select_keyboard(bets=unpaid, selected_ids=sorted(selected)))
+            return PlainTextResponse("ok")
+        if not selected:
+            await send_vk_message_event_answer(event_id=event_id, user_id=user_id, peer_id=peer_id, text="Выбери хотя бы одну ставку")
+            return PlainTextResponse("ok")
+        chosen = [item for item in unpaid if int(item.row_id) in selected]
+        expected = sum(int(item.amount_kopecks) for item in chosen)
+        owner = await UserRepository(session).get_by_row_id(PAYMENT_OWNER_ROW_ID)
+        context["bet_payment_selected_ids"] = ",".join(map(str, sorted(selected)))
+        context["bet_payment_expected_kopecks"] = str(expected)
+        vk_user_states[user_id] = WAITING_FOR_BET_PAYMENT_RECEIPT
+        await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_INTENT.value.format(
+            lines=_format_unpaid_bets_lines(chosen), total_rub=_format_rub_from_kopecks(expected),
+            payment_requisites=_format_payment_requisites(owner)), keyboard=await _betting_vk_keyboard())
+        return PlainTextResponse("ok")
 
 
 async def handle_bet_amount_text(*, user_id, text, raw_message):
@@ -571,16 +626,27 @@ async def handle_bet_payment_receipt_text(*, user_id, text, raw_message):
                     keyboard=new_user_keyboard,
                 )
                 return PlainTextResponse("ok")
-            bet_repository = BetRepository(session)
             receipt_repository = BetPaymentReceiptRepository(session)
-            unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
-            if not unpaid:
+            context = vk_user_contexts.get(user_id, {})
+            selected_ids = [int(x) for x in context.get("bet_payment_selected_ids", "").split(",") if x]
+            expected_from_flow = context.get("bet_payment_expected_kopecks")
+            intended_bets = await validate_intended_bets(
+                session=session, user_row_id=int(user.row_id), intended_bet_ids=selected_ids
+            )
+            if intended_bets is None or expected_from_flow is None:
                 vk_user_states.pop(user_id, None)
+                vk_user_contexts.pop(user_id, None)
                 await send_vk_message(
                     user_id=user_id,
-                    message=Text.user.BETTING_PAY_EMPTY.value,
+                    message=Text.user.BETTING_PAY_SELECTION_INVALID.value,
                     keyboard=await _betting_vk_keyboard(),
                 )
+                return PlainTextResponse("ok")
+            expected_kopecks = sum(int(item.amount_kopecks) for item in intended_bets)
+            if expected_kopecks != int(expected_from_flow):
+                vk_user_states.pop(user_id, None)
+                vk_user_contexts.pop(user_id, None)
+                await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_SELECTION_INVALID.value)
                 return PlainTextResponse("ok")
             owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
 
@@ -650,39 +716,36 @@ async def handle_bet_payment_receipt_text(*, user_id, text, raw_message):
             recipient_tail4 = extract_phone_tail4(
                 ocr_text, owner.tel_number if owner is not None else None
             )
+            manual_receipt = None
             if entered_rub is not None and ocr_phone_match is True:
                 paid_kopecks = int(entered_rub) * 100
-                to_close = _pick_fifo_bets_to_close(bets=unpaid, paid_kopecks=paid_kopecks)
-                if to_close:
-                    await bet_repository.mark_paid(bets=to_close)
-                    await receipt_repository.create(
+                if paid_kopecks == expected_kopecks:
+                    receipt = await receipt_repository.create(
                         user_row_id=int(user.row_id),
                         platform="vk",
                         external_file_id=external_file_id,
                         operation_id=operation_id,
                         amount_kopecks_ocr=paid_kopecks,
                         recipient_tail4_ocr=recipient_tail4,
-                        status="accepted",
+                        status="processing",
+                        expected_amount_kopecks=expected_kopecks,
+                        intended_bet_ids=selected_ids,
                     )
-                    await session.commit()
-                    try:
-                        await backup_tables_to_google(session=session)
-                    except Exception:
-                        logger.exception("Failed to sync Google backup after VK is_paid update")
-                    remain = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
-                    remain_kopecks = sum(int(item.amount_kopecks) for item in remain)
-                    vk_user_states.pop(user_id, None)
-                    await send_vk_message(
-                        user_id=user_id,
-                        message=Text.user.BETTING_PAY_MATCHED.value.format(
-                            count=len(to_close),
-                            debt_rub=_format_rub_from_kopecks(remain_kopecks),
-                        ),
-                        keyboard=await _betting_vk_keyboard(),
-                    )
-                    return PlainTextResponse("ok")
+                    result = await apply_exact_receipt_payment(session=session, receipt=receipt)
+                    if result.ok:
+                        await session.commit()
+                        try:
+                            await backup_tables_to_google(session=session)
+                        except Exception:
+                            logger.exception("Failed to sync Google backup after VK is_paid update")
+                        vk_user_states.pop(user_id, None)
+                        vk_user_contexts.pop(user_id, None)
+                        await send_vk_message(user_id=user_id, message=Text.user.BETTING_PAY_MATCHED.value.format(
+                            count=result.closed_count, debt_rub=_format_rub_from_kopecks(result.debt_kopecks or 0)),
+                            keyboard=await _betting_vk_keyboard())
+                        return PlainTextResponse("ok")
 
-            total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
+            total_unpaid = expected_kopecks
             missing_fields: list[str] = []
             if entered_rub is None:
                 missing_fields.append("sum")
@@ -691,18 +754,18 @@ async def handle_bet_payment_receipt_text(*, user_id, text, raw_message):
             if operation_id is None:
                 missing_fields.append("operation_id")
             ocr_preview = " ".join((ocr_text or "").split())[:500]
+            selected_lines = _format_unpaid_bets_lines(intended_bets)
             admin_text = (
                 f'{InlineText.TEXT_1_29_TEXT_05_PART_1}{user.name}{InlineText.TEXT_1_29_TEXT_05_PART_2}{(entered_rub if entered_rub is not None else ReceiptText.AMOUNT_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_3}{_format_rub_from_kopecks(total_unpaid)}{InlineText.TEXT_1_29_TEXT_05_PART_4}{(ReceiptText.PHONE_MATCHES if ocr_phone_match else ReceiptText.PHONE_DOES_NOT_MATCH if ocr_phone_match is False else ReceiptText.VALUE_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_5}{(recipient_tail4 if recipient_tail4 is not None else ReceiptText.VALUE_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_6}{(operation_id if operation_id is not None else ReceiptText.VALUE_UNDETERMINED)}{InlineText.TEXT_1_29_TEXT_05_PART_7}{(', '.join(missing_fields) if missing_fields else ReceiptText.NO_MISSING_FIELDS)}{InlineText.TEXT_1_29_TEXT_05_PART_8}{(ocr_preview if ocr_preview else ReceiptText.EMPTY_PREVIEW)}'
-            )
-            manual_receipt = await receipt_repository.create(
-                user_row_id=int(user.row_id),
-                platform="vk",
-                external_file_id=external_file_id,
-                operation_id=operation_id,
-                amount_kopecks_ocr=(int(entered_rub) * 100) if entered_rub is not None else None,
-                recipient_tail4_ocr=recipient_tail4,
-                status="manual",
-            )
+            ) + f"\n\nПользователь выбрал:\n{selected_lines}\nИтого: {_format_rub_from_kopecks(expected_kopecks)} ₽"
+            if manual_receipt is None:
+                manual_receipt = await receipt_repository.create(
+                    user_row_id=int(user.row_id), platform="vk",
+                    external_file_id=external_file_id, operation_id=operation_id,
+                    amount_kopecks_ocr=(int(entered_rub) * 100) if entered_rub is not None else None,
+                    recipient_tail4_ocr=recipient_tail4, status="manual",
+                    expected_amount_kopecks=expected_kopecks, intended_bet_ids=selected_ids,
+                )
             reviewer = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
             from app.bot.telegram.runtime import telegram_bot
 
@@ -715,23 +778,13 @@ async def handle_bet_payment_receipt_text(*, user_id, text, raw_message):
                 await telegram_bot.send_message(
                     chat_id=int(reviewer.telegram_id),
                     text=admin_text,
-                    reply_markup=tg_bet_receipt_manual_keyboard(
-                        receipt_row_id=int(manual_receipt.row_id),
-                        bets=unpaid,
-                        selected_ids=[],
-                        page=0,
-                    ),
+                    reply_markup=tg_bet_receipt_review_keyboard(receipt_row_id=int(manual_receipt.row_id)),
                 )
             elif reviewer is not None and reviewer.vk_id is not None:
                 await send_vk_message(
                     user_id=int(reviewer.vk_id),
                     message=admin_text,
-                    keyboard=bet_receipt_manual_keyboard(
-                        receipt_row_id=int(manual_receipt.row_id),
-                        bets=unpaid,
-                        selected_ids=[],
-                        page=0,
-                    ),
+                    keyboard=bet_receipt_review_keyboard(receipt_row_id=int(manual_receipt.row_id)),
                 )
             elif (
                 telegram_bot is not None
@@ -742,15 +795,11 @@ async def handle_bet_payment_receipt_text(*, user_id, text, raw_message):
                 await telegram_bot.send_message(
                     chat_id=int(reviewer.telegram_id),
                     text=admin_text,
-                    reply_markup=tg_bet_receipt_manual_keyboard(
-                        receipt_row_id=int(manual_receipt.row_id),
-                        bets=unpaid,
-                        selected_ids=[],
-                        page=0,
-                    ),
+                    reply_markup=tg_bet_receipt_review_keyboard(receipt_row_id=int(manual_receipt.row_id)),
                 )
             await session.commit()
             vk_user_states.pop(user_id, None)
+            vk_user_contexts.pop(user_id, None)
             await send_vk_message(
                 user_id=user_id,
                 message=Text.user.BETTING_PAY_NEED_MANUAL.value,

@@ -62,6 +62,18 @@ BETTING_PAY_LIST = (
     "🧾 Затем пришли мне квитанцию о переводе."
 )
 
+BETTING_PAY_CHOOSE = (
+    "Неоплаченные ставки:\n{lines}\n\n💰 Общий долг: {total_rub} ₽\n"
+    "Выбери, какие ставки оплатить."
+)
+
+BETTING_PAY_INTENT = (
+    "К оплате:\n{lines}\n\n💳 Точная сумма: {total_rub} ₽\n"
+    "Реквизиты: [{payment_requisites}]\n🧾 Пришли квитанцию о переводе."
+)
+
+BETTING_PAY_SELECTION_INVALID = "Выбранные ставки уже изменились. Начни оплату заново."
+
 BETTING_PAY_CANCELED = "Оплата ставок отменена."
 
 BETTING_PAY_AMOUNT_INVALID = "Пришли квитанцию о переводе (фото или PDF)."

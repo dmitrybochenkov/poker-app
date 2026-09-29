@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.bet import Bet
@@ -106,3 +106,29 @@ class BetRepository:
     for bet in bets:
       bet.is_paid = True
     await self.session.flush()
+
+  async def list_by_ids_for_user(
+    self, *, bet_ids: list[int], better_id: int
+  ) -> list[Bet]:
+    if not bet_ids:
+      return []
+    result = await self.session.execute(
+      select(Bet)
+      .where(Bet.row_id.in_(bet_ids), Bet.better_id == better_id)
+      .order_by(Bet.row_id)
+    )
+    return list(result.scalars().all())
+
+  async def claim_unpaid_exact(self, *, bet_ids: list[int], better_id: int) -> int:
+    if not bet_ids:
+      return 0
+    result = await self.session.execute(
+      update(Bet)
+      .where(
+        Bet.row_id.in_(bet_ids),
+        Bet.better_id == better_id,
+        Bet.is_paid.is_(False),
+      )
+      .values(is_paid=True)
+    )
+    return int(result.rowcount or 0)

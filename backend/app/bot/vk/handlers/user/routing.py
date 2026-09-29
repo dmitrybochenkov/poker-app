@@ -216,6 +216,16 @@ async def handle_user_message_event(event_object: dict) -> PlainTextResponse | N
     )
     if result is not HANDLER_UNMATCHED:
         return result
+    result = await bets.handle_bet_payment_selection_event(
+        user_id=user_id,
+        peer_id=peer_id,
+        event_id=event_id,
+        conversation_message_id=conversation_message_id,
+        callback_payload=callback_payload,
+        action=action,
+    )
+    if result is not HANDLER_UNMATCHED:
+        return result
     result = await bets.handle_bet_size_event(
         user_id=user_id,
         peer_id=peer_id,

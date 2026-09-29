@@ -8,7 +8,10 @@ from app.bot.shared.texts.inline.shared import receipt_ocr as ReceiptText
 from app.bot.shared.texts.inline.telegram.user import bets as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
+    bet_payment_choice_keyboard,
+    bet_payment_select_keyboard,
     bet_receipt_manual_keyboard,
+    bet_receipt_review_keyboard,
     betting_confirm_keyboard,
     betting_player_keyboard,
     betting_size_keyboard,
@@ -16,7 +19,9 @@ from app.bot.telegram.keyboards import (
 )
 from app.bot.telegram.states import RegistrationState
 from app.bot.vk.api import send_vk_message
-from app.bot.vk.keyboards import bet_receipt_manual_keyboard as vk_bet_receipt_manual_keyboard
+from app.bot.vk.keyboards import (
+    bet_receipt_review_keyboard as vk_bet_receipt_review_keyboard,
+)
 from app.db.repositories.bet_param_repository import BetParamRepository
 from app.db.repositories.bet_payment_receipt_repository import BetPaymentReceiptRepository
 from app.db.repositories.bet_repository import BetRepository
@@ -26,6 +31,7 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
+from app.services.bet_payment import apply_exact_receipt_payment, validate_intended_bets
 from app.services.google_backup import backup_tables_to_google
 from app.services.receipt_ocr import (
     extract_amount_rub,
@@ -46,7 +52,6 @@ from .common import (
     _format_payment_requisites,
     _format_unpaid_bets_lines,
     _get_telegram_user,
-    _pick_fifo_bets_to_close,
     _post_bet_tg_keyboard_for_user,
     _telegram_external_file_id,
     logger,
@@ -80,16 +85,90 @@ async def start_pay_bet(message: Message, state: FSMContext) -> None:
             await state.clear()
             return
         total_kopecks = sum(int(item.amount_kopecks) for item in unpaid)
-        owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
-        await state.set_state(RegistrationState.waiting_for_bet_payment_receipt)
+        await state.update_data(
+            bet_payment_available_ids=[int(item.row_id) for item in unpaid],
+            bet_payment_selected_ids=[],
+        )
         await message.answer(
-            Text.user.BETTING_PAY_LIST.value.format(
+            Text.user.BETTING_PAY_CHOOSE.value.format(
                 lines=_format_unpaid_bets_lines(unpaid),
                 total_rub=_format_rub_from_kopecks(total_kopecks),
-                payment_requisites=_format_payment_requisites(owner),
             ),
-            reply_markup=await _betting_tg_keyboard(),
+            reply_markup=bet_payment_choice_keyboard(
+                total_rub=_format_rub_from_kopecks(total_kopecks)
+            ),
         )
+
+
+async def choose_bet_payment(callback: CallbackQuery, state: FSMContext) -> None:
+    if callback.from_user is None or callback.data is None:
+        return
+    action = callback.data.split(":")[1]
+    if action == "cancel":
+        await state.clear()
+        if callback.message:
+            await callback.message.edit_text(Text.user.BETTING_PAY_CANCELED.value)
+        await callback.answer()
+        return
+    async with SessionFactory() as session:
+        user = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
+        if user is None:
+            await callback.answer(Text.user.BETTING_PAY_SELECTION_INVALID.value, show_alert=True)
+            return
+        unpaid = await BetRepository(session).list_unpaid_for_user(better_id=int(user.row_id))
+        available = {int(item.row_id) for item in unpaid}
+        data = await state.get_data()
+        if available != set(data.get("bet_payment_available_ids", [])):
+            await state.clear()
+            await callback.answer(Text.user.BETTING_PAY_SELECTION_INVALID.value, show_alert=True)
+            return
+        selected = set(data.get("bet_payment_selected_ids", []))
+        if action == "all":
+            selected = available
+        elif action == "select":
+            if callback.message:
+                await callback.message.edit_reply_markup(
+                    reply_markup=bet_payment_select_keyboard(bets=unpaid, selected_ids=[])
+                )
+            await callback.answer()
+            return
+        elif action == "toggle":
+            bet_id = int(callback.data.split(":")[2])
+            if bet_id in selected:
+                selected.remove(bet_id)
+            elif bet_id in available:
+                selected.add(bet_id)
+            await state.update_data(bet_payment_selected_ids=sorted(selected))
+            if callback.message:
+                await callback.message.edit_reply_markup(
+                    reply_markup=bet_payment_select_keyboard(
+                        bets=unpaid, selected_ids=sorted(selected)
+                    )
+                )
+            await callback.answer()
+            return
+        elif action != "done":
+            return
+        if not selected:
+            await callback.answer("Выбери хотя бы одну ставку.", show_alert=True)
+            return
+        bets = [item for item in unpaid if int(item.row_id) in selected]
+        expected = sum(int(item.amount_kopecks) for item in bets)
+        owner = await UserRepository(session).get_by_row_id(PAYMENT_OWNER_ROW_ID)
+        await state.update_data(
+            bet_payment_selected_ids=sorted(selected),
+            bet_payment_expected_kopecks=expected,
+        )
+        await state.set_state(RegistrationState.waiting_for_bet_payment_receipt)
+        if callback.message:
+            await callback.message.edit_text(
+                Text.user.BETTING_PAY_INTENT.value.format(
+                    lines=_format_unpaid_bets_lines(bets),
+                    total_rub=_format_rub_from_kopecks(expected),
+                    payment_requisites=_format_payment_requisites(owner),
+                )
+            )
+        await callback.answer()
 
 
 async def start_make_bet(message: Message, state: FSMContext) -> None:
@@ -422,13 +501,25 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
         user_repository = UserRepository(session)
         bet_repository = BetRepository(session)
         receipt_repository = BetPaymentReceiptRepository(session)
-        unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
-        if not unpaid:
+        state_data = await state.get_data()
+        selected_ids = [int(item) for item in state_data.get("bet_payment_selected_ids", [])]
+        expected_from_flow = state_data.get("bet_payment_expected_kopecks")
+        intended_bets = await validate_intended_bets(
+            session=session, user_row_id=int(user.row_id), intended_bet_ids=selected_ids
+        )
+        if intended_bets is None or expected_from_flow is None:
             await state.clear()
             await message.answer(
-                Text.user.BETTING_PAY_EMPTY.value, reply_markup=await _betting_tg_keyboard()
+                Text.user.BETTING_PAY_SELECTION_INVALID.value,
+                reply_markup=await _betting_tg_keyboard(),
             )
             return
+        expected_kopecks = sum(int(item.amount_kopecks) for item in intended_bets)
+        if expected_kopecks != int(expected_from_flow):
+            await state.clear()
+            await message.answer(Text.user.BETTING_PAY_SELECTION_INVALID.value)
+            return
+        unpaid = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
         owner = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
 
         external_file_id = _telegram_external_file_id(message)
@@ -488,38 +579,38 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
         recipient_tail4 = extract_phone_tail4(
             ocr_text, owner.tel_number if owner is not None else None
         )
+        manual_receipt = None
         if entered_rub is not None and ocr_phone_match is True:
             paid_kopecks = int(entered_rub) * 100
-            to_close = _pick_fifo_bets_to_close(bets=unpaid, paid_kopecks=paid_kopecks)
-            if to_close:
-                await bet_repository.mark_paid(bets=to_close)
-                await receipt_repository.create(
+            if paid_kopecks == expected_kopecks:
+                receipt = await receipt_repository.create(
                     user_row_id=int(user.row_id),
                     platform="tg",
                     external_file_id=external_file_id,
                     operation_id=operation_id,
                     amount_kopecks_ocr=paid_kopecks,
                     recipient_tail4_ocr=recipient_tail4,
-                    status="accepted",
+                    status="processing",
+                    expected_amount_kopecks=expected_kopecks,
+                    intended_bet_ids=selected_ids,
                 )
-                await session.commit()
-                try:
-                    await backup_tables_to_google(session=session)
-                except Exception:
-                    logger.exception("Failed to sync Google backup after TG is_paid update")
-                remaining = await bet_repository.list_unpaid_for_user(better_id=int(user.row_id))
-                remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
-                await state.clear()
-                await message.answer(
-                    Text.user.BETTING_PAY_MATCHED.value.format(
-                        count=len(to_close),
-                        debt_rub=_format_rub_from_kopecks(remaining_kopecks),
-                    ),
-                    reply_markup=await _betting_tg_keyboard(),
-                )
-                return
+                result = await apply_exact_receipt_payment(session=session, receipt=receipt)
+                if result.ok:
+                    await session.commit()
+                    try:
+                        await backup_tables_to_google(session=session)
+                    except Exception:
+                        logger.exception("Failed to sync Google backup after TG is_paid update")
+                    await state.clear()
+                    await message.answer(
+                        Text.user.BETTING_PAY_MATCHED.value.format(
+                            count=result.closed_count,
+                            debt_rub=_format_rub_from_kopecks(result.debt_kopecks or 0),
+                        ), reply_markup=await _betting_tg_keyboard(),
+                    )
+                    return
 
-        total_unpaid = sum(int(item.amount_kopecks) for item in unpaid)
+        total_unpaid = expected_kopecks
         missing_fields: list[str] = []
         if entered_rub is None:
             missing_fields.append("sum")
@@ -528,18 +619,18 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
         if operation_id is None:
             missing_fields.append("operation_id")
         ocr_preview = " ".join((ocr_text or "").split())[:500]
+        selected_lines = _format_unpaid_bets_lines(intended_bets)
         admin_text = (
             f'{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_1}{user.name}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_2}{(entered_rub if entered_rub is not None else ReceiptText.AMOUNT_UNDETERMINED)}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_3}{_format_rub_from_kopecks(total_unpaid)}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_4}{(ReceiptText.PHONE_MATCHES if ocr_phone_match else ReceiptText.PHONE_DOES_NOT_MATCH if ocr_phone_match is False else ReceiptText.VALUE_UNDETERMINED)}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_5}{(recipient_tail4 if recipient_tail4 is not None else ReceiptText.VALUE_UNDETERMINED)}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_6}{(operation_id if operation_id is not None else ReceiptText.VALUE_UNDETERMINED)}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_7}{(', '.join(missing_fields) if missing_fields else ReceiptText.NO_MISSING_FIELDS)}{InlineText.PROCESS_BET_PAYMENT_RECEIPT_TEXT_05_PART_8}{(ocr_preview if ocr_preview else ReceiptText.EMPTY_PREVIEW)}'
-        )
-        manual_receipt = await receipt_repository.create(
-            user_row_id=int(user.row_id),
-            platform="tg",
-            external_file_id=external_file_id,
-            operation_id=operation_id,
-            amount_kopecks_ocr=(int(entered_rub) * 100) if entered_rub is not None else None,
-            recipient_tail4_ocr=recipient_tail4,
-            status="manual",
-        )
+        ) + f"\n\nПользователь выбрал:\n{selected_lines}\nИтого: {_format_rub_from_kopecks(expected_kopecks)} ₽"
+        if manual_receipt is None:
+            manual_receipt = await receipt_repository.create(
+                user_row_id=int(user.row_id), platform="tg",
+                external_file_id=external_file_id, operation_id=operation_id,
+                amount_kopecks_ocr=(int(entered_rub) * 100) if entered_rub is not None else None,
+                recipient_tail4_ocr=recipient_tail4, status="manual",
+                expected_amount_kopecks=expected_kopecks, intended_bet_ids=selected_ids,
+            )
         reviewer = await user_repository.get_by_row_id(PAYMENT_OWNER_ROW_ID)
         from app.bot.telegram.runtime import telegram_bot
 
@@ -554,23 +645,13 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
                     await message.copy_to(
                         chat_id=int(reviewer.telegram_id),
                         caption=admin_text,
-                        reply_markup=bet_receipt_manual_keyboard(
-                            receipt_row_id=int(manual_receipt.row_id),
-                            bets=unpaid,
-                            selected_ids=[],
-                            page=0,
-                        ),
+                        reply_markup=bet_receipt_review_keyboard(receipt_row_id=int(manual_receipt.row_id)),
                     )
                 except Exception:
                     await telegram_bot.send_message(
                         chat_id=int(reviewer.telegram_id),
                         text=admin_text,
-                        reply_markup=bet_receipt_manual_keyboard(
-                            receipt_row_id=int(manual_receipt.row_id),
-                            bets=unpaid,
-                            selected_ids=[],
-                            page=0,
-                        ),
+                        reply_markup=bet_receipt_review_keyboard(receipt_row_id=int(manual_receipt.row_id)),
                     )
             else:
                 await telegram_bot.send_message(
@@ -587,12 +668,7 @@ async def process_bet_payment_receipt(message: Message, state: FSMContext) -> No
             await send_vk_message(
                 user_id=int(reviewer.vk_id),
                 message=admin_text,
-                keyboard=vk_bet_receipt_manual_keyboard(
-                    receipt_row_id=int(manual_receipt.row_id),
-                    bets=unpaid,
-                    selected_ids=[],
-                    page=0,
-                ),
+                    keyboard=vk_bet_receipt_review_keyboard(receipt_row_id=int(manual_receipt.row_id)),
             )
         await session.commit()
         await state.clear()

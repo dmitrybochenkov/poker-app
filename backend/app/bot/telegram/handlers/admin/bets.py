@@ -1,10 +1,10 @@
 from aiogram.types import CallbackQuery
 
-from app.bot.shared.texts.inline.shared import formatting as FormattingText
 from app.bot.shared.texts.inline.telegram.admin import bets as InlineText
 from app.bot.shared.texts.texts import Text
 from app.bot.telegram.keyboards import (
     bet_receipt_manual_keyboard,
+    bet_receipt_review_keyboard,
 )
 from app.bot.vk.api import send_vk_message
 from app.bot.vk.keyboards import betting_keyboard as vk_betting_keyboard
@@ -12,6 +12,11 @@ from app.db.repositories.bet_payment_receipt_repository import BetPaymentReceipt
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import SessionFactory
+from app.services.bet_payment import (
+    change_receipt_intent,
+    confirm_receipt_payment,
+    reject_receipt_payment,
+)
 from app.services.google_backup import backup_tables_to_google
 
 from .common import (
@@ -48,7 +53,6 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
             return
         receipt_repo = BetPaymentReceiptRepository(session)
         bet_repo = BetRepository(session)
-        user_repo = UserRepository(session)
         receipt = await receipt_repo.get_by_row_id(row_id=int(receipt_row_id))
         if receipt is None:
             await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_03, show_alert=True)
@@ -62,6 +66,44 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
             return
         unpaid = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
         selected = TG_MANUAL_RECEIPT_SELECTIONS.setdefault(state_key, set())
+
+        if action == "confirm":
+            result = await confirm_receipt_payment(session=session, receipt_row_id=receipt_row_id)
+            owner = await UserRepository(session).get_by_row_id(int(receipt.user_row_id))
+            await session.commit()
+            TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
+            if result.ok:
+                try:
+                    await backup_tables_to_google(session=session)
+                except Exception:
+                    logger.exception("Failed to sync Google backup after manual TG receipt decision")
+                user_message = Text.user.BETTING_PAY_MATCHED.value.format(
+                    count=result.closed_count,
+                    debt_rub=_format_rub_from_kopecks(result.debt_kopecks or 0),
+                )
+                from app.bot.telegram.runtime import telegram_bot
+                if owner is not None and owner.notification_platform == "tg" and owner.telegram_id and telegram_bot:
+                    await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=user_message)
+                elif owner is not None and owner.notification_platform == "vk" and owner.vk_id:
+                    await send_vk_message(user_id=int(owner.vk_id), message=user_message, keyboard=vk_betting_keyboard)
+            await callback.answer(result.message, show_alert=not result.ok)
+            return
+
+        if action == "reject":
+            result = await reject_receipt_payment(session=session, receipt_row_id=receipt_row_id)
+            await session.commit()
+            TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
+            await _safe_callback_edit_text(callback, result.message, reply_markup=None)
+            await callback.answer()
+            return
+
+        if action == "change":
+            intended = await receipt_repo.list_intended_bet_ids(receipt_row_id=receipt_row_id)
+            TG_MANUAL_RECEIPT_SELECTIONS[state_key] = set(intended)
+            await _safe_callback_edit_reply_markup(callback, bet_receipt_manual_keyboard(
+                receipt_row_id=receipt_row_id, bets=unpaid, selected_ids=intended, page=0))
+            await callback.answer()
+            return
 
         if action == "toggle":
             if len(parts) < 5:
@@ -120,51 +162,16 @@ async def bet_receipt_manual_callback(callback: CallbackQuery) -> None:
         if not chosen:
             await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_11, show_alert=True)
             return
-        await bet_repo.mark_paid(bets=chosen)
-        receipt.status = "accepted_manual"
+        changed = await change_receipt_intent(
+            session=session,
+            receipt_row_id=receipt_row_id,
+            intended_bet_ids=[int(bet.row_id) for bet in chosen],
+        )
         await session.commit()
-        if receipt.status.startswith("accepted"):
-            try:
-                await backup_tables_to_google(session=session)
-            except Exception:
-                logger.exception("Failed to sync Google backup after manual receipt decision")
-        remaining = await bet_repo.list_unpaid_for_user(better_id=int(receipt.user_row_id))
-        remaining_kopecks = sum(int(item.amount_kopecks) for item in remaining)
-        closed_lines = "\n".join(
-            f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_5}'
-            for bet in chosen
-        )
-        remaining_lines = "\n".join(
-            f'{(bet.date.strftime('%d.%m.%Y') if bet.date else FormattingText.NOT_AVAILABLE)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_MARKER_01_PART_2}{int(bet.amount_kopecks) // 100}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_5}'
-            for bet in remaining
-        )
-        owner = await user_repo.get_by_row_id(int(receipt.user_row_id))
-        user_message = f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_12_PART_1}{len(chosen)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_12_PART_2}' + (
-            InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_13
-            if remaining_kopecks == 0
-            else f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_14_PART_1}{remaining_lines}'
-        )
-        from app.bot.telegram.runtime import telegram_bot
-
-        if (
-            owner is not None
-            and owner.notification_platform == "tg"
-            and owner.telegram_id is not None
-            and telegram_bot is not None
-        ):
-            await telegram_bot.send_message(chat_id=int(owner.telegram_id), text=user_message)
-        elif owner is not None and owner.notification_platform == "vk" and owner.vk_id is not None:
-            await send_vk_message(
-                user_id=int(owner.vk_id), message=user_message, keyboard=vk_betting_keyboard
-            )
         TG_MANUAL_RECEIPT_SELECTIONS.pop(state_key, None)
-
-    if callback.message is not None:
         await _safe_callback_edit_text(
             callback,
-            (
-                f'{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_1}{receipt_row_id}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_2}{closed_lines}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_3}{len(chosen)}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_4}{_format_rub_from_kopecks(int(remaining_kopecks))}{InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_15_PART_5}'
-            ),
-            reply_markup=None,
+            "Выбор сохранён. Проверь и подтверди оплату.",
+            reply_markup=bet_receipt_review_keyboard(receipt_row_id=receipt_row_id),
         )
-    await callback.answer(InlineText.BET_RECEIPT_MANUAL_CALLBACK_TEXT_16)
+        await callback.answer(changed.message, show_alert=not changed.ok)

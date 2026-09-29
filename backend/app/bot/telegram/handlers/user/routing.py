@@ -110,6 +110,7 @@ router.callback_query(F.data == "betstatsort_cancel")(betting_stats.betting_stat
 router.callback_query(F.data == "betstatsort_back")(betting_stats.betting_stat_sort_back)
 router.callback_query(F.data == "betstatsort_done")(betting_stats.betting_stat_sort_done)
 router.message(F.text == Buttons.betting.PAY_BET.value)(bets.start_pay_bet)
+router.callback_query(F.data.startswith("betpay:"))(bets.choose_bet_payment)
 router.message(F.text == Buttons.betting.MAKE_BET.value)(bets.start_make_bet)
 router.callback_query(F.data.startswith("registration_played_before:"))(
     registration.choose_registration_branch

@@ -1,19 +1,19 @@
-from app.db.models.user import User
+from app.db.models.achievement import Achievement
+from app.db.models.bet import Bet
+from app.db.models.bet_param import BetParam
+from app.db.models.bet_payment_receipt import BetPaymentReceipt, BetPaymentReceiptBet
+from app.db.models.bet_tournament import BetTournament
+from app.db.models.bet_tournament_param import BetTournamentParam
+from app.db.models.buyin_data import BuyinData
 from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
 from app.db.models.poker_param import PokerParam
-from app.db.models.buyin_data import BuyinData
-from app.db.models.bet import Bet
-from app.db.models.bet_tournament import BetTournament
-from app.db.models.bet_param import BetParam
-from app.db.models.bet_tournament_param import BetTournamentParam
-from app.db.models.stat_indicator import StatIndicator
-from app.db.models.achievement import Achievement
 from app.db.models.poker_room_denied import PokerRoomDenied
-from app.db.models.poll_vote import PollVote
 from app.db.models.poll_config import PollConfig
+from app.db.models.poll_vote import PollVote
+from app.db.models.stat_indicator import StatIndicator
 from app.db.models.sync_state import SyncState
-from app.db.models.bet_payment_receipt import BetPaymentReceipt
+from app.db.models.user import User
 from app.db.models.vk_conversation_state import VkConversationState
 
 __all__ = [
@@ -33,5 +33,6 @@ __all__ = [
   "PollConfig",
   "SyncState",
   "BetPaymentReceipt",
+  "BetPaymentReceiptBet",
   "VkConversationState",
 ]

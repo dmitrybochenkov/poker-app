@@ -7,7 +7,6 @@ from app.db.repositories.vk_conversation_state_repository import (
 )
 from app.db.session import SessionFactory
 
-
 vk_user_states: dict[int, str] = {}
 vk_user_contexts: dict[int, dict[str, str]] = {}
 
@@ -70,6 +69,7 @@ LEGACY_DURABLE_STATE_TYPES = {
   WAITING_FOR_OPTIONAL_PHONE,
   WAITING_FOR_ADMIN_NEW_PLAYER_NAME,
   WAITING_FOR_BET_AMOUNT,
+  WAITING_FOR_BET_PAYMENT_RECEIPT,
   WAITING_FOR_POLL_CUSTOM_DAY,
 }
 

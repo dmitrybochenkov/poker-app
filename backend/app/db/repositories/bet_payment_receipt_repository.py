@@ -1,7 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.bet_payment_receipt import BetPaymentReceipt
+from app.db.models.bet_payment_receipt import BetPaymentReceipt, BetPaymentReceiptBet
 
 
 class BetPaymentReceiptRepository:
@@ -39,6 +39,8 @@ class BetPaymentReceiptRepository:
     amount_kopecks_ocr: int | None,
     recipient_tail4_ocr: str | None,
     status: str,
+    expected_amount_kopecks: int | None = None,
+    intended_bet_ids: list[int] | None = None,
   ) -> BetPaymentReceipt:
     row = BetPaymentReceipt(
       user_row_id=user_row_id,
@@ -46,9 +48,36 @@ class BetPaymentReceiptRepository:
       external_file_id=external_file_id,
       operation_id=operation_id,
       amount_kopecks_ocr=amount_kopecks_ocr,
+      expected_amount_kopecks=expected_amount_kopecks,
       recipient_tail4_ocr=recipient_tail4_ocr,
       status=status,
     )
     self.session.add(row)
     await self.session.flush()
+    if intended_bet_ids:
+      await self.replace_intended_bets(
+        receipt_row_id=int(row.row_id), bet_ids=intended_bet_ids
+      )
     return row
+
+  async def list_intended_bet_ids(self, *, receipt_row_id: int) -> list[int]:
+    result = await self.session.execute(
+      select(BetPaymentReceiptBet.bet_id)
+      .where(BetPaymentReceiptBet.receipt_id == receipt_row_id)
+      .order_by(BetPaymentReceiptBet.bet_id)
+    )
+    return list(result.scalars().all())
+
+  async def replace_intended_bets(
+    self, *, receipt_row_id: int, bet_ids: list[int]
+  ) -> None:
+    await self.session.execute(
+      delete(BetPaymentReceiptBet).where(
+        BetPaymentReceiptBet.receipt_id == receipt_row_id
+      )
+    )
+    self.session.add_all(
+      BetPaymentReceiptBet(receipt_id=receipt_row_id, bet_id=bet_id)
+      for bet_id in sorted(set(bet_ids))
+    )
+    await self.session.flush()

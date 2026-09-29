@@ -102,6 +102,25 @@ def test_betting_and_receipt_contracts():
             {"action": "bet_receipt_cancel", "receipt_row_id": 9},
         ]
     ]
+    assert _tg_callbacks(tg.bet_payment_choice_keyboard(total_rub="300")) == [
+        ["betpay:all"], ["betpay:select"], ["betpay:cancel"]
+    ]
+    assert _vk_payloads(vk.bet_payment_choice_keyboard(total_rub="300")) == [
+        [{"action": "bet_pay_all"}],
+        [{"action": "bet_pay_select"}],
+        [{"action": "bet_pay_cancel"}],
+    ]
+    assert _tg_callbacks(tg.bet_receipt_review_keyboard(receipt_row_id=9)) == [
+        ["betreceipt:confirm:9", "betreceipt:change:9"],
+        ["betreceipt:reject:9"],
+    ]
+    assert _vk_payloads(vk.bet_receipt_review_keyboard(receipt_row_id=9)) == [
+        [
+            {"action": "bet_receipt_confirm", "receipt_row_id": 9},
+            {"action": "bet_receipt_change", "receipt_row_id": 9},
+        ],
+        [{"action": "bet_receipt_reject", "receipt_row_id": 9}],
+    ]
 
 
 def test_statistics_contracts():

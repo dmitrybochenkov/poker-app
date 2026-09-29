@@ -84,6 +84,7 @@ EXPECTED_DISPATCH = {
         "registration.handle_registration_optional_phone_event",
         "registration.handle_registration_optional_skip_event",
         "bets.handle_bet_tournament_event",
+        "bets.handle_bet_payment_selection_event",
         "bets.handle_bet_size_event",
         "bets.handle_bet_winner_event",
         "bets.handle_bet_loser_event",

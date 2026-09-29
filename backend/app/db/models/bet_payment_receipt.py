@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -19,7 +19,23 @@ class BetPaymentReceipt(Base):
   external_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
   operation_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
   amount_kopecks_ocr: Mapped[int | None] = mapped_column(Integer, nullable=True)
+  expected_amount_kopecks: Mapped[int | None] = mapped_column(Integer, nullable=True)
   recipient_tail4_ocr: Mapped[str | None] = mapped_column(String(8), nullable=True)
   status: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
   created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
   updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+  intended_bets: Mapped[list["BetPaymentReceiptBet"]] = relationship(
+    back_populates="receipt", cascade="all, delete-orphan"
+  )
+
+
+class BetPaymentReceiptBet(Base):
+  __tablename__ = "bet_payment_receipt_bets"
+
+  receipt_id: Mapped[int] = mapped_column(
+    ForeignKey("bet_payment_receipts.row_id", ondelete="CASCADE"), primary_key=True
+  )
+  bet_id: Mapped[int] = mapped_column(
+    ForeignKey("bets.row_id", ondelete="CASCADE"), primary_key=True
+  )
+  receipt: Mapped[BetPaymentReceipt] = relationship(back_populates="intended_bets")

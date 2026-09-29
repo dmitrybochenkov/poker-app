@@ -7,6 +7,7 @@ from app.bot.shared.texts.inline.shared import keyboards_inline as InlineText
 
 from .inline_base import InlineKeyboardBase
 
+
 class BettingInlineKbs(InlineKeyboardBase):
   @staticmethod
   def betting_tournament_tg() -> InlineKeyboardMarkup:
@@ -135,6 +136,68 @@ class BettingInlineKbs(InlineKeyboardBase):
         }],
       ]
     )
+
+  @staticmethod
+  def bet_payment_choice_tg(*, total_rub: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text=f"💳 Оплатить всё — {total_rub} ₽", callback_data="betpay:all")
+    keyboard.button(text="🎯 Выбрать ставки", callback_data="betpay:select")
+    keyboard.button(text="Отмена", callback_data="betpay:cancel")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def bet_payment_select_tg(*, bets: list, selected_ids: list[int]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    selected = set(selected_ids)
+    for bet in bets:
+      mark = "✅ " if int(bet.row_id) in selected else ""
+      day = bet.date.strftime("%d.%m.%Y") if bet.date else "—"
+      amount = BettingInlineKbs._format_rub_from_kopecks(int(bet.amount_kopecks))
+      keyboard.button(text=f"{mark}{day} — {amount} ₽", callback_data=f"betpay:toggle:{int(bet.row_id)}")
+    keyboard.button(text="Готово", callback_data="betpay:done")
+    keyboard.button(text="Отмена", callback_data="betpay:cancel")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def bet_payment_choice_vk(*, total_rub: str) -> str:
+    return ReplyKbs.make_vk_callback([
+      [{"action": {"type": "callback", "label": f"💳 Оплатить всё — {total_rub} ₽", "payload": {"action": "bet_pay_all"}}, "color": "positive"}],
+      [{"action": {"type": "callback", "label": "🎯 Выбрать ставки", "payload": {"action": "bet_pay_select"}}, "color": "primary"}],
+      [{"action": {"type": "callback", "label": "Отмена", "payload": {"action": "bet_pay_cancel"}}, "color": "negative"}],
+    ])
+
+  @staticmethod
+  def bet_payment_select_vk(*, bets: list, selected_ids: list[int]) -> str:
+    selected = set(selected_ids)
+    rows = []
+    for bet in bets:
+      mark = "✅ " if int(bet.row_id) in selected else ""
+      day = bet.date.strftime("%d.%m.%Y") if bet.date else "—"
+      amount = BettingInlineKbs._format_rub_from_kopecks(int(bet.amount_kopecks))
+      rows.append([{"action": {"type": "callback", "label": f"{mark}{day} — {amount} ₽"[:40], "payload": {"action": "bet_pay_toggle", "bet_row_id": int(bet.row_id)}}, "color": "primary"}])
+    rows.extend([
+      [{"action": {"type": "callback", "label": "Готово", "payload": {"action": "bet_pay_done"}}, "color": "positive"}],
+      [{"action": {"type": "callback", "label": "Отмена", "payload": {"action": "bet_pay_cancel"}}, "color": "negative"}],
+    ])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def bet_receipt_review_tg(*, receipt_row_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="Подтвердить", callback_data=f"betreceipt:confirm:{receipt_row_id}")
+    keyboard.button(text="Изменить", callback_data=f"betreceipt:change:{receipt_row_id}")
+    keyboard.button(text="Отклонить", callback_data=f"betreceipt:reject:{receipt_row_id}")
+    keyboard.adjust(2, 1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def bet_receipt_review_vk(*, receipt_row_id: int) -> str:
+    return ReplyKbs.make_vk_callback([[
+      {"action": {"type": "callback", "label": "Подтвердить", "payload": {"action": "bet_receipt_confirm", "receipt_row_id": receipt_row_id}}, "color": "positive"},
+      {"action": {"type": "callback", "label": "Изменить", "payload": {"action": "bet_receipt_change", "receipt_row_id": receipt_row_id}}, "color": "primary"},
+    ], [{"action": {"type": "callback", "label": "Отклонить", "payload": {"action": "bet_receipt_reject", "receipt_row_id": receipt_row_id}}, "color": "negative"}]])
 
   @staticmethod
   def bet_receipt_manual_tg(

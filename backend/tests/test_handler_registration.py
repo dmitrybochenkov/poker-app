@@ -150,6 +150,7 @@ EXPECTED_USER_CALLBACK_QUERY = [
     "betting_stat_sort_cancel",
     "betting_stat_sort_back",
     "betting_stat_sort_done",
+    "choose_bet_payment",
     "choose_registration_branch",
     "finish_existing_row_id_registration",
     "registration_existing_page",
