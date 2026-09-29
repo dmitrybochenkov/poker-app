@@ -93,6 +93,24 @@ async def test_add_buyin_updates_player_and_appends_history(buyin_sessions):
     assert [(row.player_id, row.player_name, row.buyins_count) for row in history] == [
         (player_id, "Player", 2)
     ]
+    assert history[0].poker_id == stored.poker_id
+
+
+@pytest.mark.asyncio
+async def test_buyin_repository_rejects_mismatched_poker_date(buyin_sessions):
+    admin_id, player_id, _, _ = await _seed(buyin_sessions)
+    async with buyin_sessions() as session:
+        poker = (await session.execute(select(Poker))).scalar_one()
+        with pytest.raises(ValueError, match="does not match"):
+            await BuyinDataRepository(session).add_buyin(
+                poker_id=int(poker.row_id),
+                poker_date=date(2026, 9, 30),
+                player_id=player_id,
+                player_name="Player",
+                buyins_count=1,
+                operation_id="mismatch",
+            )
+    assert admin_id > 0
 
 
 @pytest.mark.asyncio

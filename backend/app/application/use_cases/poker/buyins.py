@@ -108,6 +108,7 @@ class AddBuyinUseCase:
         try:
           async with self.session.begin_nested():
             await buyins.add_buyin(
+              poker_id=int(poker.row_id),
               poker_date=poker.date,
               player_id=int(target_user_id),
               player_name=player.player_name,
@@ -146,6 +147,7 @@ class AddBuyinUseCase:
         raise BuyinPlayerNotFoundError
       if operation_id is None:
         await buyins.add_buyin(
+          poker_id=int(poker.row_id),
           poker_date=poker.date,
           player_id=int(target_user_id),
           player_name=updated.player_name,

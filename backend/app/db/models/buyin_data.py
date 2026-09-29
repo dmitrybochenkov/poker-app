@@ -1,6 +1,16 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, Index, Integer, String, UniqueConstraint, func
+from sqlalchemy import (
+  BigInteger,
+  Date,
+  DateTime,
+  ForeignKey,
+  Index,
+  Integer,
+  String,
+  UniqueConstraint,
+  func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -16,8 +26,13 @@ class BuyinData(Base):
   )
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+  poker_id: Mapped[int] = mapped_column(
+    ForeignKey("pokers.row_id", ondelete="RESTRICT"), nullable=False
+  )
   poker_date: Mapped[Date] = mapped_column("date", Date, nullable=False)
-  player_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+  player_id: Mapped[int] = mapped_column(
+    BigInteger, ForeignKey("users.row_id", ondelete="RESTRICT"), nullable=False
+  )
   player_name: Mapped[str] = mapped_column(String(255), nullable=False)
   buyins_count: Mapped[int] = mapped_column("buyin", Integer, nullable=False)
   operation_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

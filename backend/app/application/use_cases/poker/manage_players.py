@@ -127,8 +127,8 @@ class ManagePokerPlayersUseCase:
         return False
 
       if self.buyin_data_repository is not None:
-        await self.buyin_data_repository.delete_for_player_on_date_without_commit(
-          poker_date=poker.date,
+        await self.buyin_data_repository.delete_for_player_on_poker_without_commit(
+          poker_id=int(poker.row_id),
           player_id=player_id,
         )
       removed = await self.poker_data_repository.remove_player_without_commit(
