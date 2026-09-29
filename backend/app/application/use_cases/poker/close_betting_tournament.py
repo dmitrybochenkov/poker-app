@@ -18,6 +18,41 @@ class TournamentPayoutResult:
     remainder_kopecks: int
 
 
+def calculate_payout_amounts(
+    *,
+    bank_kopecks: int,
+    place_names: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]],
+    prize_percents: tuple[int, int, int],
+) -> tuple[dict[str, int], int, int]:
+    bank = int(bank_kopecks)
+    percents = tuple(int(value) for value in prize_percents)
+    if bank < 0 or any(value < 0 for value in percents) or sum(percents) > 100:
+        raise ValueError("Invalid tournament bank or prize percentages")
+
+    amounts: dict[str, int] = {}
+    cursor = 0
+    while cursor < len(place_names):
+        group = tuple(place_names[cursor])
+        if not group:
+            cursor += 1
+            continue
+        occupied = [cursor]
+        next_position = cursor + 1
+        while next_position < len(place_names) and tuple(place_names[next_position]) == group:
+            occupied.append(next_position)
+            next_position += 1
+        pool = sum((bank * percents[position]) // 100 for position in occupied)
+        individual = pool // len(group)
+        for name in group:
+            amounts[name] = amounts.get(name, 0) + individual
+        cursor = next_position
+
+    total = sum(amounts.values())
+    if total > bank:
+        raise ValueError("Tournament payout exceeds bank")
+    return amounts, total, bank - total
+
+
 def calculate_payouts(
     *, bank_kopecks: int, scores: dict[str, int], prize_percents: tuple[int, int, int]
 ) -> TournamentPayoutResult:
@@ -27,7 +62,6 @@ def calculate_payouts(
         raise ValueError("Invalid tournament bank or prize percentages")
     ranked = sorted(scores.items(), key=lambda item: (-int(item[1]), item[0]))
     place_names: list[tuple[str, ...]] = [(), (), ()]
-    payouts: list[TournamentPayout] = []
     cursor = 0
     while cursor < len(ranked) and cursor < 3:
         score = int(ranked[cursor][1])
@@ -36,16 +70,25 @@ def calculate_payouts(
         occupied = tuple(position for position in range(start, min(start + len(group), 3)))
         if not occupied:
             break
-        pool = sum((bank * percents[position]) // 100 for position in occupied)
-        individual = pool // len(group)
         for position in occupied:
             place_names[position] = tuple(group)
-        payouts.extend(TournamentPayout(name, score, start + 1, individual) for name in group)
         cursor += len(group)
-    total = sum(item.amount_kopecks for item in payouts)
-    if total > bank:
-        raise ValueError("Tournament payout exceeds bank")
-    return TournamentPayoutResult(tuple(payouts), tuple(place_names), total, bank - total)
+    normalized_places = tuple(place_names)
+    amounts, total, remainder = calculate_payout_amounts(
+        bank_kopecks=bank,
+        place_names=normalized_places,
+        prize_percents=percents,
+    )
+    positions: dict[str, int] = {}
+    for position, group in enumerate(normalized_places, start=1):
+        for name in group:
+            positions.setdefault(name, position)
+    payouts = [
+        TournamentPayout(name, int(score), positions[name], amounts[name])
+        for name, score in ranked
+        if name in amounts
+    ]
+    return TournamentPayoutResult(tuple(payouts), normalized_places, total, remainder)
 
 
 class CloseBettingTournamentUseCase:

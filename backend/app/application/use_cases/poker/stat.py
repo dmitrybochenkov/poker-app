@@ -12,6 +12,7 @@ from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 
 from .betting_tournament_periods import BettingTournamentPeriod
+from .close_betting_tournament import calculate_payout_amounts
 
 
 class StatUseCases:
@@ -170,7 +171,7 @@ class StatUseCases:
     if self.bet_tournament_param_repository is not None:
       params = await self.bet_tournament_param_repository.list_all()
       self._tournament_percents_cache = {
-        str(item.tournament_type): (
+        (str(item.tournament_type), int(item.bet_param_id)): (
           int(item.percent_to_first),
           int(item.percent_to_second),
           int(item.percent_to_third),
@@ -538,13 +539,13 @@ class StatUseCases:
     if pic == "-💲":
       return int(sum(int(bet.amount_kopecks or 0) for bet in user_bets) // 100)
     if pic == "+💲":
-      return self._calc_money_prizes(user=user, tournaments=tournaments)
+      return self._calc_money_prizes_kopecks(user=user, tournaments=tournaments) / 100
     if pic == "+💲/-💲":
-      spent = int(sum(int(bet.amount_kopecks or 0) for bet in user_bets) // 100)
-      if spent == 0:
+      spent_kopecks = sum(int(bet.amount_kopecks or 0) for bet in user_bets)
+      if spent_kopecks == 0:
         return 0.0
-      won = self._calc_money_prizes(user=user, tournaments=tournaments)
-      return round(won / spent, 2)
+      won_kopecks = self._calc_money_prizes_kopecks(user=user, tournaments=tournaments)
+      return round(won_kopecks / spent_kopecks, 2)
     if pic == "👎/💍":
       return len([
         bet for bet in all_bets
@@ -600,50 +601,53 @@ class StatUseCases:
       return []
     return [item.strip() for item in value.split(",") if item.strip()]
 
-  def _calc_money_prizes(self, *, user: str, tournaments: list) -> int:
-    result = 0.0
+  def _calc_money_prizes_kopecks(self, *, user: str, tournaments: list) -> int:
+    result_kopecks = 0
     for tournament in tournaments:
-      bank_rub = int(int(tournament.current_bank_kopecks or 0) // 100)
-      if bank_rub <= 0:
+      bank_kopecks = int(tournament.current_bank_kopecks or 0)
+      if bank_kopecks <= 0:
         continue
-      perc_first, perc_second, perc_third = self._get_tournament_percents(tournament_type=tournament.tournament_type)
-      first = self._split_names(tournament.first_place_name)
-      second = self._split_names(tournament.second_place_name)
-      third = self._split_names(tournament.third_place_name)
-      if user in first and first:
-        result += (bank_rub * perc_first / 100) / len(first)
-      if user in second and second:
-        result += (bank_rub * perc_second / 100) / len(second)
-      if user in third and third:
-        result += (bank_rub * perc_third / 100) / len(third)
-    return int(round(result))
+      percents = self._get_tournament_percents(tournament=tournament)
+      if percents is None:
+        continue
+      place_names = (
+        tuple(self._split_names(tournament.first_place_name)),
+        tuple(self._split_names(tournament.second_place_name)),
+        tuple(self._split_names(tournament.third_place_name)),
+      )
+      amounts, _, _ = calculate_payout_amounts(
+        bank_kopecks=bank_kopecks,
+        place_names=place_names,
+        prize_percents=percents,
+      )
+      result_kopecks += amounts.get(user, 0)
+    return result_kopecks
 
-  def _get_tournament_percents(self, *, tournament_type: str | None) -> tuple[int, int, int]:
-    default = (50, 30, 20)
-    if self.bet_tournament_param_repository is None or not tournament_type:
-      return default
+  def _get_tournament_percents(self, *, tournament) -> tuple[int, int, int] | None:
+    if self.bet_tournament_param_repository is None:
+      return None
     # lightweight cache on instance
     cache = getattr(self, "_tournament_percents_cache", None)
     if cache is None:
       cache = {}
       setattr(self, "_tournament_percents_cache", cache)
-    if tournament_type in cache:
-      return cache[tournament_type]
-    return default
+    key = (str(tournament.tournament_type), int(tournament.params_id))
+    return cache.get(key)
 
   def _format_current_tournament_money_block(self, *, tournament) -> str:
-    bank_rub = round(float(int(tournament.current_bank_kopecks or 0)) / 100, 2)
-    first_p, second_p, third_p = self._get_tournament_percents(tournament_type=tournament.tournament_type)
-    first_rub = round(bank_rub * first_p / 100, 2)
-    second_rub = round(bank_rub * second_p / 100, 2)
-    third_rub = round(bank_rub * third_p / 100, 2)
+    bank_kopecks = int(tournament.current_bank_kopecks or 0)
     title = "💰" if tournament.tournament_type == "regular" else "🎄💰"
-    return (
-      f"{title}: {bank_rub:.2f} ₽\n"
-      f"🥇: {first_rub:.2f} ₽\n"
-      f"🥈: {second_rub:.2f} ₽\n"
-      f"🥉: {third_rub:.2f} ₽"
-    )
+    lines = [f"{title}: {bank_kopecks / 100:.2f} ₽"]
+    percents = self._get_tournament_percents(tournament=tournament)
+    if percents is None:
+      return "\n".join(lines)
+    prize_kopecks = [(bank_kopecks * percent) // 100 for percent in percents]
+    lines.extend([
+      f"🥇: {prize_kopecks[0] / 100:.2f} ₽",
+      f"🥈: {prize_kopecks[1] / 100:.2f} ₽",
+      f"🥉: {prize_kopecks[2] / 100:.2f} ₽",
+    ])
+    return "\n".join(lines)
 
   @staticmethod
   def _has_any_selected_metric_value(*, row: dict[str, str | int | float], metric_pics: list[str]) -> bool:
@@ -686,9 +690,11 @@ class StatUseCases:
       for bet in relevant_bets:
         by_better.setdefault(bet.better_name, []).append(bet)
       for better_name, better_bets in by_better.items():
-        better_prize = float(self._calc_money_prizes(user=better_name, tournaments=[tournament]))
+        better_prize_kopecks = self._calc_money_prizes_kopecks(
+          user=better_name, tournaments=[tournament]
+        )
         better_score = float(sum(int(item.score or 0) for item in better_bets))
-        if better_prize <= 0 or better_score <= 0:
+        if better_prize_kopecks <= 0 or better_score <= 0:
           continue
         rel_score = 0.0
         for bet in better_bets:
@@ -723,8 +729,8 @@ class StatUseCases:
           else:
             rel_score += score_value
         if rel_score > 0:
-          total += better_prize * (rel_score / better_score)
-    return round(total, 1)
+          total += better_prize_kopecks * (rel_score / better_score)
+    return round(total / 100, 1)
 
   @staticmethod
   def _resolve_poker_fact(*, bet: Bet, pokers_by_id: dict[int, tuple[set[str], set[str]]], pokers_by_date: dict) -> tuple[set[str], set[str]]:
