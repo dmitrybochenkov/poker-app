@@ -5,10 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Poker App Web</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      (() => {
+        const message = "Не удалось запустить приложение. Попробуйте открыть его снова.";
+        const renderFailure = () => {
+          const root = document.getElementById("app");
+          if (!root || (root.textContent && root.textContent.trim())) return;
+          root.textContent = message;
+          root.setAttribute(
+            "style",
+            "box-sizing:border-box;padding:24px;font:16px/1.4 sans-serif;color:#fff;background:#111;min-height:100vh",
+          );
+        };
+        window.addEventListener("error", renderFailure, { once: true });
+        window.addEventListener("unhandledrejection", renderFailure, { once: true });
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -41,7 +41,7 @@ const bettingCurrentMenu = [
   { label: "🏠 На главную", to: "/" },
 ];
 
-const router = createRouter({
+export const router = createRouter({
   history: createWebHistory("/app/"),
   routes: [
     { path: "/", component: HomePage },
@@ -153,6 +153,32 @@ router.beforeEach(async (to) => {
   return true;
 });
 
-initPlatformWebApp();
+const BOOTSTRAP_FAILURE_MESSAGE =
+  "Не удалось запустить приложение. Попробуйте открыть его снова.";
 
-createApp(App).use(router).mount("#app");
+function renderBootstrapFailure(error: unknown): void {
+  console.error("WebApp bootstrap failed", error);
+  const root = document.getElementById("app");
+  if (!root) return;
+  root.textContent = BOOTSTRAP_FAILURE_MESSAGE;
+  root.setAttribute(
+    "style",
+    "box-sizing:border-box;padding:24px;font:16px/1.4 sans-serif;color:#fff;background:#111;min-height:100vh",
+  );
+}
+
+export function bootstrapApplication() {
+  try {
+    initPlatformWebApp();
+    const app = createApp(App);
+    app.config.errorHandler = renderBootstrapFailure;
+    router.onError(renderBootstrapFailure);
+    app.use(router).mount("#app");
+    return app;
+  } catch (error) {
+    renderBootstrapFailure(error);
+    return null;
+  }
+}
+
+export const mountedApp = bootstrapApplication();

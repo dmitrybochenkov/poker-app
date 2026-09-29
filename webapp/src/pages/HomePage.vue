@@ -46,6 +46,16 @@ onMounted(async () => {
       has_active_poll: false,
       has_active_poker: false,
     };
+  } catch (error) {
+    console.error("WebApp bootstrap request failed", error);
+    state.value = {
+      is_registered: false,
+      is_admin: false,
+      is_approved: false,
+      has_phone: false,
+      has_active_poll: false,
+      has_active_poker: false,
+    };
   } finally {
     loading.value = false;
   }

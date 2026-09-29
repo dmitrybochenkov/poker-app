@@ -35,9 +35,38 @@ type VkBridgeLike = {
   send(method: string, params?: Record<string, unknown>): Promise<unknown>;
 };
 
+const VK_BRIDGE_SRC = "https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js";
+let vkBridgeLoadPromise: Promise<VkBridgeLike | null> | null = null;
+
 function getVkBridge(): VkBridgeLike | null {
   const bridge = (window as Window & { vkBridge?: VkBridgeLike }).vkBridge;
   return bridge && typeof bridge.send === "function" ? bridge : null;
+}
+
+function loadVkBridge(): Promise<VkBridgeLike | null> {
+  const existing = getVkBridge();
+  if (existing) return Promise.resolve(existing);
+  if (vkBridgeLoadPromise) return vkBridgeLoadPromise;
+
+  vkBridgeLoadPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = VK_BRIDGE_SRC;
+    script.async = true;
+    script.onload = () => resolve(getVkBridge());
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+  return vkBridgeLoadPromise;
+}
+
+async function initVkWebApp(): Promise<void> {
+  const bridge = await loadVkBridge();
+  if (!bridge) return;
+  try {
+    await bridge.send("VKWebAppInit");
+  } catch {
+    // Preserve current behavior: URL launch params remain usable if bridge init fails.
+  }
 }
 
 export function detectPlatform(): WebAppPlatform {
@@ -59,11 +88,7 @@ export function initPlatformWebApp(): void {
   }
 
   if (platform === "vk") {
-    void getVkBridge()
-      ?.send("VKWebAppInit")
-      .catch(() => {
-        // VK can still pass launch params in the URL even if bridge init fails.
-      });
+    void initVkWebApp();
   }
 }
 
