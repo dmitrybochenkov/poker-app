@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, Text, func
-from sqlalchemy import DateTime
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -9,6 +8,7 @@ from app.db.base import Base
 
 class Poker(Base):
   __tablename__ = "pokers"
+  __table_args__ = (Index("uq_pokers_date", "date", unique=True),)
 
   row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
   params_id: Mapped[int] = mapped_column(

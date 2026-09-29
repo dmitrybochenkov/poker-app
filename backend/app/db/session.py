@@ -14,6 +14,7 @@ engine = create_async_engine(settings.effective_database_url, echo=settings.debu
 @event.listens_for(engine.sync_engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record) -> None:
   cursor = dbapi_connection.cursor()
+  cursor.execute("PRAGMA foreign_keys=ON")
   cursor.execute("PRAGMA journal_mode=WAL")
   cursor.execute("PRAGMA synchronous=NORMAL")
   cursor.execute("PRAGMA busy_timeout=5000")
