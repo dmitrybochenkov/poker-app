@@ -94,6 +94,14 @@ class BetRepository:
     )
     return list(result.scalars().all())
 
+  async def list_for_period(self, *, start_date, end_date) -> list[Bet]:
+    result = await self.session.execute(
+      select(Bet)
+      .where(Bet.date >= start_date, Bet.date <= end_date)
+      .order_by(Bet.row_id)
+    )
+    return list(result.scalars().all())
+
   async def list_unpaid_for_user(self, *, better_id: int) -> list[Bet]:
     result = await self.session.execute(
       select(Bet)

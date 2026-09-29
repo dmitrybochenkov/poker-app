@@ -20,6 +20,10 @@ def test_vk_webhook_exports():
 
 EXPECTED_ADMIN_MESSAGE = [
     "start_poker_menu",
+    "tournament_menu",
+    "tournament_open",
+    "tournament_close",
+    "tournament_back",
     "finish_poker",
     "calculate_poker",
     "start_betting",
@@ -39,6 +43,7 @@ EXPECTED_ADMIN_MESSAGE = [
     "finish_correct_user",
 ]
 EXPECTED_ADMIN_CALLBACK_QUERY = [
+    "tournament_close_callback",
     "start_poker_with_param",
     "calculate_poker_inline",
     "start_betting_inline",

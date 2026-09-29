@@ -15,10 +15,16 @@ from . import (
     registrations,
     start_betting,
     start_poker,
+    tournaments,
 )
 from .common import router
 
 router.message(F.text == Buttons.admin_main.START_POKER.value)(start_poker.start_poker_menu)
+router.message(F.text == Buttons.admin_main.BETTING.value)(tournaments.tournament_menu)
+router.message(F.text == Buttons.admin_betting.OPEN.value)(tournaments.tournament_open)
+router.message(F.text == Buttons.admin_betting.CLOSE.value)(tournaments.tournament_close)
+router.message(F.text == Buttons.admin_betting.BACK.value)(tournaments.tournament_back)
+router.callback_query(F.data.startswith("tourclose:"))(tournaments.tournament_close_callback)
 router.callback_query(F.data.startswith("pokerstart:"))(start_poker.start_poker_with_param)
 router.message(F.text == Buttons.admin_room.FINISH_POKER.value)(finish_poker.finish_poker)
 router.message(F.text == Buttons.admin_room.CALCULATE_POKER.value)(calculation.calculate_poker)

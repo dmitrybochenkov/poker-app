@@ -14,6 +14,7 @@ from . import (
     registrations,
     start_betting,
     start_poker,
+    tournaments,
 )
 from .common import HANDLER_UNMATCHED
 
@@ -29,6 +30,14 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
 
     if not admin_user_id or not peer_id or not event_id:
         return None
+    result = await tournaments.handle_event(
+        admin_user_id=admin_user_id, peer_id=peer_id, event_id=event_id,
+        conversation_message_id=conversation_message_id,
+        callback_payload=callback_payload, action=action,
+        handle_admin_text_commands=handle_admin_text_commands,
+    )
+    if result is not HANDLER_UNMATCHED:
+        return result
     result = await registrations.handle_approve_event(
         admin_user_id=admin_user_id,
         peer_id=peer_id,
@@ -364,6 +373,9 @@ async def handle_message_event(event_object: dict) -> PlainTextResponse | None:
 
 @durable_vk_workflow
 async def handle_admin_text_commands(*, user_id: int, text: str) -> PlainTextResponse | None:
+    result = await tournaments.handle_text(user_id=user_id, text=text)
+    if result is not HANDLER_UNMATCHED:
+        return result
     result = await registrations.handle_admin_corrected_name_text(user_id=user_id, text=text)
     if result is not HANDLER_UNMATCHED:
         return result

@@ -1,6 +1,7 @@
 from app.bot.shared.buttons.buttons_inline import AdminInlineBtns, BettingInlineBtns, RegistrationInlineBtns
 from app.bot.shared.buttons.buttons_reply import (
   AdminMainBtns,
+  AdminBettingBtns,
   AdminRoomBtns,
   AdminRoomCorrectBtns,
   BettingBtns,
@@ -25,6 +26,7 @@ class Buttons:
   main_info = MainInfoBtns
   poll_menu = PollMenuBtns
   admin_main = AdminMainBtns
+  admin_betting = AdminBettingBtns
   room = RoomBtns
   admin_room = AdminRoomBtns
   admin_room_correct = AdminRoomCorrectBtns

@@ -135,6 +135,7 @@ class ReplyNavigationKbs(ReplyKeyboardBase):
                     Buttons.admin_main.CREATE_POLL,
                     Buttons.admin_main.START_POKER,
                     Buttons.admin_main.MAKE_ADMIN,
+                    Buttons.admin_main.BETTING,
                     Buttons.admin_main.TO_MAIN,
                 ]
             ),
@@ -149,6 +150,7 @@ class ReplyNavigationKbs(ReplyKeyboardBase):
                     Buttons.admin_main.CREATE_POLL,
                     Buttons.admin_main.START_POKER,
                     Buttons.admin_main.MAKE_ADMIN,
+                    Buttons.admin_main.BETTING,
                     Buttons.admin_main.TO_MAIN,
                 ]
             ),
@@ -156,3 +158,11 @@ class ReplyNavigationKbs(ReplyKeyboardBase):
             one_time=False,
             color="primary",
         )
+
+    @classmethod
+    def admin_betting_tg(cls) -> ReplyKeyboardMarkup:
+        return cls.make_tg(_button_labels([Buttons.admin_betting.OPEN, Buttons.admin_betting.CLOSE, Buttons.admin_betting.BACK]), adjust=1)
+
+    @classmethod
+    def admin_betting_vk(cls) -> str:
+        return cls.make_vk(_button_labels([Buttons.admin_betting.OPEN, Buttons.admin_betting.CLOSE, Buttons.admin_betting.BACK]), adjust=1, one_time=False, color="primary")

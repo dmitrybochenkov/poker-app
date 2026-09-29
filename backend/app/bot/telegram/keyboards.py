@@ -5,6 +5,7 @@ main_admin_entry_keyboard = ReplyKbs.admin_main_entry_tg()
 poll_menu_keyboard = ReplyKbs.poll_menu_tg()
 main_info_keyboard = ReplyKbs.main_info_tg()
 admin_main_keyboard = ReplyKbs.admin_main_tg()
+admin_betting_keyboard = ReplyKbs.admin_betting_tg()
 new_user_keyboard = ReplyKbs.new_user_tg()
 betting_keyboard = ReplyKbs.betting_tg()
 betting_current_keyboard = ReplyKbs.betting_current_tg()
@@ -54,6 +55,8 @@ bet_receipt_manual_keyboard = InlineKbs.bet_receipt_manual_tg
 bet_payment_choice_keyboard = InlineKbs.bet_payment_choice_tg
 bet_payment_select_keyboard = InlineKbs.bet_payment_select_tg
 bet_receipt_review_keyboard = InlineKbs.bet_receipt_review_tg
+tournament_close_keyboard = InlineKbs.tournament_close_tg
+tournament_confirm_keyboard = InlineKbs.tournament_confirm_tg
 registration_candidates_keyboard = InlineKbs.registration_candidates_tg
 registration_candidates_page_keyboard = InlineKbs.registration_candidates_tg_page
 

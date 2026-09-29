@@ -10,6 +10,35 @@ from .inline_base import InlineKeyboardBase
 
 class BettingInlineKbs(InlineKeyboardBase):
   @staticmethod
+  def tournament_close_tg(*, tournaments: list) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for item in tournaments:
+      keyboard.button(text=f"{item.tournament_type} {item.start_date:%m.%Y}–{item.end_date:%m.%Y}", callback_data=f"tourclose:preview:{item.row_id}")
+    keyboard.button(text="Отмена", callback_data="tourclose:cancel")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def tournament_confirm_tg(*, tournament_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="Подтвердить", callback_data=f"tourclose:confirm:{tournament_id}")
+    keyboard.button(text="Отмена", callback_data="tourclose:cancel")
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
+  @staticmethod
+  def tournament_close_vk(*, tournaments: list) -> str:
+    rows = [[{"action": {"type": "callback", "label": f"{item.tournament_type} {item.start_date:%m.%Y}–{item.end_date:%m.%Y}"[:40], "payload": {"action": "tour_close_preview", "tournament_id": int(item.row_id)}}, "color": "primary"}] for item in tournaments]
+    rows.append([{"action": {"type": "callback", "label": "Отмена", "payload": {"action": "tour_close_cancel"}}, "color": "negative"}])
+    return ReplyKbs.make_vk_callback(rows)
+
+  @staticmethod
+  def tournament_confirm_vk(*, tournament_id: int) -> str:
+    return ReplyKbs.make_vk_callback([[
+      {"action": {"type": "callback", "label": "Подтвердить", "payload": {"action": "tour_close_confirm", "tournament_id": tournament_id}}, "color": "positive"},
+      {"action": {"type": "callback", "label": "Отмена", "payload": {"action": "tour_close_cancel"}}, "color": "negative"},
+    ]])
+  @staticmethod
   def betting_tournament_tg() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.button(

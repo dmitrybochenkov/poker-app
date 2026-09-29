@@ -53,6 +53,10 @@ ADMINMAINBTNS_TEXT_03 = '👨🏻\u200d💻 Добавить админа'
 
 # Source line before extraction: 32
 ADMINMAINBTNS_TEXT_04 = '🏠 На главную'
+ADMINMAINBTNS_TEXT_05 = '🍀 Ставки'
+ADMINBETTINGBTNS_TEXT_01 = 'Открыть турнир'
+ADMINBETTINGBTNS_TEXT_02 = 'Закрыть турнир'
+ADMINBETTINGBTNS_TEXT_03 = '↩️ Назад'
 
 # Source line before extraction: 35
 ROOMBTNS_TEXT_01 = 'ℹ️ Статус'

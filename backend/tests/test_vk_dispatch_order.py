@@ -8,6 +8,7 @@ import pytest
 ROUTING_DIR = Path(__file__).resolve().parents[1] / "app/bot/vk/handlers"
 EXPECTED_DISPATCH = {
     "admin:handle_message_event": [
+        "tournaments.handle_event",
         "registrations.handle_approve_event",
         "registrations.handle_reject_event",
         "bets.handle_bet_receipt_actions_event",
@@ -40,6 +41,7 @@ EXPECTED_DISPATCH = {
         "poker.handle_poker_start_betting_inline_event",
     ],
     "admin:handle_admin_text_commands": [
+        "tournaments.handle_text",
         "registrations.handle_admin_corrected_name_text",
         "players.handle_admin_new_player_name_text",
         "buyins.handle_admin_buyin_correct_amount_text",
@@ -186,6 +188,7 @@ def _dispatch_calls(side: str, entrypoint: str) -> list[str]:
                 "start_betting",
                 "start_poker",
                 "registrations",
+                "tournaments",
             }:
                 calls.append((node.lineno, f"{target.value.id}.{target.attr}"))
     return [name for _, name in sorted(calls)]
