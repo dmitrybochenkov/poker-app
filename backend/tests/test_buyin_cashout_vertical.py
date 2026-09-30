@@ -189,18 +189,19 @@ async def test_distinct_submissions_allow_identical_later_buyins(buyin_sessions)
 
 @pytest.mark.asyncio
 async def test_current_buyin_correction_changes_total_only_without_history(buyin_sessions):
-    _, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
+    _, player_id, pdata_id, _ = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
         repository = PokerDataRepository(session)
+        poker_id = int((await session.get(PokerData, pdata_id)).poker_id)
         await repository.add_buyins_without_commit(
-            date=poker_date,
+            poker_id=poker_id,
             player_id=player_id,
             buyins_count=10,
             big_buyin_count=1,
             super_buyin_count=1,
         )
         corrected = await repository.add_buyins_without_commit(
-            date=poker_date,
+            poker_id=poker_id,
             player_id=player_id,
             buyins_count=-7,
             big_buyin_count=0,
@@ -284,10 +285,11 @@ async def test_add_buyin_rolls_back_player_when_history_write_fails(buyin_sessio
 
 @pytest.mark.asyncio
 async def test_correct_buyin_preserves_special_counts_and_writes_no_history(buyin_sessions):
-    admin_id, player_id, pdata_id, poker_date = await _seed(buyin_sessions)
+    admin_id, player_id, pdata_id, _ = await _seed(buyin_sessions)
     async with buyin_sessions() as session:
+        poker_id = int((await session.get(PokerData, pdata_id)).poker_id)
         await PokerDataRepository(session).add_buyins_without_commit(
-            date=poker_date,
+            poker_id=poker_id,
             player_id=player_id,
             buyins_count=10,
             big_buyin_count=1,
@@ -350,6 +352,7 @@ class _HandlerSession:
 
 def _handler_result(*, applied: bool):
     return SimpleNamespace(
+        poker_id=1,
         poker_date=date(2026, 9, 27),
         cashier_user_id=1,
         player_user_id=2,

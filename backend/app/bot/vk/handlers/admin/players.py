@@ -82,7 +82,7 @@ async def handle_poker_add_player_select_event(
                     else:
                         poker, params = await PokerRepository(session).get_started()
                         self_player = await PokerDataRepository(session).get_player(
-                            date=poker.date, player_id=int(user.row_id)
+                            poker_id=int(poker.row_id), player_id=int(user.row_id)
                         )
                         include_king_buyin = bool(
                             self_player is not None and self_player.is_prev_winner
@@ -374,7 +374,7 @@ async def handle_poker_remove_player_select_event(
                 if active is not None:
                     poker_date = active[0].date
                     player_before_remove = await PokerDataRepository(session).get_player(
-                        date=poker_date,
+                        poker_id=int(active[0].row_id),
                         player_id=int(player_id),
                     )
                     if player_before_remove is not None:
@@ -510,7 +510,7 @@ async def handle_admin_new_player_name_text(*, user_id, text):
                 return PlainTextResponse("ok")
             poker, params = await PokerRepository(session).get_started()
             self_player = await PokerDataRepository(session).get_player(
-                date=poker.date, player_id=int(created_user.row_id)
+                poker_id=int(poker.row_id), player_id=int(created_user.row_id)
             )
             include_king_buyin = bool(self_player is not None and self_player.is_prev_winner)
             current_big_buyin_count = (

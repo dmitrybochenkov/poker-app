@@ -108,7 +108,7 @@ async def _notify_admins_about_chips_entry(
 
     user_repository = UserRepository(session)
     poker_repository = PokerRepository(session)
-    players = await PokerDataRepository(session).list_players(date=player.date)
+    players = await PokerDataRepository(session).list_players(poker_id=int(player.poker_id))
     player_row_ids = {int(p.player_id) for p in players}
     admins = [
         u
@@ -164,7 +164,7 @@ async def _notify_admins_about_room_join(
     poker_data_repository = PokerDataRepository(session)
     active = await poker_repository.get_started()
     players = (
-        await poker_data_repository.list_players(date=active[0].date) if active is not None else []
+        await poker_data_repository.list_players(poker_id=int(active[0].row_id)) if active is not None else []
     )
     player_row_ids = {int(p.player_id) for p in players}
     admins = [

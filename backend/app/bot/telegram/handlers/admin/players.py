@@ -201,7 +201,7 @@ async def add_player_callback(callback: CallbackQuery) -> None:
             return
         poker, params = await PokerRepository(session).get_started()
         self_player = await PokerDataRepository(session).get_player(
-            date=poker.date, player_id=int(user.row_id)
+            poker_id=int(poker.row_id), player_id=int(user.row_id)
         )
         include_king_buyin = bool(self_player is not None and self_player.is_prev_winner)
         current_big_buyin_count = int(self_player.big_buyin_count) if self_player is not None else 0
@@ -300,7 +300,7 @@ async def add_new_player_name_input(message: Message, state: FSMContext) -> None
             return
         poker, params = await PokerRepository(session).get_started()
         self_player = await PokerDataRepository(session).get_player(
-            date=poker.date, player_id=int(created_user.row_id)
+            poker_id=int(poker.row_id), player_id=int(created_user.row_id)
         )
         include_king_buyin = bool(self_player is not None and self_player.is_prev_winner)
         current_big_buyin_count = int(self_player.big_buyin_count) if self_player is not None else 0
@@ -383,7 +383,7 @@ async def remove_player_callback(callback: CallbackQuery) -> None:
         if active is not None:
             poker_date = active[0].date
             player_before_remove = await PokerDataRepository(session).get_player(
-                date=poker_date, player_id=player_id
+                poker_id=int(active[0].row_id), player_id=player_id
             )
             if player_before_remove is not None:
                 removed_player_name = str(player_before_remove.player_name)

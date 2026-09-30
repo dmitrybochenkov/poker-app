@@ -67,10 +67,10 @@ def _use_case(session):
     )
 
 
-async def _assert_original_state(sessions, *, player_id, poker_date):
+async def _assert_original_state(sessions, *, player_id, poker_id):
     async with sessions() as session:
         assert await PokerDataRepository(session).get_player(
-            date=poker_date, player_id=player_id
+            poker_id=poker_id, player_id=player_id
         ) is not None
         assert (await session.execute(select(BuyinData))).scalars().all()
         assert await PokerRoomDeniedRepository(session).get(user_row_id=player_id) is None
@@ -97,7 +97,7 @@ async def test_remove_player_preserves_success_repeated_and_cashier_semantics(re
 @pytest.mark.asyncio
 async def test_remove_player_rolls_back_when_player_delete_fails(removal_store):
     engine, sessions = removal_store
-    player_id, _, poker_date = await _seed(sessions)
+    player_id, poker_id, _ = await _seed(sessions)
 
     def fail_player_delete(conn, cursor, statement, parameters, context, executemany):
         if statement.lstrip().upper().startswith("DELETE FROM POKER_DATA"):
@@ -110,13 +110,13 @@ async def test_remove_player_rolls_back_when_player_delete_fails(removal_store):
                 await _use_case(session).remove_player_from_active_poker(player_id=player_id)
     finally:
         event.remove(engine.sync_engine, "before_cursor_execute", fail_player_delete)
-    await _assert_original_state(sessions, player_id=player_id, poker_date=poker_date)
+    await _assert_original_state(sessions, player_id=player_id, poker_id=poker_id)
 
 
 @pytest.mark.asyncio
 async def test_remove_player_rolls_back_when_deny_insert_fails(removal_store):
     engine, sessions = removal_store
-    player_id, _, poker_date = await _seed(sessions)
+    player_id, poker_id, _ = await _seed(sessions)
 
     def fail_deny_insert(conn, cursor, statement, parameters, context, executemany):
         if statement.lstrip().upper().startswith("INSERT INTO POKER_ROOM_DENIED"):
@@ -129,4 +129,4 @@ async def test_remove_player_rolls_back_when_deny_insert_fails(removal_store):
                 await _use_case(session).remove_player_from_active_poker(player_id=player_id)
     finally:
         event.remove(engine.sync_engine, "before_cursor_execute", fail_deny_insert)
-    await _assert_original_state(sessions, player_id=player_id, poker_date=poker_date)
+    await _assert_original_state(sessions, player_id=player_id, poker_id=poker_id)

@@ -19,7 +19,7 @@ async def _refresh_admin_room_status(*, session) -> None:
     if active is None:
         return
     poker, _ = active
-    players = await poker_data_repository.list_players(date=poker.date)
+    players = await poker_data_repository.list_players(poker_id=int(poker.row_id))
     can_start_betting = bool(
         poker.cashier_id is not None
         and not bool(poker.is_bettable)

@@ -56,7 +56,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
     params = await PokerParamRepository(session).get_by_row_id(row_id=int(poker.params_id))
     buyin_size_chips = int(params.buyin_size_chips) if params is not None else 200
     buyin_size_kopecks = int(params.buyin_size_kopecks) if params is not None else 20000
-    players = await PokerDataRepository(session).list_players(date=target_date)
+    players = await PokerDataRepository(session).list_players_for_date(date=target_date)
     if not players:
         return InlineText.BUILD_POKER_HISTORY_REPORT_TEXT_02
 
@@ -97,7 +97,7 @@ async def _build_poker_history_report(*, session, target_date: date) -> str:
     winner_line = ", ".join(f'{InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_21_PART_1}{name}' for name in winners) if winners else InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_22
     loser_line = ", ".join(f'{InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_23_PART_1}{name}' for name in losers) if losers else InlineText._BUILD_POKER_HISTORY_REPORT_MARKER_24
     transfer_lines = _calculate_transfers_history(money_rows)
-    bets = await BetRepository(session).list_for_poker(date=target_date)
+    bets = await BetRepository(session).list_for_date(date=target_date)
 
     lines = [
         target_date.strftime("%d.%m.%Y"),

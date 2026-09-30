@@ -191,7 +191,7 @@ async def handle_poker_cashout_select_event(
                 else:
                     poker, params = ready
                     pdata = PokerDataRepository(session)
-                    player = await pdata.get_player(date=poker.date, player_id=int(player_id))
+                    player = await pdata.get_player(poker_id=int(poker.row_id), player_id=int(player_id))
                     durable_state = await load_durable_vk_state(admin_user_id)
                     chips_raw = (
                         durable_state.payload.get("cashout_input_value")

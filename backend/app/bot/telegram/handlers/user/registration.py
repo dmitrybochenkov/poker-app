@@ -149,7 +149,7 @@ async def show_user_status(message: Message) -> None:
             better_row_by_id: dict[int, int] = {}
             if active is not None:
                 poker, _ = active
-                bets = await BetRepository(session).list_for_poker(date=poker.date)
+                bets = await BetRepository(session).list_for_poker(poker_id=int(poker.row_id))
                 for bet in bets:
                     better_id = int(bet.better_id)
                     better_user = await user_repository.get_by_row_id(better_id)

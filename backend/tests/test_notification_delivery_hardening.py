@@ -122,7 +122,9 @@ async def test_buyin_failure_does_not_stop_later_recipients(
         await module._notify_about_buyin(
             session=session,
             poker=SimpleNamespace(
-                date=poker.date, cashier_id=int(cashier.row_id)
+                row_id=int(poker.row_id),
+                date=poker.date,
+                cashier_id=int(cashier.row_id),
             ),
             updated_player=SimpleNamespace(
                 player_id=int(player.row_id), player_name=player.name, buyins=1

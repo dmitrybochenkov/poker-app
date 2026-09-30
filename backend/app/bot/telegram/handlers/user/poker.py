@@ -73,7 +73,7 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
         if is_denied:
             await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
             return
-        players = await poker_data_repository.list_players(date=current_poker_date)
+        players = await poker_data_repository.list_players_for_date(date=current_poker_date)
         if players:
             already_in_room = any(int(item.player_id) == int(user.row_id) for item in players)
             if already_in_room:
@@ -99,7 +99,7 @@ async def join_poker_room(message: Message, state: FSMContext) -> None:
                 platform_label="Telegram",
             )
         else:
-            players_now = await poker_data_repository.list_players(date=poker.date)
+            players_now = await poker_data_repository.list_players(poker_id=int(poker.row_id))
             player_row_ids = {int(item.player_id) for item in players_now}
             approved = await user_repository.list_approved()
             admins = [
@@ -181,7 +181,7 @@ async def process_chips_input(message: Message, state: FSMContext) -> None:
             await message.answer(Text.user.FINISH_CHIPS_INVALID.value.format(step=step))
             return
         poker_data_repository = PokerDataRepository(session)
-        players = await poker_data_repository.list_players(date=poker.date)
+        players = await poker_data_repository.list_players(poker_id=int(poker.row_id))
         if not players:
             await message.answer(Text.user.FINISH_CHIPS_NOT_READY.value)
             return
@@ -192,7 +192,7 @@ async def process_chips_input(message: Message, state: FSMContext) -> None:
                 reply_markup=poker_cashout_candidates_keyboard(players=players),
             )
             return
-        player = await poker_data_repository.get_player(date=poker.date, player_id=int(user.row_id))
+        player = await poker_data_repository.get_player(poker_id=int(poker.row_id), player_id=int(user.row_id))
         if player is None:
             await message.answer(Text.user.FINISH_CHIPS_NOT_IN_GAME.value)
             return

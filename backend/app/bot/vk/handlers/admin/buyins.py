@@ -98,7 +98,7 @@ async def handle_poker_buyin_select_event(
                         await send_vk_message(user_id=admin_user_id, message=result_text)
                         return PlainTextResponse("ok")
                     player = await PokerDataRepository(session).get_player(
-                        date=poker.date, player_id=int(player_id)
+                        poker_id=int(poker.row_id), player_id=int(player_id)
                     )
                     include_king_buyin = bool(player is not None and player.is_prev_winner)
                     current_big_buyin_count = (
@@ -169,7 +169,7 @@ async def handle_poker_buyin_correct_select_event(
                 return PlainTextResponse("ok")
             poker, _ = active
             player = await PokerDataRepository(session).get_player(
-                date=poker.date, player_id=int(player_id)
+                poker_id=int(poker.row_id), player_id=int(player_id)
             )
             if player is None:
                 await send_vk_message_event_answer(
@@ -313,6 +313,7 @@ async def handle_poker_buyin_count_select_event(
                     await _notify_about_buyin(
                         session=session,
                         poker=type("PokerNotice", (), {
+                            "row_id": result.poker_id,
                             "date": result.poker_date,
                             "cashier_id": result.cashier_user_id,
                         })(),
@@ -420,7 +421,7 @@ async def handle_buyin_menu_text(*, user_id, text):
                 return PlainTextResponse("ok")
             is_admin = await is_vk_admin(session=session, vk_id=user_id)
             poker_data_repository = PokerDataRepository(session)
-            players = await poker_data_repository.list_players(date=poker.date)
+            players = await poker_data_repository.list_players(poker_id=int(poker.row_id))
             if not players:
                 await send_vk_message(user_id=user_id, message=Text.admin.POKER_BUYIN_EMPTY.value)
                 return PlainTextResponse("ok")
@@ -447,7 +448,7 @@ async def handle_buyin_menu_text(*, user_id, text):
 
             poker, params = active
             self_player = await poker_data_repository.get_player(
-                date=poker.date, player_id=int(user.row_id)
+                poker_id=int(poker.row_id), player_id=int(user.row_id)
             )
             if self_player is None:
                 await send_vk_message(

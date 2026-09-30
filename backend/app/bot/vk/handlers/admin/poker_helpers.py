@@ -169,7 +169,7 @@ async def _upsert_vk_admin_chips_status(*, session, poker_date) -> None:
     user_repository = UserRepository(session)
     poker_repository = PokerRepository(session)
     poker_data_repository = PokerDataRepository(session)
-    players = await poker_data_repository.list_players(date=poker_date)
+    players = await poker_data_repository.list_players_for_date(date=poker_date)
     chips_entered = sum(int(p.chips or 0) for p in players)
     chips_in_game = 0
     ready = await poker_repository.get_latest_ready_for_chips_with_params()

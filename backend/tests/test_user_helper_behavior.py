@@ -74,7 +74,7 @@ async def test_poker_history_report_format_is_stable(monkeypatch, consumer):
         def __init__(self, session):
             pass
 
-        async def list_players(self, *, date):
+        async def list_players_for_date(self, *, date):
             return [
                 SimpleNamespace(
                     player_name="Winner", chips=300, money_kopecks=10_000, buyins=1
@@ -88,7 +88,7 @@ async def test_poker_history_report_format_is_stable(monkeypatch, consumer):
         def __init__(self, session):
             pass
 
-        async def list_for_poker(self, *, date):
+        async def list_for_date(self, *, date):
             return []
 
     report_builder = consumer._build_poker_history_report

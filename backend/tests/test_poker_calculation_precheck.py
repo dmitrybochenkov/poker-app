@@ -16,12 +16,12 @@ class _Session:
 class _PokerRepository:
     def __init__(self, session): pass
     async def get_latest_ready_for_chips_with_params(self):
-        return SimpleNamespace(date="date"), SimpleNamespace(buyin_size_chips=200)
+        return SimpleNamespace(row_id=1, date="date"), SimpleNamespace(buyin_size_chips=200)
 
 
 class _PokerDataRepository:
     def __init__(self, session): pass
-    async def list_players(self, *, date):
+    async def list_players(self, *, poker_id):
         return [
             SimpleNamespace(player_name="Waiting Player", buyins=1, chips=None),
             SimpleNamespace(player_name="Entered Player", buyins=1, chips=395),

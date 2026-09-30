@@ -250,7 +250,7 @@ async def calculate_poker_inline(callback: CallbackQuery) -> None:
                 await callback.answer(Text.admin.POKER_CASHOUT_EMPTY.value, show_alert=True)
                 return
             poker, params = ready
-            players = await PokerDataRepository(session).list_players(date=poker.date)
+            players = await PokerDataRepository(session).list_players(poker_id=int(poker.row_id))
             missing_players = [player.player_name for player in players if player.chips is None]
             if missing_players:
                 await callback.answer(

@@ -95,7 +95,7 @@ async def _notify_about_buyin(
     if cashier is not None:
         await _send_preferred_notification(user=cashier, text=text, flow="Buyin cashier")
     if notify_admins:
-        poker_players = await PokerDataRepository(session).list_players(date=poker.date)
+        poker_players = await PokerDataRepository(session).list_players(poker_id=int(poker.row_id))
         player_row_ids = {int(p.player_id) for p in poker_players}
         admins = [
             u
@@ -118,7 +118,7 @@ async def _notify_admins_about_removed_player(
     *, session, poker_date, player_name: str, buyins: int
 ) -> None:
     user_repository = UserRepository(session)
-    players = await PokerDataRepository(session).list_players(date=poker_date)
+    players = await PokerDataRepository(session).list_players_for_date(date=poker_date)
     player_row_ids = {int(p.player_id) for p in players}
     admins = [
         u

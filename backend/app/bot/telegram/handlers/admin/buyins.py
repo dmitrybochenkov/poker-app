@@ -68,7 +68,7 @@ async def buyin_menu(message: Message) -> None:
             await message.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value)
             return
         poker_data_repository = PokerDataRepository(session)
-        players = await poker_data_repository.list_players(date=poker.date)
+        players = await poker_data_repository.list_players(poker_id=int(poker.row_id))
         if not players:
             await message.answer(Text.admin.POKER_BUYIN_EMPTY.value)
             return
@@ -91,7 +91,7 @@ async def buyin_menu(message: Message) -> None:
             return
 
         self_player = await poker_data_repository.get_player(
-            date=poker.date, player_id=int(user.row_id)
+            poker_id=int(poker.row_id), player_id=int(user.row_id)
         )
         if self_player is None:
             await message.answer(Text.user.STATUS_ROOM_NOT_ADDED.value)
@@ -138,7 +138,7 @@ async def buyin_select_callback(callback: CallbackQuery) -> None:
         if poker.cashier_id is None:
             await callback.answer(Text.admin.POKER_BUYIN_CASHIER_REQUIRED.value, show_alert=True)
             return
-        player = await PokerDataRepository(session).get_player(date=poker.date, player_id=player_id)
+        player = await PokerDataRepository(session).get_player(poker_id=int(poker.row_id), player_id=player_id)
         include_king_buyin = bool(player is not None and player.is_prev_winner)
         current_big_buyin_count = int(player.big_buyin_count) if player is not None else 0
         current_super_buyin_count = int(player.super_buyin_count) if player is not None else 0
@@ -181,7 +181,7 @@ async def buyin_correct_select_callback(callback: CallbackQuery, state: FSMConte
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
         poker, _ = active
-        player = await PokerDataRepository(session).get_player(date=poker.date, player_id=player_id)
+        player = await PokerDataRepository(session).get_player(poker_id=int(poker.row_id), player_id=player_id)
         if player is None:
             await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
             return
@@ -333,6 +333,7 @@ async def buyin_count_callback(callback: CallbackQuery) -> None:
         await _notify_about_buyin(
             session=session,
             poker=type("PokerNotice", (), {
+                "row_id": result.poker_id,
                 "date": result.poker_date,
                 "cashier_id": result.cashier_user_id,
             })(),
@@ -382,7 +383,7 @@ async def cashout_select_callback(callback: CallbackQuery, state: FSMContext) ->
             await callback.answer(Text.admin.POKER_ACTIVE_NOT_FOUND.value, show_alert=True)
             return
         poker, params = ready
-        player = await poker_data_repository.get_player(date=poker.date, player_id=player_id)
+        player = await poker_data_repository.get_player(poker_id=int(poker.row_id), player_id=player_id)
         if player is None:
             await callback.answer(Text.admin.USER_NOT_FOUND.value, show_alert=True)
             return

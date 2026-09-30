@@ -36,6 +36,7 @@ class InvalidBuyinCountError(Exception):
 
 @dataclass(frozen=True)
 class BuyinResult:
+  poker_id: int
   poker_date: date
   cashier_user_id: int
   player_user_id: int
@@ -164,15 +165,16 @@ class AddBuyinUseCase:
   @staticmethod
   def _result_from_player(*, poker, player, added_buyins: int, applied: bool) -> BuyinResult:
     return BuyinResult(
-      poker.date,
-      int(poker.cashier_id),
-      int(player.player_id),
-      player.player_name,
-      added_buyins,
-      int(player.buyins),
-      int(player.big_buyin_count),
-      int(player.super_buyin_count),
-      applied,
+      poker_id=int(poker.row_id),
+      poker_date=poker.date,
+      cashier_user_id=int(poker.cashier_id),
+      player_user_id=int(player.player_id),
+      player_name=player.player_name,
+      added_buyins=added_buyins,
+      total_buyins=int(player.buyins),
+      big_buyin_count=int(player.big_buyin_count),
+      super_buyin_count=int(player.super_buyin_count),
+      applied=applied,
     )
 
 

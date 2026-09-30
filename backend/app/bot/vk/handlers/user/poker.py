@@ -69,7 +69,7 @@ async def handle_chips_input_text(*, user_id, text, raw_message):
                 )
                 return PlainTextResponse("ok")
             poker_data_repository = PokerDataRepository(session)
-            players = await poker_data_repository.list_players(date=poker.date)
+            players = await poker_data_repository.list_players(poker_id=int(poker.row_id))
             if not players:
                 await send_vk_message(
                     user_id=user_id, message=Text.user.FINISH_CHIPS_NOT_READY.value
@@ -88,7 +88,7 @@ async def handle_chips_input_text(*, user_id, text, raw_message):
                 )
                 return PlainTextResponse("ok")
             player = await poker_data_repository.get_player(
-                date=poker.date, player_id=int(user.row_id)
+                poker_id=int(poker.row_id), player_id=int(user.row_id)
             )
             if player is None:
                 await send_vk_message(
@@ -101,7 +101,7 @@ async def handle_chips_input_text(*, user_id, text, raw_message):
                 chips=chips,
             )
             money_kopecks = updated.money_kopecks
-            all_players = await poker_data_repository.list_players(date=poker.date)
+            all_players = await poker_data_repository.list_players(poker_id=int(poker.row_id))
             player_row_ids = {int(p.player_id) for p in all_players}
             admins = [
                 u
@@ -207,7 +207,7 @@ async def handle_main_room_text(*, user_id, text, raw_message):
                     user_id=user_id, message=Text.user.STATUS_ROOM_NOT_ADDED.value
                 )
                 return PlainTextResponse("ok")
-            players = await poker_data_repository.list_players(date=current_poker_date)
+            players = await poker_data_repository.list_players_for_date(date=current_poker_date)
             if players:
                 already_in_room = any(int(item.player_id) == int(user.row_id) for item in players)
                 if already_in_room:
@@ -237,7 +237,7 @@ async def handle_main_room_text(*, user_id, text, raw_message):
                     platform_label="VK",
                 )
             else:
-                players_now = await poker_data_repository.list_players(date=poker.date)
+                players_now = await poker_data_repository.list_players(poker_id=int(poker.row_id))
                 player_row_ids = {int(item.player_id) for item in players_now}
                 approved = await user_repository.list_approved()
                 admins = [
@@ -359,7 +359,7 @@ async def handle_room_status_text(*, user_id, text, raw_message):
                 better_row_by_id: dict[int, int] = {}
                 if active is not None:
                     poker, _ = active
-                    bets = await BetRepository(session).list_for_poker(date=poker.date)
+                    bets = await BetRepository(session).list_for_poker(poker_id=int(poker.row_id))
                     for bet in bets:
                         better_id = int(bet.better_id)
                         better_user = await user_repository.get_by_row_id(better_id)

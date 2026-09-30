@@ -97,7 +97,7 @@ async def _notify_about_buyin(
 
     if notify_admins:
         recipients: dict[int, object] = {}
-        players = await PokerDataRepository(session).list_players(date=poker.date)
+        players = await PokerDataRepository(session).list_players(poker_id=int(poker.row_id))
         player_row_ids = {int(p.player_id) for p in players}
         admins = await user_repository.list_approved()
         for user in admins:
@@ -119,7 +119,7 @@ async def _notify_admins_about_removed_player(
     *, session, poker_date, player_name: str, buyins: int
 ) -> None:
     user_repository = UserRepository(session)
-    players = await PokerDataRepository(session).list_players(date=poker_date)
+    players = await PokerDataRepository(session).list_players_for_date(date=poker_date)
     player_row_ids = {int(p.player_id) for p in players}
     admins = [
         u

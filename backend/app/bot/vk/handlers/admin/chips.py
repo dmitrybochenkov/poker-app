@@ -72,7 +72,7 @@ async def handle_poker_calc_run_event(
                 )
                 return PlainTextResponse("ok")
             poker, params = ready
-            players = await PokerDataRepository(session).list_players(date=poker.date)
+            players = await PokerDataRepository(session).list_players(poker_id=int(poker.row_id))
             missing_players = [player.player_name for player in players if player.chips is None]
             if missing_players:
                 await send_vk_message_event_answer(

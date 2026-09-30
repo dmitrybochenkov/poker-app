@@ -54,38 +54,34 @@ class BetRepository:
   async def get_by_poker_user_and_tournament(
     self,
     *,
-    poker_id: int | None = None,
-    date=None,
+    poker_id: int,
     better_id: int,
     tournament_type: str | None = None,
   ) -> Bet | None:
-    if poker_id is None and date is None:
-      return None
-    identity = Bet.poker_id == poker_id if poker_id is not None else Bet.date == date
     result = await self.session.execute(
       select(Bet).where(
-        identity,
+        Bet.poker_id == poker_id,
         Bet.better_id == better_id,
       )
     )
     return result.scalars().first()
 
-  async def list_for_poker(self, *, poker_id: int | None = None, date=None) -> list[Bet]:
-    if poker_id is None and date is None:
-      return []
-    identity = Bet.poker_id == poker_id if poker_id is not None else Bet.date == date
+  async def list_for_poker(self, *, poker_id: int) -> list[Bet]:
     result = await self.session.execute(
-      select(Bet).where(identity).order_by(Bet.row_id.desc())
+      select(Bet).where(Bet.poker_id == poker_id).order_by(Bet.row_id.desc())
     )
     return list(result.scalars().all())
 
-  async def list_for_user_in_poker(self, *, poker_id: int | None = None, date=None, better_id: int) -> list[Bet]:
-    if poker_id is None and date is None:
-      return []
-    identity = Bet.poker_id == poker_id if poker_id is not None else Bet.date == date
+  async def list_for_date(self, *, date) -> list[Bet]:
+    result = await self.session.execute(
+      select(Bet).where(Bet.date == date).order_by(Bet.row_id.desc())
+    )
+    return list(result.scalars().all())
+
+  async def list_for_user_in_poker(self, *, poker_id: int, better_id: int) -> list[Bet]:
     result = await self.session.execute(
       select(Bet)
-      .where(identity, Bet.better_id == better_id)
+      .where(Bet.poker_id == poker_id, Bet.better_id == better_id)
       .order_by(Bet.row_id.desc())
     )
     return list(result.scalars().all())
@@ -102,7 +98,7 @@ class BetRepository:
     latest_date = latest_date_result.scalars().first()
     if latest_date is None:
       return []
-    return await self.list_for_poker(date=latest_date)
+    return await self.list_for_date(date=latest_date)
 
   async def list_all(self) -> list[Bet]:
     result = await self.session.execute(

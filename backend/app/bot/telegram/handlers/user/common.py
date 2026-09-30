@@ -205,7 +205,7 @@ async def _post_bet_tg_keyboard_for_user(*, telegram_id: int):
             return await _approved_tg_keyboard(user)
         poker, _ = active
         player = await PokerDataRepository(session).get_player(
-            date=poker.date, player_id=int(user.row_id)
+            poker_id=int(poker.row_id), player_id=int(user.row_id)
         )
         if player is not None:
             return room_admin_keyboard if user.is_admin else room_keyboard
