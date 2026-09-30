@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from datetime import date
+from datetime import date, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -104,7 +104,7 @@ async def test_buyin_repository_rejects_mismatched_poker_date(buyin_sessions):
         with pytest.raises(ValueError, match="does not match"):
             await BuyinDataRepository(session).add_buyin(
                 poker_id=int(poker.row_id),
-                poker_date=date(2026, 9, 30),
+                poker_date=poker.date + timedelta(days=1),
                 player_id=player_id,
                 player_name="Player",
                 buyins_count=1,

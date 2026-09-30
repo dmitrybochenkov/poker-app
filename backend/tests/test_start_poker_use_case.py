@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import func, select
@@ -145,7 +146,7 @@ async def test_poker_data_repository_rejects_mismatched_poker_date() -> None:
     with pytest.raises(ValueError, match="does not match"):
       await PokerDataRepository(session).add_player_without_commit(
         poker_id=int(poker.row_id),
-        date=poker.date.replace(day=poker.date.day + 1),
+        date=poker.date + timedelta(days=1),
         player_id=actor_id,
         player_name="Wrong date",
       )
