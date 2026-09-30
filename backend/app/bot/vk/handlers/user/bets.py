@@ -102,7 +102,7 @@ async def handle_bet_tournament_event(
                 poker_data_repository=PokerDataRepository(session),
             )
             bet_params, players, status = await use_case.get_bet_draft_data(
-                better_id=user_id,
+                actor_user_id=int(user.row_id),
                 tournament_type=tournament_type,
             )
         if status != "ok" or bet_params is None:
@@ -506,7 +506,7 @@ async def handle_make_bet_text(*, user_id, text, raw_message):
                 poker_data_repository=PokerDataRepository(session),
             )
             bet_params, players, status = await use_case.get_bet_draft_data(
-                better_id=user_id,
+                actor_user_id=int(user.row_id),
                 tournament_type="single",
             )
         if status != "ok" or bet_params is None:

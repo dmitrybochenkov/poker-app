@@ -199,8 +199,8 @@ class BetUseCases:
     other_tournament.current_bank_kopecks = int(other_tournament.current_bank_kopecks or 0) + other_amount
     await self.bet_repository.session.flush()
 
-  async def get_bet_draft_data(self, *, better_id: int, tournament_type: str) -> tuple[BetParam | None, list[PokerData], str]:
-    user = await self._get_approved_user(better_id=better_id)
+  async def get_bet_draft_data(self, *, actor_user_id: int, tournament_type: str) -> tuple[BetParam | None, list[PokerData], str]:
+    user = await self._get_approved_actor(actor_user_id=actor_user_id)
     if user is None:
       return None, [], "user_not_approved"
     better_row_id = int(user.row_id)
@@ -240,11 +240,11 @@ class BetUseCases:
       return None, [], "no_players"
     return bet_params, players, "ok"
 
-  async def list_user_bets_for_current_poker(self, *, better_id: int) -> list[Bet]:
+  async def list_user_bets_for_current_poker(self, *, actor_user_id: int) -> list[Bet]:
     poker = await self.get_active_bettable_poker()
     if poker is None:
       return []
-    user = await self._get_approved_user(better_id=better_id)
+    user = await self._get_approved_actor(actor_user_id=actor_user_id)
     if user is None:
       return []
     return await self.bet_repository.list_for_user_in_poker(
@@ -252,10 +252,8 @@ class BetUseCases:
       better_id=int(user.row_id),
     )
 
-  async def _get_approved_user(self, *, better_id: int) -> User | None:
-    user = await self.user_repository.get_by_telegram_id(better_id)
-    if user is None:
-      user = await self.user_repository.get_by_vk_id(better_id)
+  async def _get_approved_actor(self, *, actor_user_id: int) -> User | None:
+    user = await self.user_repository.get_by_row_id(actor_user_id)
     if user is None or not user.is_approved:
       return None
     return user

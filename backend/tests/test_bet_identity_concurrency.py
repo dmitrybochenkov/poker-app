@@ -276,6 +276,84 @@ async def test_canonical_actor_prevents_platform_id_collision(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_draft_and_list_use_canonical_actor_under_platform_id_collision(tmp_path):
+    engine, sessions = await _store(tmp_path, "draft-platform-id-collision.db")
+    linked_id, other_id, _ = await _seed(sessions)
+    try:
+        async with sessions() as session:
+            telegram_user = User(
+                name="Telegram Owner", telegram_id=777, is_approved=True
+            )
+            vk_user = User(name="VK Owner", vk_id=777, is_approved=True)
+            session.add_all([telegram_user, vk_user])
+            await session.commit()
+            telegram_user_id = int(telegram_user.row_id)
+            vk_user_id = int(vk_user.row_id)
+
+        async with sessions() as session:
+            use_case = _use_case(session)
+            tg_draft = await use_case.get_bet_draft_data(
+                actor_user_id=telegram_user_id,
+                tournament_type="single",
+            )
+            vk_draft = await use_case.get_bet_draft_data(
+                actor_user_id=vk_user_id,
+                tournament_type="single",
+            )
+            created, status = await use_case.create_bet(
+                actor_user_id=telegram_user_id,
+                tournament_type="single",
+                amount_kopecks=10_000,
+                winner_id=linked_id,
+                loser_id=other_id,
+            )
+            tg_bets = await use_case.list_user_bets_for_current_poker(
+                actor_user_id=telegram_user_id
+            )
+            vk_bets = await use_case.list_user_bets_for_current_poker(
+                actor_user_id=vk_user_id
+            )
+
+        assert tg_draft[2] == "ok"
+        assert vk_draft[2] == "ok"
+        assert status == "ok" and created is not None
+        assert [bet.better_id for bet in tg_bets] == [telegram_user_id]
+        assert vk_bets == []
+        assert telegram_user_id != vk_user_id
+        assert linked_id != other_id
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_draft_rejects_unknown_and_unapproved_canonical_actor(tmp_path):
+    engine, sessions = await _store(tmp_path, "draft-authorization.db")
+    await _seed(sessions)
+    try:
+        async with sessions() as session:
+            unapproved = User(name="Pending", telegram_id=909, is_approved=False)
+            session.add(unapproved)
+            await session.commit()
+            unapproved_id = int(unapproved.row_id)
+
+        async with sessions() as session:
+            use_case = _use_case(session)
+            unapproved_result = await use_case.get_bet_draft_data(
+                actor_user_id=unapproved_id,
+                tournament_type="single",
+            )
+            unknown_result = await use_case.get_bet_draft_data(
+                actor_user_id=999_999,
+                tournament_type="single",
+            )
+
+        assert unapproved_result == (None, [], "user_not_approved")
+        assert unknown_result == (None, [], "user_not_approved")
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case_name",
     [

@@ -191,7 +191,7 @@ async def start_make_bet(message: Message, state: FSMContext) -> None:
             poker_data_repository=PokerDataRepository(session),
         )
         bet_params, players, status = await use_case.get_bet_draft_data(
-            better_id=message.from_user.id,
+            actor_user_id=int(user.row_id),
             tournament_type="single",
         )
 
@@ -246,7 +246,7 @@ async def choose_bet_tournament(callback: CallbackQuery, state: FSMContext) -> N
             poker_data_repository=PokerDataRepository(session),
         )
         bet_params, players, status = await use_case.get_bet_draft_data(
-            better_id=callback.from_user.id,
+            actor_user_id=int(user.row_id),
             tournament_type=tournament_type,
         )
     if status != "ok" or bet_params is None:
