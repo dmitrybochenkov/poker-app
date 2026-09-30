@@ -1,9 +1,14 @@
 from dataclasses import dataclass
 from datetime import date
+from typing import Hashable, TypeVar
+
+
+ParticipantKey = TypeVar("ParticipantKey", bound=Hashable)
 
 
 @dataclass(frozen=True)
 class TournamentPayout:
+    user_id: int
     player_name: str
     score: int
     position: int
@@ -13,6 +18,7 @@ class TournamentPayout:
 @dataclass(frozen=True)
 class TournamentPayoutResult:
     payouts: tuple[TournamentPayout, ...]
+    place_user_ids: tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]
     place_names: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]
     total_payout_kopecks: int
     remainder_kopecks: int
@@ -21,24 +27,28 @@ class TournamentPayoutResult:
 def calculate_payout_amounts(
     *,
     bank_kopecks: int,
-    place_names: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]],
+    place_members: tuple[
+        tuple[ParticipantKey, ...],
+        tuple[ParticipantKey, ...],
+        tuple[ParticipantKey, ...],
+    ],
     prize_percents: tuple[int, int, int],
-) -> tuple[dict[str, int], int, int]:
+) -> tuple[dict[ParticipantKey, int], int, int]:
     bank = int(bank_kopecks)
     percents = tuple(int(value) for value in prize_percents)
     if bank < 0 or any(value < 0 for value in percents) or sum(percents) > 100:
         raise ValueError("Invalid tournament bank or prize percentages")
 
-    amounts: dict[str, int] = {}
+    amounts: dict[ParticipantKey, int] = {}
     cursor = 0
-    while cursor < len(place_names):
-        group = tuple(place_names[cursor])
+    while cursor < len(place_members):
+        group = tuple(place_members[cursor])
         if not group:
             cursor += 1
             continue
         occupied = [cursor]
         next_position = cursor + 1
-        while next_position < len(place_names) and tuple(place_names[next_position]) == group:
+        while next_position < len(place_members) and tuple(place_members[next_position]) == group:
             occupied.append(next_position)
             next_position += 1
         pool = sum((bank * percents[position]) // 100 for position in occupied)
@@ -54,41 +64,60 @@ def calculate_payout_amounts(
 
 
 def calculate_payouts(
-    *, bank_kopecks: int, scores: dict[str, int], prize_percents: tuple[int, int, int]
+    *,
+    bank_kopecks: int,
+    scores_by_user_id: dict[int, int],
+    names_by_user_id: dict[int, str],
+    prize_percents: tuple[int, int, int],
 ) -> TournamentPayoutResult:
     bank = int(bank_kopecks)
     percents = tuple(int(value) for value in prize_percents)
     if bank < 0 or any(value < 0 for value in percents) or sum(percents) > 100:
         raise ValueError("Invalid tournament bank or prize percentages")
-    ranked = sorted(scores.items(), key=lambda item: (-int(item[1]), item[0]))
-    place_names: list[tuple[str, ...]] = [(), (), ()]
+    ranked = sorted(
+        scores_by_user_id.items(),
+        key=lambda item: (-int(item[1]), names_by_user_id[int(item[0])], int(item[0])),
+    )
+    place_user_ids: list[tuple[int, ...]] = [(), (), ()]
     cursor = 0
     while cursor < len(ranked) and cursor < 3:
         score = int(ranked[cursor][1])
-        group = [name for name, value in ranked if int(value) == score]
+        group = [int(user_id) for user_id, value in ranked if int(value) == score]
         start = cursor
         occupied = tuple(position for position in range(start, min(start + len(group), 3)))
         if not occupied:
             break
         for position in occupied:
-            place_names[position] = tuple(group)
+            place_user_ids[position] = tuple(group)
         cursor += len(group)
-    normalized_places = tuple(place_names)
+    normalized_places = tuple(place_user_ids)
     amounts, total, remainder = calculate_payout_amounts(
         bank_kopecks=bank,
-        place_names=normalized_places,
+        place_members=normalized_places,
         prize_percents=percents,
     )
-    positions: dict[str, int] = {}
+    positions: dict[int, int] = {}
     for position, group in enumerate(normalized_places, start=1):
-        for name in group:
-            positions.setdefault(name, position)
+        for user_id in group:
+            positions.setdefault(user_id, position)
     payouts = [
-        TournamentPayout(name, int(score), positions[name], amounts[name])
-        for name, score in ranked
-        if name in amounts
+        TournamentPayout(
+            int(user_id),
+            names_by_user_id[int(user_id)],
+            int(score),
+            positions[int(user_id)],
+            amounts[int(user_id)],
+        )
+        for user_id, score in ranked
+        if int(user_id) in amounts
     ]
-    return TournamentPayoutResult(tuple(payouts), normalized_places, total, remainder)
+    place_names = tuple(
+        tuple(names_by_user_id[user_id] for user_id in group)
+        for group in normalized_places
+    )
+    return TournamentPayoutResult(
+        tuple(payouts), normalized_places, place_names, total, remainder
+    )
 
 
 class CloseBettingTournamentUseCase:
@@ -156,12 +185,22 @@ class CloseBettingTournamentUseCase:
         bets = await self.bets.list_for_period(
             start_date=tournament.start_date, end_date=tournament.end_date
         )
-        scores: dict[str, int] = {}
+        scores_by_user_id: dict[int, int] = {}
+        names_by_user_id: dict[int, str] = {}
+        snapshot_order_by_user_id: dict[int, tuple] = {}
         for bet in bets:
-            scores[bet.better_name] = scores.get(bet.better_name, 0) + int(bet.score or 0)
+            user_id = int(bet.better_id)
+            scores_by_user_id[user_id] = scores_by_user_id.get(user_id, 0) + int(
+                bet.score or 0
+            )
+            snapshot_order = (bet.date, int(bet.row_id))
+            if snapshot_order > snapshot_order_by_user_id.get(user_id, (date.min, 0)):
+                snapshot_order_by_user_id[user_id] = snapshot_order
+                names_by_user_id[user_id] = str(bet.better_name)
         return calculate_payouts(
             bank_kopecks=int(tournament.current_bank_kopecks or 0),
-            scores=scores,
+            scores_by_user_id=scores_by_user_id,
+            names_by_user_id=names_by_user_id,
             prize_percents=(
                 int(params.percent_to_first),
                 int(params.percent_to_second),

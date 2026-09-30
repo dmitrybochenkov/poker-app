@@ -621,7 +621,7 @@ class StatUseCases:
       )
       amounts, _, _ = calculate_payout_amounts(
         bank_kopecks=bank_kopecks,
-        place_names=place_names,
+        place_members=place_names,
         prize_percents=percents,
       )
       result_kopecks += amounts.get(user, 0)

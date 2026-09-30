@@ -20,10 +20,12 @@ def _amounts(result):
 def test_two_way_tie_occupies_first_and_second_places():
     result = calculate_payouts(
         bank_kopecks=832_000,
-        scores={"A": 7, "B": 7, "C": 6},
+        scores_by_user_id={1: 7, 2: 7, 3: 6},
+        names_by_user_id={1: "A", 2: "B", 3: "C"},
         prize_percents=(50, 33, 17),
     )
     assert _amounts(result) == {"A": 345_280, "B": 345_280, "C": 141_440}
+    assert result.place_user_ids == ((1, 2), (1, 2), (3,))
     assert result.place_names == (("A", "B"), ("A", "B"), ("C",))
     assert result.total_payout_kopecks == 832_000
     assert result.remainder_kopecks == 0
@@ -32,7 +34,8 @@ def test_two_way_tie_occupies_first_and_second_places():
 def test_three_way_tie_shares_whole_podium_with_floor_remainder():
     result = calculate_payouts(
         bank_kopecks=784_000,
-        scores={"A": 2, "B": 2, "C": 2},
+        scores_by_user_id={1: 2, 2: 2, 3: 2},
+        names_by_user_id={1: "A", 2: "B", 3: "C"},
         prize_percents=(50, 33, 17),
     )
     assert _amounts(result) == {"A": 261_333, "B": 261_333, "C": 261_333}
@@ -43,7 +46,8 @@ def test_three_way_tie_shares_whole_podium_with_floor_remainder():
 def test_n_way_tie_on_third_place_and_players_below_podium_get_zero():
     result = calculate_payouts(
         bank_kopecks=768_000,
-        scores={"A": 4, "B": 3, "C": 2, "D": 2, "E": 2, "F": 2, "G": 1},
+        scores_by_user_id={1: 4, 2: 3, 3: 2, 4: 2, 5: 2, 6: 2, 7: 1},
+        names_by_user_id={1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G"},
         prize_percents=(50, 33, 17),
     )
     assert _amounts(result) == {
@@ -61,7 +65,8 @@ def test_n_way_tie_on_third_place_and_players_below_podium_get_zero():
 def test_percentages_are_not_hardcoded_and_math_is_integer_only():
     result = calculate_payouts(
         bank_kopecks=101,
-        scores={"A": 3, "B": 2, "C": 1},
+        scores_by_user_id={1: 3, 2: 2, 3: 1},
+        names_by_user_id={1: "A", 2: "B", 3: "C"},
         prize_percents=(60, 25, 10),
     )
     assert _amounts(result) == {"A": 60, "B": 25, "C": 10}
@@ -71,12 +76,13 @@ def test_percentages_are_not_hardcoded_and_math_is_integer_only():
 
 class _Session:
     commits = 0
+    rollbacks = 0
 
     async def commit(self):
         self.commits += 1
 
     async def rollback(self):
-        pass
+        self.rollbacks += 1
 
 
 @pytest.mark.asyncio
@@ -97,6 +103,7 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
 
     class Tournaments:
         calls = 0
+        force_conflict = False
 
         async def get_by_id(self, **kwargs):
             self.calls += 1
@@ -106,6 +113,8 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
             return [tournament]
 
         async def finalize_if_unpaid(self, **kwargs):
+            if self.force_conflict:
+                return False
             if tournament.is_paid:
                 return False
             tournament.is_paid = True
@@ -137,9 +146,9 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
     class Bets:
         async def list_for_period(self, **kwargs):
             return [
-                SimpleNamespace(better_name="A", score=7),
-                SimpleNamespace(better_name="B", score=7),
-                SimpleNamespace(better_name="C", score=6),
+                SimpleNamespace(row_id=1, date=date(2025, 4, 1), better_id=1, better_name="A", score=7),
+                SimpleNamespace(row_id=2, date=date(2025, 4, 2), better_id=2, better_name="B", score=7),
+                SimpleNamespace(row_id=3, date=date(2025, 4, 3), better_id=3, better_name="C", score=6),
             ]
 
     session = _Session()
@@ -162,8 +171,153 @@ async def test_preview_does_not_mutate_and_confirm_revalidates_and_is_idempotent
     )
     assert _amounts(confirmed) == _amounts(preview)
     assert tournament.is_paid is True and session.commits == 1 and tournaments.calls == 2
+    tournament.is_paid = False
+    tournaments.force_conflict = True
     with pytest.raises(ValueError):
         await use_case.confirm(actor_user_id=1, tournament_id=1, today=date(2026, 1, 1))
+    assert session.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_same_bettor_with_renamed_snapshots_is_one_canonical_participant():
+    tournament = SimpleNamespace(
+        row_id=1, params_id=3, start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31), current_bank_kopecks=101,
+        is_paid=False,
+    )
+
+    class Users:
+        async def get_by_row_id(self, value):
+            return SimpleNamespace(is_admin=True, is_approved=True)
+
+    class Tournaments:
+        async def get_by_id(self, *, row_id):
+            return tournament
+
+    class Params:
+        requested = []
+
+        async def get_by_id(self, *, row_id):
+            self.requested.append(row_id)
+            return SimpleNamespace(
+                row_id=3, bet_param_id=1,
+                percent_to_first=60, percent_to_second=25, percent_to_third=10,
+            )
+
+    class Bets:
+        async def list_for_period(self, **kwargs):
+            return [
+                SimpleNamespace(
+                    row_id=1, date=date(2025, 3, 1), better_id=10,
+                    better_name="Old Name", score=2,
+                ),
+                SimpleNamespace(
+                    row_id=2, date=date(2025, 3, 1), better_id=10,
+                    better_name="New Name", score=3,
+                ),
+                SimpleNamespace(
+                    row_id=3, date=date(2025, 3, 1), better_id=20,
+                    better_name="Other", score=4,
+                ),
+            ]
+
+    params = Params()
+    use_case = CloseBettingTournamentUseCase(
+        session=_Session(), user_repository=Users(), tournament_repository=Tournaments(),
+        tournament_param_repository=params, bet_repository=Bets(),
+    )
+
+    _, result = await use_case.preview(
+        actor_user_id=1, tournament_id=1, today=date(2026, 1, 1)
+    )
+
+    assert [(item.user_id, item.player_name, item.score) for item in result.payouts] == [
+        (10, "New Name", 5),
+        (20, "Other", 4),
+    ]
+    assert result.place_user_ids == ((10,), (20,), ())
+    assert result.place_names == (("New Name",), ("Other",), ())
+    assert params.requested == [3]
+
+
+@pytest.mark.asyncio
+async def test_same_name_users_remain_two_tied_payout_recipients_and_persist_snapshots():
+    tournament = SimpleNamespace(
+        row_id=1, params_id=3, start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31), current_bank_kopecks=832_000,
+        is_paid=False,
+    )
+
+    class Users:
+        async def get_by_row_id(self, value):
+            return SimpleNamespace(is_admin=True, is_approved=True)
+
+    class Tournaments:
+        finalized = None
+
+        async def get_by_id(self, *, row_id):
+            return tournament
+
+        async def finalize_if_unpaid(self, **kwargs):
+            self.finalized = kwargs
+            tournament.is_paid = True
+            return True
+
+    class Params:
+        async def get_by_id(self, *, row_id):
+            assert row_id == 3
+            return SimpleNamespace(
+                row_id=3, bet_param_id=1,
+                percent_to_first=50, percent_to_second=33, percent_to_third=17,
+            )
+
+    class Bets:
+        async def list_for_period(self, **kwargs):
+            return [
+                SimpleNamespace(
+                    row_id=1, date=date(2025, 2, 1), better_id=10,
+                    better_name="Alex", score=7,
+                ),
+                SimpleNamespace(
+                    row_id=2, date=date(2025, 2, 1), better_id=20,
+                    better_name="Alex", score=7,
+                ),
+                SimpleNamespace(
+                    row_id=3, date=date(2025, 2, 1), better_id=30,
+                    better_name="Chris", score=6,
+                ),
+                SimpleNamespace(
+                    row_id=4, date=date(2025, 2, 1), better_id=40,
+                    better_name="Unpaid", score=1,
+                ),
+            ]
+
+    tournaments = Tournaments()
+    session = _Session()
+    use_case = CloseBettingTournamentUseCase(
+        session=session, user_repository=Users(), tournament_repository=tournaments,
+        tournament_param_repository=Params(), bet_repository=Bets(),
+    )
+
+    _, result = await use_case.confirm(
+        actor_user_id=1, tournament_id=1, today=date(2026, 1, 1)
+    )
+
+    assert [(item.user_id, item.amount_kopecks) for item in result.payouts] == [
+        (10, 345_280), (20, 345_280), (30, 141_440),
+    ]
+    assert result.place_user_ids == ((10, 20), (10, 20), (30,))
+    assert result.place_names == (("Alex", "Alex"), ("Alex", "Alex"), ("Chris",))
+    assert tournaments.finalized == {
+        "tournament_id": 1,
+        "first_place_name": "Alex, Alex",
+        "second_place_name": "Alex, Alex",
+        "third_place_name": "Chris",
+    }
+    assert result.total_payout_kopecks == 832_000
+    assert result.remainder_kopecks == 0
+    assert tournament.current_bank_kopecks == 832_000
+    assert session.commits == 1
 
 
 @pytest.mark.asyncio
