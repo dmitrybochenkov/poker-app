@@ -95,16 +95,26 @@ class StatUseCases:
       return "Нет данных по покеру."
 
     total_games = len({item.date for item in rows})
-    grouped: dict[str, list[PokerData]] = {}
+    grouped: dict[int, list[PokerData]] = {}
     for item in rows:
-      grouped.setdefault(item.player_name, []).append(item)
+      grouped.setdefault(int(item.player_id), []).append(item)
 
-    users = sorted(
-      name for name, user_rows in grouped.items()
-      if len({entry.date for entry in user_rows}) > 0.3 * total_games
+    player_ids = sorted(
+      player_id for player_id, player_rows in grouped.items()
+      if len({entry.date for entry in player_rows}) > 0.3 * total_games
     )
-    if not users:
+    if not player_ids:
       return "Нет данных по покеру."
+
+    display_names = {
+      player_id: str(
+        max(
+          grouped[player_id],
+          key=lambda item: (item.date, int(item.row_id or 0)),
+        ).player_name
+      )
+      for player_id in player_ids
+    }
 
     by_date: dict = {}
     for item in rows:
@@ -114,8 +124,8 @@ class StatUseCases:
     for date_value, date_rows in by_date.items():
       max_money = max(int(entry.money_kopecks or 0) for entry in date_rows)
       min_money = min(int(entry.money_kopecks or 0) for entry in date_rows)
-      winners_by_date[date_value] = {entry.player_name for entry in date_rows if int(entry.money_kopecks or 0) == max_money}
-      losers_by_date[date_value] = {entry.player_name for entry in date_rows if int(entry.money_kopecks or 0) == min_money}
+      winners_by_date[date_value] = {int(entry.player_id) for entry in date_rows if int(entry.money_kopecks or 0) == max_money}
+      losers_by_date[date_value] = {int(entry.player_id) for entry in date_rows if int(entry.money_kopecks or 0) == min_money}
 
     all_time_winners_by_date: dict = {}
     by_date_all_time: dict = {}
@@ -123,10 +133,10 @@ class StatUseCases:
       by_date_all_time.setdefault(item.date, []).append(item)
     for date_value, date_rows in by_date_all_time.items():
       max_money = max(int(entry.money_kopecks or 0) for entry in date_rows)
-      all_time_winners_by_date[date_value] = {entry.player_name for entry in date_rows if int(entry.money_kopecks or 0) == max_money}
+      all_time_winners_by_date[date_value] = {int(entry.player_id) for entry in date_rows if int(entry.money_kopecks or 0) == max_money}
     all_time_win_streaks = {
-      user: self._max_win_streak(user=user, winners_by_date=all_time_winners_by_date)
-      for user in users
+      player_id: self._max_win_streak(player_id=player_id, winners_by_date=all_time_winners_by_date)
+      for player_id in player_ids
     }
 
     selected = indicators or []
@@ -135,14 +145,17 @@ class StatUseCases:
       selected_pics = ["💲"]
 
     result_rows: list[dict[str, str | int | float]] = []
-    for user in users:
-      user_rows = grouped[user]
-      metric_row: dict[str, str | int | float] = {"👨": user}
+    for player_id in player_ids:
+      player_rows = grouped[player_id]
+      metric_row: dict[str, str | int | float] = {
+        "_player_id": player_id,
+        "👨": display_names[player_id],
+      }
       for pic in selected_pics:
         metric_row[pic] = self._calc_poker_metric(
           pic=pic,
-          user=user,
-          user_rows=user_rows,
+          player_id=player_id,
+          player_rows=player_rows,
           winners_by_date=winners_by_date,
           losers_by_date=losers_by_date,
         )
@@ -315,7 +328,7 @@ class StatUseCases:
     rows: list[dict[str, str | int | float]],
     indicator_id_to_pic: dict[int, str],
     achievement_type: str,
-    all_time_win_streaks: dict[str, int] | None = None,
+    all_time_win_streaks: dict[int, int] | None = None,
   ) -> list[dict[str, str | int | float]]:
     if self.achievement_repository is None or not rows:
       return rows
@@ -345,8 +358,8 @@ class StatUseCases:
           if threshold is None:
             continue
           for row in rows:
-            user = str(row.get("👨", ""))
-            if all_time_win_streaks.get(user, 0) >= threshold:
+            player_id = int(row.get("_player_id", 0))
+            if all_time_win_streaks.get(player_id, 0) >= threshold:
               existing = str(row.get("🌟", "")).strip()
               row["🌟"] = f"{existing} {ach.pic}".strip()
         continue
@@ -373,23 +386,23 @@ class StatUseCases:
     return rows
 
   @staticmethod
-  def _count_win_pairs(*, user: str, winners_by_date: dict) -> int:
+  def _count_win_pairs(*, player_id: int, winners_by_date: dict) -> int:
     dates = sorted(winners_by_date.keys())
     if len(dates) < 2:
       return 0
     count = 0
     for index in range(1, len(dates)):
-      if user in winners_by_date[dates[index]] and user in winners_by_date[dates[index - 1]]:
+      if player_id in winners_by_date[dates[index]] and player_id in winners_by_date[dates[index - 1]]:
         count += 1
     return count
 
   @staticmethod
-  def _max_win_streak(*, user: str, winners_by_date: dict) -> int:
+  def _max_win_streak(*, player_id: int, winners_by_date: dict) -> int:
     dates = sorted(winners_by_date.keys())
     best = 0
     current = 0
     for date_value in dates:
-      if user in winners_by_date.get(date_value, set()):
+      if player_id in winners_by_date.get(date_value, set()):
         current += 1
         if current > best:
           best = current
@@ -415,44 +428,44 @@ class StatUseCases:
     self,
     *,
     pic: str,
-    user: str,
-    user_rows: list[PokerData],
+    player_id: int,
+    player_rows: list[PokerData],
     winners_by_date: dict,
     losers_by_date: dict,
   ) -> int | float:
     if pic == "💲":
-      return int(sum(int(item.money_kopecks or 0) for item in user_rows) // 100)
+      return int(sum(int(item.money_kopecks or 0) for item in player_rows) // 100)
     if pic == "🎲":
-      return len(user_rows)
+      return len(player_rows)
     if pic == "🏦":
-      return int(sum(int(item.buyins or 0) for item in user_rows))
+      return int(sum(int(item.buyins or 0) for item in player_rows))
     if pic == "❌":
-      return len({item.date for item in user_rows if user in losers_by_date.get(item.date, set())})
+      return len({item.date for item in player_rows if player_id in losers_by_date.get(item.date, set())})
     if pic == "💍":
-      return len({item.date for item in user_rows if user in winners_by_date.get(item.date, set())})
+      return len({item.date for item in player_rows if player_id in winners_by_date.get(item.date, set())})
     if pic == "🔝🏦":
-      return max((int(item.buyins or 0) for item in user_rows), default=0)
+      return max((int(item.buyins or 0) for item in player_rows), default=0)
     if pic == "🔝💲⬆️":
-      return max((int(item.money_kopecks or 0) // 100 for item in user_rows if int(item.money_kopecks or 0) > 0), default=0)
+      return max((int(item.money_kopecks or 0) // 100 for item in player_rows if int(item.money_kopecks or 0) > 0), default=0)
     if pic == "🔝💲⬇️":
-      return min((int(item.money_kopecks or 0) // 100 for item in user_rows if int(item.money_kopecks or 0) < 0), default=0)
+      return min((int(item.money_kopecks or 0) // 100 for item in player_rows if int(item.money_kopecks or 0) < 0), default=0)
     if pic == "💲/🎲":
-      games = len(user_rows)
+      games = len(player_rows)
       if games == 0:
         return 0.0
-      return round((sum(int(item.money_kopecks or 0) for item in user_rows) / 100) / games, 2)
+      return round((sum(int(item.money_kopecks or 0) for item in player_rows) / 100) / games, 2)
     if pic == "💲/🏦":
-      buyins = sum(int(item.buyins or 0) for item in user_rows)
+      buyins = sum(int(item.buyins or 0) for item in player_rows)
       if buyins == 0:
         return 0.0
-      return round((sum(int(item.money_kopecks or 0) for item in user_rows) / 100) / buyins, 2)
+      return round((sum(int(item.money_kopecks or 0) for item in player_rows) / 100) / buyins, 2)
     if pic == "🏦/🎲":
-      games = len(user_rows)
+      games = len(player_rows)
       if games == 0:
         return 0.0
-      return round(sum(int(item.buyins or 0) for item in user_rows) / games, 2)
+      return round(sum(int(item.buyins or 0) for item in player_rows) / games, 2)
     if pic == "🛡️💍":
-      return self._count_win_pairs(user=user, winners_by_date=winners_by_date)
+      return self._count_win_pairs(player_id=player_id, winners_by_date=winners_by_date)
     return 0
 
   async def _load_finished_tournaments(self):
