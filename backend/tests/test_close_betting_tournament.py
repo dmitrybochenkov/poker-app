@@ -292,11 +292,19 @@ async def test_same_name_users_remain_two_tied_payout_recipients_and_persist_sna
                 ),
             ]
 
+    class Results:
+        inserted = None
+
+        async def add_many(self, **kwargs):
+            self.inserted = kwargs
+
     tournaments = Tournaments()
     session = _Session()
+    results = Results()
     use_case = CloseBettingTournamentUseCase(
         session=session, user_repository=Users(), tournament_repository=tournaments,
         tournament_param_repository=Params(), bet_repository=Bets(),
+        tournament_result_repository=results,
     )
 
     _, result = await use_case.confirm(
@@ -318,6 +326,50 @@ async def test_same_name_users_remain_two_tied_payout_recipients_and_persist_sna
     assert result.remainder_kopecks == 0
     assert tournament.current_bank_kopecks == 832_000
     assert session.commits == 1
+    assert results.inserted == {"tournament_id": 1, "payouts": result.payouts}
+
+
+@pytest.mark.asyncio
+async def test_result_insert_failure_rolls_back_finalization_transaction():
+    tournament = SimpleNamespace(
+        row_id=1, params_id=3, start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31), current_bank_kopecks=100, is_paid=False,
+    )
+
+    class Users:
+        async def get_by_row_id(self, value):
+            return SimpleNamespace(is_admin=True, is_approved=True)
+
+    class Tournaments:
+        async def get_by_id(self, **kwargs):
+            return tournament
+
+        async def finalize_if_unpaid(self, **kwargs):
+            tournament.is_paid = True
+            return True
+
+    class Params:
+        async def get_by_id(self, **kwargs):
+            return SimpleNamespace(percent_to_first=50, percent_to_second=30, percent_to_third=20)
+
+    class Bets:
+        async def list_for_period(self, **kwargs):
+            return [SimpleNamespace(row_id=1, date=date(2025, 1, 1), better_id=2, better_name="A", score=1)]
+
+    class Results:
+        async def add_many(self, **kwargs):
+            raise RuntimeError("insert failed")
+
+    session = _Session()
+    use_case = CloseBettingTournamentUseCase(
+        session=session, user_repository=Users(), tournament_repository=Tournaments(),
+        tournament_param_repository=Params(), bet_repository=Bets(),
+        tournament_result_repository=Results(),
+    )
+    with pytest.raises(RuntimeError, match="insert failed"):
+        await use_case.confirm(actor_user_id=1, tournament_id=1, today=date(2026, 1, 1))
+    assert session.commits == 0
+    assert session.rollbacks == 1
 
 
 @pytest.mark.asyncio

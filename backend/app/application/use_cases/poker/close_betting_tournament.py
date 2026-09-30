@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Hashable, TypeVar
 
-
 ParticipantKey = TypeVar("ParticipantKey", bound=Hashable)
 
 
@@ -129,12 +128,14 @@ class CloseBettingTournamentUseCase:
         tournament_repository,
         tournament_param_repository,
         bet_repository,
+        tournament_result_repository=None,
     ):
         self.session = session
         self.users = user_repository
         self.tournaments = tournament_repository
         self.params = tournament_param_repository
         self.bets = bet_repository
+        self.results = tournament_result_repository
 
     async def list_eligible(self, *, actor_user_id: int, today: date):
         await self._require_admin(actor_user_id)
@@ -159,7 +160,16 @@ class CloseBettingTournamentUseCase:
         if not applied:
             await self.session.rollback()
             raise ValueError("Tournament already finalized")
-        await self.session.commit()
+        try:
+            if self.results is not None:
+                await self.results.add_many(
+                    tournament_id=tournament_id,
+                    payouts=result.payouts,
+                )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
         return tournament, result
 
     async def _require_admin(self, actor_user_id: int):

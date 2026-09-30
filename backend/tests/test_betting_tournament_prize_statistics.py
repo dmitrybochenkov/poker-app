@@ -56,6 +56,13 @@ def _bet(name, score):
     )
 
 
+def _result(*, tournament_id, user_id, position, payout, name, score):
+    return SimpleNamespace(
+        tournament_id=tournament_id, user_id=user_id, position=position,
+        payout_kopecks=payout, name_snapshot=name, score=score,
+    )
+
+
 @pytest.mark.asyncio
 async def test_historical_prizes_use_tournament_params_and_authoritative_tie_math():
     tournament = _tournament(
@@ -140,3 +147,35 @@ def test_open_projection_uses_integer_kopeck_floor_and_associated_params():
         "🥈: 0.25 ₽\n"
         "🥉: 0.10 ₽"
     )
+
+
+@pytest.mark.asyncio
+async def test_finalized_prizes_and_titles_use_immutable_canonical_results():
+    tournament = _tournament(
+        bank_kopecks=999_999, params_id=3,
+        first="Wrong Legacy Name", second="", third="",
+    )
+    tournament.row_id = 41
+    bets = [
+        SimpleNamespace(
+            row_id=1, date=date(2026, 3, 1), better_name="Current Changed Name",
+            better_id=10, score=-999, is_paid=True, amount_kopecks=10_000,
+            poker_id=1, winner_id=20, loser_id=30,
+        )
+    ]
+    results = [
+        _result(tournament_id=41, user_id=10, position=1, payout=123_456, name="Historical", score=7)
+    ]
+    use_case = StatUseCases(
+        bet_repository=_Rows(bets),
+        bet_tournament_repository=_Rows([tournament]),
+        bet_tournament_param_repository=_Rows([
+            _params(row_id=3, bet_param_id=1, percents=(1, 1, 1)),
+        ]),
+        bet_tournament_result_repository=_Rows(results),
+    )
+    report = await use_case.get_betting_stat(
+        indicators=[SimpleNamespace(row_id=1, pic="+💲"), SimpleNamespace(row_id=2, pic="🏆")]
+    )
+    assert "Current Changed Name | 1234.56 | 1" in report
+    assert "9999.99" not in report

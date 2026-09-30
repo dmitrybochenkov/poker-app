@@ -8,6 +8,7 @@ from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
+from app.db.repositories.bet_tournament_result_repository import BetTournamentResultRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 
@@ -64,6 +65,7 @@ class StatUseCases:
     achievement_repository: AchievementRepository | None = None,
     bet_tournament_repository: BetTournamentRepository | None = None,
     bet_tournament_param_repository: BetTournamentParamRepository | None = None,
+    bet_tournament_result_repository: BetTournamentResultRepository | None = None,
     poker_repository: PokerRepository | None = None,
   ) -> None:
     self.bet_repository = bet_repository
@@ -71,6 +73,7 @@ class StatUseCases:
     self.achievement_repository = achievement_repository
     self.bet_tournament_repository = bet_tournament_repository
     self.bet_tournament_param_repository = bet_tournament_param_repository
+    self.bet_tournament_result_repository = bet_tournament_result_repository
     self.poker_repository = poker_repository
 
   async def get_poker_stat(
@@ -181,6 +184,10 @@ class StatUseCases:
     tournament_periods: list[BettingTournamentPeriod] | None = None,
     sort_pic: str | None = None,
   ) -> str:
+    self._tournament_results = (
+      await self.bet_tournament_result_repository.list_all()
+      if self.bet_tournament_result_repository is not None else []
+    )
     if self.bet_tournament_param_repository is not None:
       params = await self.bet_tournament_param_repository.list_all()
       self._tournament_percents_cache = {
@@ -547,12 +554,12 @@ class StatUseCases:
     if pic == "-💲":
       return int(sum(int(bet.amount_kopecks or 0) for bet in user_bets) // 100)
     if pic == "+💲":
-      return self._calc_money_prizes_kopecks(user=user_name, tournaments=tournaments) / 100
+      return self._calc_money_prizes_kopecks(user_id=user_id, user=user_name, tournaments=tournaments) / 100
     if pic == "+💲/-💲":
       spent_kopecks = sum(int(bet.amount_kopecks or 0) for bet in user_bets)
       if spent_kopecks == 0:
         return 0.0
-      won_kopecks = self._calc_money_prizes_kopecks(user=user_name, tournaments=tournaments)
+      won_kopecks = self._calc_money_prizes_kopecks(user_id=user_id, user=user_name, tournaments=tournaments)
       return round(won_kopecks / spent_kopecks, 2)
     if pic == "👎/💍":
       return len([
@@ -590,9 +597,9 @@ class StatUseCases:
         role="winner",
       )
     if pic == "🏆":
-      return self._count_tournament_titles(user=user_name, tournaments=tournaments, tournament_type="regular")
+      return self._count_tournament_titles(user_id=user_id, user=user_name, tournaments=tournaments, tournament_type="regular")
     if pic == "🎄🏆":
-      return self._count_tournament_titles(user=user_name, tournaments=tournaments, tournament_type="year")
+      return self._count_tournament_titles(user_id=user_id, user=user_name, tournaments=tournaments, tournament_type="year")
     if pic == "🚨":
       return len([bet for bet in user_bets if not bool(bet.is_paid)])
     if pic == "🍆✊💦":
@@ -605,9 +612,18 @@ class StatUseCases:
       return []
     return [item.strip() for item in value.split(",") if item.strip()]
 
-  def _calc_money_prizes_kopecks(self, *, user: str, tournaments: list) -> int:
+  def _calc_money_prizes_kopecks(self, *, user_id: int, user: str, tournaments: list) -> int:
     result_kopecks = 0
     for tournament in tournaments:
+      normalized = [
+        item for item in getattr(self, "_tournament_results", [])
+        if int(item.tournament_id) == int(tournament.row_id) and int(item.user_id) == user_id
+      ]
+      if normalized:
+        result_kopecks += sum(int(item.payout_kopecks) for item in normalized)
+        continue
+      if self.bet_tournament_result_repository is not None and bool(tournament.is_paid):
+        continue
       bank_kopecks = int(tournament.current_bank_kopecks or 0)
       if bank_kopecks <= 0:
         continue
@@ -665,10 +681,20 @@ class StatUseCases:
         return True
     return False
 
-  def _count_tournament_titles(self, *, user: str, tournaments: list, tournament_type: str) -> int:
+  def _count_tournament_titles(self, *, user_id: int, user: str, tournaments: list, tournament_type: str) -> int:
     count = 0
     for tournament in tournaments:
       if tournament.tournament_type != tournament_type:
+        continue
+      normalized = [
+        item for item in getattr(self, "_tournament_results", [])
+        if int(item.tournament_id) == int(tournament.row_id)
+        and int(item.user_id) == user_id and int(item.position) == 1
+      ]
+      if normalized:
+        count += 1
+        continue
+      if self.bet_tournament_result_repository is not None and bool(tournament.is_paid):
         continue
       if user in self._split_names(tournament.first_place_name):
         count += 1
@@ -692,9 +718,10 @@ class StatUseCases:
       for bet in relevant_bets:
         by_better.setdefault(int(bet.better_id), []).append(bet)
       for better_bets in by_better.values():
-        better_name = str(better_bets[0].better_name)
         better_prize_kopecks = self._calc_money_prizes_kopecks(
-          user=better_name, tournaments=[tournament]
+          user_id=int(better_bets[0].better_id),
+          user=str(better_bets[0].better_name),
+          tournaments=[tournament],
         )
         better_score = float(sum(int(item.score or 0) for item in better_bets))
         if better_prize_kopecks <= 0 or better_score <= 0:

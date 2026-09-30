@@ -20,6 +20,7 @@ from app.db.repositories.achievement_repository import AchievementRepository
 from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
+from app.db.repositories.bet_tournament_result_repository import BetTournamentResultRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
@@ -258,6 +259,7 @@ async def betting_stat_done(callback: CallbackQuery, state: FSMContext) -> None:
                 achievement_repository=AchievementRepository(session),
                 bet_tournament_repository=BetTournamentRepository(session),
                 bet_tournament_param_repository=BetTournamentParamRepository(session),
+                bet_tournament_result_repository=BetTournamentResultRepository(session),
                 poker_repository=PokerRepository(session),
                 poker_data_repository=PokerDataRepository(session),
             ).get_betting_stat(
@@ -440,6 +442,7 @@ async def betting_stat_sort_done(callback: CallbackQuery, state: FSMContext) -> 
             achievement_repository=AchievementRepository(session),
             bet_tournament_repository=BetTournamentRepository(session),
             bet_tournament_param_repository=BetTournamentParamRepository(session),
+            bet_tournament_result_repository=BetTournamentResultRepository(session),
             poker_repository=PokerRepository(session),
             poker_data_repository=PokerDataRepository(session),
         ).get_betting_stat(

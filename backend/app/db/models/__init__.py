@@ -4,6 +4,7 @@ from app.db.models.bet_param import BetParam
 from app.db.models.bet_payment_receipt import BetPaymentReceipt, BetPaymentReceiptBet
 from app.db.models.bet_tournament import BetTournament
 from app.db.models.bet_tournament_param import BetTournamentParam
+from app.db.models.bet_tournament_result import BetTournamentResult
 from app.db.models.buyin_data import BuyinData
 from app.db.models.poker import Poker
 from app.db.models.poker_data import PokerData
@@ -26,6 +27,7 @@ __all__ = [
   "BetTournament",
   "BetParam",
   "BetTournamentParam",
+  "BetTournamentResult",
   "StatIndicator",
   "Achievement",
   "PokerRoomDenied",
