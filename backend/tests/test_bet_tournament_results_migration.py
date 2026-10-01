@@ -46,6 +46,11 @@ def _add_bet(c, *, date_value, poker_param, bet_param, user_id, name, score):
     "INSERT INTO pokers(params_id,date) VALUES(?,?) RETURNING row_id", (poker_param, date_value)
   ).fetchone()[0]
   c.execute(
+    "INSERT INTO poker_data(poker_id,date,player_id,player_name,buyins,money_kopecks) "
+    "VALUES(?,?,?,?,1,0)",
+    (poker_id, date_value, user_id, name),
+  )
+  c.execute(
     "INSERT INTO bets(poker_id,params_id,date,better_name,better_id,size_kopecks,winner,looser,"
     "winner_id,loser_id,score,is_paid) VALUES(?,?,?, ?,?,10000,'A','B',?,?,?,1)",
     (poker_id, bet_param, date_value, name, user_id, user_id, user_id, score),
@@ -88,6 +93,17 @@ def test_historical_backfill_matches_frozen_tie_and_floor_semantics(tmp_path):
       (second, users["A"], 1, 2, 261333, "A"),
       (second, users["B"], 1, 2, 261333, "B"),
       (second, users["C"], 1, 2, 261333, "C"),
+    ]
+    assert c.execute(
+      "SELECT tournament_id,bettor_user_id,target_user_id,role,score_units "
+      "FROM bet_tournament_role_results ORDER BY tournament_id,bettor_user_id"
+    ).fetchall() == [
+      (first, users["A"], users["A"], "loser", 7),
+      (first, users["B"], users["B"], "loser", 7),
+      (first, users["C"], users["C"], "loser", 6),
+      (second, users["A"], users["A"], "loser", 2),
+      (second, users["B"], users["B"], "loser", 2),
+      (second, users["C"], users["C"], "loser", 2),
     ]
     assert c.execute("PRAGMA foreign_key_check").fetchall() == []
 
@@ -215,3 +231,95 @@ def test_ambiguous_duplicate_legacy_name_refuses_migration(tmp_path):
   with sqlite3.connect(db) as c:
     assert c.execute("SELECT version_num FROM alembic_version").fetchone() == (PREVIOUS,)
     assert c.execute("SELECT name FROM sqlite_master WHERE name='bet_tournament_results'").fetchone() is None
+
+
+def test_aggregate_integer_overflow_refuses_before_any_ddl(tmp_path):
+  db = tmp_path / "overflow.db"
+  _run(db, "upgrade", PREVIOUS)
+  with sqlite3.connect(db) as c:
+    users, poker_param, bet_param, tournament_param = _seed_base(c)
+    for day in ("2025-01-01", "2025-01-02"):
+      _add_bet(
+        c, date_value=day, poker_param=poker_param, bet_param=bet_param,
+        user_id=users["A"], name="A", score=2**63 - 1,
+      )
+    _add_tournament(
+      c, params_id=tournament_param, start="2025-01-01", end="2025-01-31",
+      bank=100, first="A", second="", third="",
+    )
+    c.commit()
+
+  result = _run(db, "upgrade", "head", check=False)
+
+  assert result.returncode != 0 and "exceeds SQLite INTEGER range" in result.stderr
+  with sqlite3.connect(db) as c:
+    assert c.execute("SELECT version_num FROM alembic_version").fetchone() == (PREVIOUS,)
+    assert c.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' "
+      "AND name IN ('bet_tournament_results','bet_tournament_role_results')"
+    ).fetchall() == []
+
+
+def test_post_ddl_failure_cleans_only_created_tables_and_retry_succeeds(tmp_path):
+  db = tmp_path / "post-ddl-failure.db"
+  _run(db, "upgrade", PREVIOUS)
+  with sqlite3.connect(db) as c:
+    users, poker_param, bet_param, tournament_param = _seed_base(c)
+    _add_bet(
+      c, date_value="2025-01-01", poker_param=poker_param, bet_param=bet_param,
+      user_id=users["A"], name="A", score=3,
+    )
+    _add_tournament(
+      c, params_id=tournament_param, start="2025-01-01", end="2025-01-31",
+      bank=100, first="A", second="", third="",
+    )
+    c.execute("CREATE TABLE unrelated_data(value TEXT NOT NULL)")
+    c.execute("INSERT INTO unrelated_data VALUES('preserve me')")
+    c.execute("CREATE INDEX ix_bet_tournament_results_user_id ON unrelated_data(value)")
+    c.commit()
+
+  result = _run(db, "upgrade", "head", check=False)
+
+  assert result.returncode != 0
+  with sqlite3.connect(db) as c:
+    assert c.execute("SELECT value FROM unrelated_data").fetchall() == [("preserve me",)]
+    assert c.execute("SELECT version_num FROM alembic_version").fetchone() == (PREVIOUS,)
+    assert c.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' "
+      "AND name IN ('bet_tournament_results','bet_tournament_role_results')"
+    ).fetchall() == []
+    c.execute("DROP INDEX ix_bet_tournament_results_user_id")
+    c.commit()
+
+  _run(db, "upgrade", "head")
+  with sqlite3.connect(db) as c:
+    assert c.execute("SELECT value FROM unrelated_data").fetchall() == [("preserve me",)]
+    assert c.execute("SELECT version_num FROM alembic_version").fetchone() == ("a6c8e2f4b1d3",)
+    assert c.execute("SELECT COUNT(*) FROM bet_tournament_results").fetchone() == (1,)
+
+
+def test_backfill_preserves_raw_name_snapshot_while_legacy_comparison_is_normalized(tmp_path):
+  db = tmp_path / "raw-name.db"
+  _run(db, "upgrade", PREVIOUS)
+  with sqlite3.connect(db) as c:
+    users, poker_param, bet_param, tournament_param = _seed_base(c)
+    _add_bet(
+      c, date_value="2025-01-01", poker_param=poker_param, bet_param=bet_param,
+      user_id=users["A"], name="  Z  ", score=3,
+    )
+    _add_bet(
+      c, date_value="2025-01-02", poker_param=poker_param, bet_param=bet_param,
+      user_id=users["B"], name="A", score=3,
+    )
+    _add_tournament(
+      c, params_id=tournament_param, start="2025-01-01", end="2025-01-31",
+      bank=100, first="Z, A", second="Z, A", third="",
+    )
+    c.commit()
+
+  _run(db, "upgrade", "head")
+
+  with sqlite3.connect(db) as c:
+    assert c.execute(
+      "SELECT name_snapshot FROM bet_tournament_results ORDER BY row_id"
+    ).fetchall() == [("  Z  ",), ("A",)]

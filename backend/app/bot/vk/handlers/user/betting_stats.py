@@ -30,6 +30,7 @@ from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_result_repository import BetTournamentResultRepository
+from app.db.repositories.bet_tournament_role_result_repository import BetTournamentRoleResultRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 from app.db.repositories.stat_indicator_repository import StatIndicatorRepository
@@ -263,6 +264,7 @@ async def handle_betstat_done_event(
                     bet_tournament_repository=BetTournamentRepository(session),
                     bet_tournament_param_repository=BetTournamentParamRepository(session),
                     bet_tournament_result_repository=BetTournamentResultRepository(session),
+                    bet_tournament_role_result_repository=BetTournamentRoleResultRepository(session),
                     poker_repository=PokerRepository(session),
                     poker_data_repository=PokerDataRepository(session),
                 ).get_betting_stat(
@@ -469,6 +471,7 @@ async def handle_betstat_sort_done_event(
                 bet_tournament_repository=BetTournamentRepository(session),
                 bet_tournament_param_repository=BetTournamentParamRepository(session),
                 bet_tournament_result_repository=BetTournamentResultRepository(session),
+                bet_tournament_role_result_repository=BetTournamentRoleResultRepository(session),
                 poker_repository=PokerRepository(session),
                 poker_data_repository=PokerDataRepository(session),
             ).get_betting_stat(

@@ -1,5 +1,7 @@
 import re
 import unicodedata
+from decimal import Decimal, ROUND_HALF_EVEN
+from fractions import Fraction
 
 from app.db.models.bet import Bet
 from app.db.models.poker_data import PokerData
@@ -9,6 +11,7 @@ from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_result_repository import BetTournamentResultRepository
+from app.db.repositories.bet_tournament_role_result_repository import BetTournamentRoleResultRepository
 from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.poker_repository import PokerRepository
 
@@ -66,6 +69,7 @@ class StatUseCases:
     bet_tournament_repository: BetTournamentRepository | None = None,
     bet_tournament_param_repository: BetTournamentParamRepository | None = None,
     bet_tournament_result_repository: BetTournamentResultRepository | None = None,
+    bet_tournament_role_result_repository: BetTournamentRoleResultRepository | None = None,
     poker_repository: PokerRepository | None = None,
   ) -> None:
     self.bet_repository = bet_repository
@@ -74,6 +78,7 @@ class StatUseCases:
     self.bet_tournament_repository = bet_tournament_repository
     self.bet_tournament_param_repository = bet_tournament_param_repository
     self.bet_tournament_result_repository = bet_tournament_result_repository
+    self.bet_tournament_role_result_repository = bet_tournament_role_result_repository
     self.poker_repository = poker_repository
 
   async def get_poker_stat(
@@ -187,6 +192,10 @@ class StatUseCases:
     self._tournament_results = (
       await self.bet_tournament_result_repository.list_all()
       if self.bet_tournament_result_repository is not None else []
+    )
+    self._tournament_role_results = (
+      await self.bet_tournament_role_result_repository.list_all()
+      if self.bet_tournament_role_result_repository is not None else []
     )
     if self.bet_tournament_param_repository is not None:
       params = await self.bet_tournament_param_repository.list_all()
@@ -709,8 +718,30 @@ class StatUseCases:
     pokers_by_id: dict[int, tuple[set[int], set[int]]],
     role: str,
   ) -> float:
-    total = 0.0
+    total = Fraction(0, 1)
+    normalized_role_results = self.bet_tournament_role_result_repository is not None
+    payouts = {
+      (int(item.tournament_id), int(item.user_id)): item
+      for item in getattr(self, "_tournament_results", [])
+    }
     for tournament in tournaments:
+      if normalized_role_results and bool(tournament.is_paid):
+        tournament_id = int(tournament.row_id)
+        for snapshot in getattr(self, "_tournament_role_results", []):
+          if (
+            int(snapshot.tournament_id) != tournament_id
+            or int(snapshot.target_user_id) != user_id
+            or str(snapshot.role) != role
+          ):
+            continue
+          payout = payouts.get((int(snapshot.tournament_id), int(snapshot.bettor_user_id)))
+          if payout is None or int(payout.score) <= 0:
+            continue
+          total += Fraction(
+            int(payout.payout_kopecks) * int(snapshot.score_units),
+            int(payout.score) * 2,
+          )
+        continue
       relevant_bets = [bet for bet in all_bets if self._bet_in_tournament(bet=bet, tournament=tournament)]
       if not relevant_bets:
         continue
@@ -723,10 +754,10 @@ class StatUseCases:
           user=str(better_bets[0].better_name),
           tournaments=[tournament],
         )
-        better_score = float(sum(int(item.score or 0) for item in better_bets))
+        better_score = sum(int(item.score or 0) for item in better_bets)
         if better_prize_kopecks <= 0 or better_score <= 0:
           continue
-        rel_score = 0.0
+        role_score_units = 0
         for bet in better_bets:
           target_id = int(bet.loser_id) if role == "loser" else int(bet.winner_id)
           if target_id != user_id:
@@ -750,16 +781,22 @@ class StatUseCases:
 
           # If both winner and loser were guessed correctly, split combo score in half
           # so role-specific metrics get only their own contribution.
-          score_value = float(int(bet.score or 0))
+          score_value = int(bet.score or 0)
           winner_hit = int(bet.winner_id) in winners
           loser_hit = int(bet.loser_id) in losers
           if winner_hit and loser_hit:
-            rel_score += score_value / 2.0
+            role_score_units += score_value
           else:
-            rel_score += score_value
-        if rel_score > 0:
-          total += better_prize_kopecks * (rel_score / better_score)
-    return round(total / 100, 1)
+            role_score_units += score_value * 2
+        if role_score_units > 0:
+          total += Fraction(
+            better_prize_kopecks * role_score_units,
+            better_score * 2,
+          )
+    value = (Decimal(total.numerator) / Decimal(total.denominator) / Decimal(100)).quantize(
+      Decimal("0.1"), rounding=ROUND_HALF_EVEN
+    )
+    return float(value)
 
   @staticmethod
   def _resolve_poker_fact(

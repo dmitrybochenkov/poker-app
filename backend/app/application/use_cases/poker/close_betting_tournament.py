@@ -15,12 +15,61 @@ class TournamentPayout:
 
 
 @dataclass(frozen=True)
+class TournamentRoleScore:
+    bettor_user_id: int
+    target_user_id: int
+    role: str
+    score_units: int
+
+
+@dataclass(frozen=True)
 class TournamentPayoutResult:
     payouts: tuple[TournamentPayout, ...]
     place_user_ids: tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]
     place_names: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]
     total_payout_kopecks: int
     remainder_kopecks: int
+    role_scores: tuple[TournamentRoleScore, ...] = ()
+
+
+def calculate_role_scores(*, bets: list, poker_rows: list, paid_user_ids: set[int]) -> tuple[TournamentRoleScore, ...]:
+    by_poker: dict[int, list] = {}
+    for row in poker_rows:
+        by_poker.setdefault(int(row.poker_id), []).append(row)
+    facts: dict[int, tuple[set[int], set[int]]] = {}
+    for poker_id, rows in by_poker.items():
+        max_money = max(int(row.money_kopecks) for row in rows)
+        min_money = min(int(row.money_kopecks) for row in rows)
+        facts[poker_id] = (
+            {int(row.player_id) for row in rows if int(row.money_kopecks) == max_money},
+            {int(row.player_id) for row in rows if int(row.money_kopecks) == min_money},
+        )
+    units: dict[tuple[int, int, str], int] = {}
+    for bet in bets:
+        bettor_id = int(bet.better_id)
+        score = int(bet.score or 0)
+        if bettor_id not in paid_user_ids or score <= 0:
+            continue
+        poker_id = int(bet.poker_id)
+        if poker_id not in facts:
+            raise ValueError(f"Poker outcome facts are missing for Poker {poker_id}")
+        winners, losers = facts[poker_id]
+        winner_id = int(bet.winner_id)
+        loser_id = int(bet.loser_id)
+        winner_hit = winner_id in winners
+        loser_hit = loser_id in losers
+        score_units = score if winner_hit and loser_hit else score * 2
+        if loser_hit:
+            key = (bettor_id, loser_id, "loser")
+            units[key] = units.get(key, 0) + score_units
+        if winner_hit and not (bettor_id == winner_id):
+            key = (bettor_id, winner_id, "winner")
+            units[key] = units.get(key, 0) + score_units
+    return tuple(
+        TournamentRoleScore(bettor_id, target_id, role, score_units)
+        for (bettor_id, target_id, role), score_units in sorted(units.items())
+        if score_units > 0
+    )
 
 
 def calculate_payout_amounts(
@@ -128,7 +177,9 @@ class CloseBettingTournamentUseCase:
         tournament_repository,
         tournament_param_repository,
         bet_repository,
-        tournament_result_repository=None,
+        tournament_result_repository,
+        tournament_role_result_repository,
+        poker_data_repository,
     ):
         self.session = session
         self.users = user_repository
@@ -136,6 +187,8 @@ class CloseBettingTournamentUseCase:
         self.params = tournament_param_repository
         self.bets = bet_repository
         self.results = tournament_result_repository
+        self.role_results = tournament_role_result_repository
+        self.poker_data = poker_data_repository
 
     async def list_eligible(self, *, actor_user_id: int, today: date):
         await self._require_admin(actor_user_id)
@@ -161,11 +214,14 @@ class CloseBettingTournamentUseCase:
             await self.session.rollback()
             raise ValueError("Tournament already finalized")
         try:
-            if self.results is not None:
-                await self.results.add_many(
-                    tournament_id=tournament_id,
-                    payouts=result.payouts,
-                )
+            await self.results.add_many(
+                tournament_id=tournament_id,
+                payouts=result.payouts,
+            )
+            await self.role_results.add_many(
+                tournament_id=tournament_id,
+                snapshots=result.role_scores,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -207,7 +263,7 @@ class CloseBettingTournamentUseCase:
             if snapshot_order > snapshot_order_by_user_id.get(user_id, (date.min, 0)):
                 snapshot_order_by_user_id[user_id] = snapshot_order
                 names_by_user_id[user_id] = str(bet.better_name)
-        return calculate_payouts(
+        result = calculate_payouts(
             bank_kopecks=int(tournament.current_bank_kopecks or 0),
             scores_by_user_id=scores_by_user_id,
             names_by_user_id=names_by_user_id,
@@ -216,4 +272,20 @@ class CloseBettingTournamentUseCase:
                 int(params.percent_to_second),
                 int(params.percent_to_third),
             ),
+        )
+        poker_rows = await self.poker_data.list_for_poker_ids(
+            poker_ids={int(bet.poker_id) for bet in bets}
+        )
+        role_scores = calculate_role_scores(
+            bets=bets,
+            poker_rows=poker_rows,
+            paid_user_ids={int(item.user_id) for item in result.payouts},
+        )
+        return TournamentPayoutResult(
+            result.payouts,
+            result.place_user_ids,
+            result.place_names,
+            result.total_payout_kopecks,
+            result.remainder_kopecks,
+            role_scores,
         )

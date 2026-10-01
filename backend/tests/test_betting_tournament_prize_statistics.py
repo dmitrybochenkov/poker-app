@@ -179,3 +179,116 @@ async def test_finalized_prizes_and_titles_use_immutable_canonical_results():
     )
     assert "Current Changed Name | 1234.56 | 1" in report
     assert "9999.99" not in report
+
+
+@pytest.mark.asyncio
+async def test_finalized_role_money_uses_immutable_integer_snapshots():
+    tournament = _tournament(
+        bank_kopecks=100_000, params_id=3,
+        first="A", second="", third="",
+    )
+    tournament.row_id = 41
+    bets = [
+        SimpleNamespace(
+            row_id=1, date=date(2026, 3, 1), better_name="A", better_id=1,
+            score=4, is_paid=True, amount_kopecks=10_000,
+            poker_id=1, winner_id=3, loser_id=2,
+        ),
+        SimpleNamespace(
+            row_id=2, date=date(2026, 3, 1), better_name="B", better_id=2,
+            score=0, is_paid=True, amount_kopecks=10_000,
+            poker_id=1, winner_id=3, loser_id=1,
+        ),
+    ]
+    results = [
+        _result(tournament_id=41, user_id=1, position=1, payout=10_000, name="A", score=4)
+    ]
+    role_results = [SimpleNamespace(
+        tournament_id=41, bettor_user_id=1, target_user_id=2,
+        role="loser", score_units=4,
+    )]
+    params = _params(row_id=3, bet_param_id=1, percents=(50, 33, 17))
+    poker_rows = [
+        SimpleNamespace(poker_id=1, player_id=3, money_kopecks=10_000),
+        SimpleNamespace(poker_id=1, player_id=2, money_kopecks=-10_000),
+    ]
+    legacy = StatUseCases(
+        bet_repository=_Rows(bets),
+        poker_data_repository=_Rows(poker_rows),
+        bet_tournament_repository=_Rows([tournament]),
+        bet_tournament_param_repository=_Rows([params]),
+        bet_tournament_result_repository=_Rows(results),
+    )
+    use_case = StatUseCases(
+        bet_repository=_Rows(bets),
+        bet_tournament_repository=_Rows([tournament]),
+        bet_tournament_param_repository=_Rows([params]),
+        bet_tournament_result_repository=_Rows(results),
+        bet_tournament_role_result_repository=_Rows(role_results),
+    )
+    indicator = SimpleNamespace(row_id=1, pic="❌➡️💲")
+
+    legacy_report = await legacy.get_betting_stat(indicators=[indicator])
+    before = await use_case.get_betting_stat(indicators=[indicator])
+    reports = []
+    bets[0].score = 400
+    reports.append(await use_case.get_betting_stat(indicators=[indicator]))
+    bets[0].winner_id = 2
+    bets[0].loser_id = 3
+    reports.append(await use_case.get_betting_stat(indicators=[indicator]))
+    bets[0].better_name = "Renamed bettor"
+    reports.append(await use_case.get_betting_stat(indicators=[indicator]))
+    target_user = SimpleNamespace(row_id=2, name="B")
+    target_user.name = "Renamed user"
+    reports.append(await use_case.get_betting_stat(indicators=[indicator]))
+    params.percent_to_first = 1
+    params.percent_to_second = 1
+    params.percent_to_third = 1
+    reports.append(await use_case.get_betting_stat(indicators=[indicator]))
+    tournament.current_bank_kopecks = 999_999
+    after = await use_case.get_betting_stat(indicators=[indicator])
+
+    assert "B | 50.0" in legacy_report
+    assert "B | 50.0" in before
+    assert all("B | 50.0" in report for report in reports)
+    assert "B | 50.0" in after
+
+
+@pytest.mark.asyncio
+async def test_open_role_money_remains_projected_from_current_bets():
+    tournament = _tournament(
+        bank_kopecks=10_000, params_id=3,
+        first="A", second="", third="",
+    )
+    tournament.is_paid = False
+    bets = [
+        SimpleNamespace(
+            row_id=1, date=date(2026, 3, 1), better_name="A", better_id=1,
+            score=4, is_paid=True, amount_kopecks=10_000,
+            poker_id=1, winner_id=3, loser_id=2,
+        ),
+        SimpleNamespace(
+            row_id=2, date=date(2026, 3, 1), better_name="B", better_id=2,
+            score=0, is_paid=True, amount_kopecks=10_000,
+            poker_id=1, winner_id=3, loser_id=1,
+        ),
+    ]
+    use_case = StatUseCases(
+        bet_repository=_Rows(bets),
+        poker_data_repository=_Rows([
+            SimpleNamespace(poker_id=1, player_id=3, money_kopecks=10_000),
+            SimpleNamespace(poker_id=1, player_id=2, money_kopecks=-10_000),
+        ]),
+        bet_tournament_repository=_Rows([tournament]),
+        bet_tournament_param_repository=_Rows([
+            _params(row_id=3, bet_param_id=1, percents=(50, 33, 17)),
+        ]),
+        bet_tournament_result_repository=_Rows([]),
+        bet_tournament_role_result_repository=_Rows([]),
+    )
+
+    report = await use_case.get_betting_stat(
+        indicators=[SimpleNamespace(row_id=1, pic="❌➡️💲")]
+    )
+
+    assert "B | 25.0" in report

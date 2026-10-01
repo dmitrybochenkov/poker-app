@@ -6,6 +6,8 @@ from app.db.repositories.bet_repository import BetRepository
 from app.db.repositories.bet_tournament_param_repository import BetTournamentParamRepository
 from app.db.repositories.bet_tournament_repository import BetTournamentRepository
 from app.db.repositories.bet_tournament_result_repository import BetTournamentResultRepository
+from app.db.repositories.bet_tournament_role_result_repository import BetTournamentRoleResultRepository
+from app.db.repositories.poker_data_repository import PokerDataRepository
 from app.db.repositories.user_repository import UserRepository
 
 
@@ -17,6 +19,8 @@ def build_close_tournament_use_case(session):
         tournament_param_repository=BetTournamentParamRepository(session),
         bet_repository=BetRepository(session),
         tournament_result_repository=BetTournamentResultRepository(session),
+        tournament_role_result_repository=BetTournamentRoleResultRepository(session),
+        poker_data_repository=PokerDataRepository(session),
     )
 
 

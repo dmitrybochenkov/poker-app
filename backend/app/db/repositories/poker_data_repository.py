@@ -91,6 +91,16 @@ class PokerDataRepository:
     )
     return list(result.scalars().all())
 
+  async def list_for_poker_ids(self, *, poker_ids: set[int]) -> list[PokerData]:
+    if not poker_ids:
+      return []
+    result = await self.session.execute(
+      select(PokerData)
+      .where(PokerData.poker_id.in_(poker_ids))
+      .order_by(PokerData.poker_id, PokerData.row_id)
+    )
+    return list(result.scalars().all())
+
   async def add_buyins_without_commit(
     self,
     *,
